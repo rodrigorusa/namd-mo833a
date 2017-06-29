@@ -657,6 +657,15 @@ void SimParameters::close_dcdfile() {
 
 }
 
+void SimParameters::close_veldcdfile() {
+
+  Output *output = Node::Object()->output;
+  if ( ! output ) return;
+
+  output->output_veldcdfile(END_OF_RUN, 0, 0);
+
+}
+
 void Output::setReplicaDcdIndex(int index) {
   replicaDcdActive = 1;
   replicaDcdIndex = index;
@@ -1022,6 +1031,8 @@ void Output::output_veldcdfile(int timestep, int n, Vector *vel)
     } else {
       iout << "VELOCITY DCD FILE WAS NOT CREATED\n" << endi;
     }
+    first = TRUE;
+    fileid = 0;
     return;
   }
 

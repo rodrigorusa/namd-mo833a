@@ -241,6 +241,11 @@ void SimParameters::scriptSet(const char *param, const char *value) {
     strcpy(dcdFilename,value);
     return;
   }
+  if ( ! strncasecmp(param,"velDCDfile",MAX_SCRIPT_PARAM_SIZE) ) { 
+    close_veldcdfile();  // *** implemented in Output.C ***
+    strcpy(velDcdFilename,value);
+    return;
+  }
   SCRIPT_PARSE_STRING("tclBCArgs",tclBCArgs)
   SCRIPT_PARSE_VECTOR("eField",eField)
   SCRIPT_PARSE_FLOAT("eFieldFreq",eFieldFreq)
