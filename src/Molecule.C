@@ -395,6 +395,12 @@ void Molecule::initialize(SimParameters *simParams, Parameters *param)
   qmLSSRefMass=0;
   qmLSSRefSize=0;
   qmNumBonds=0;
+  cSMDindex=0;
+  cSMDindxLen=0;
+  cSMDpairs=0;
+  cSMDKs=0;
+  cSMDVels=0;
+  cSMDcoffs=0;
   
   goInit();
 }
@@ -785,7 +791,32 @@ Molecule::~Molecule()
     if (qmCustomPCIdxs != NULL){
         delete [] qmCustomPCIdxs;
     }
-
+    
+    if (cSMDindex != NULL) {
+      for(int grpIndx = 0 ; grpIndx < qmNumGrps; grpIndx++) {
+          if (cSMDindex[grpIndx] != NULL)
+              delete [] cSMDindex[grpIndx];
+      }
+      delete [] cSMDindex;
+    }
+    
+    if (cSMDpairs != NULL) {
+      for(int instIndx = 0 ; instIndx < cSMDnumInst; instIndx++) {
+          if (cSMDpairs[instIndx] != NULL)
+              delete [] cSMDpairs[instIndx];
+      }
+      delete [] cSMDpairs;
+    }
+    
+    if (cSMDindxLen != NULL)
+        delete [] cSMDindxLen;
+    if (cSMDKs != NULL)
+        delete [] cSMDKs;
+    if (cSMDVels != NULL)
+        delete [] cSMDVels;
+    if (cSMDcoffs != NULL)
+        delete [] cSMDcoffs;
+    
   #ifndef MEM_OPT_VERSION
   delete arena;
   delete exclArena;

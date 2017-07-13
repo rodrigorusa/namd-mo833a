@@ -41,6 +41,7 @@
 
 #include <string>
 #include <sstream>
+#include <fstream>
 
 class qmSolvData {
 public:
@@ -689,12 +690,13 @@ void Molecule::prepare_qm(const char *pdbFileName,
         
         iout << iINFO << grpIndx + 1 << ") Group ID: " << qmGroupIDsVec[grpIndx]
         << " ; Group size: " << qmGrpSizeVec[grpIndx] << " atoms"
-        << " ; Total charge: " << grpChrgVec[grpIndx] << "\n" << endi ;
+        << " ; Total PSF charge: " << grpChrgVec[grpIndx] << "\n" << endi ;
         
         if (nonInteger && simParams->PMEOn)
             NAMD_die("QM atoms do not add up to a whole charge, which is needed for PME.") ;
     }
     
+    int chrgCount = 0;
     current = cfgList->find("QMCharge");
     for ( ; current; current = current->next ) {
         
@@ -739,12 +741,59 @@ void Molecule::prepare_qm(const char *pdbFileName,
             NAMD_die("Error processing QM information.");
         }
         else {
-            iout << iINFO << "Applying user defined charge "
-            << charge << " to QM group ID " << grpID << "\n" << endi;
+            iout << iINFO << "Found user defined charge "
+            << charge << " for QM group ID " << grpID << ". Will ignore PSF charge.\n" << endi;
             grpChrgVec[it->second] = charge;
         }
+        
+        chrgCount++;
     }
     
+    simParams->qmMOPACAddConfigChrg = false;
+    // Checks if QM group charges can be defined for MOPAC.
+    // Since charge can be defined in QMConfigLine, we need extra logic.
+    if (simParams->qmFormat == QMFormatMOPAC) {
+        
+        // Checks if group charge was supplied in config line for MOPAC.
+        std::string::size_type chrgLoc = std::string::npos ;
+        
+        // This will hold a sting with the first user supplied configuration line for MOPAC.
+        std::string configLine(cfgList->find("QMConfigLine")->data) ;
+        chrgLoc = configLine.find("CHARGE") ;
+        
+        if ( chrgLoc != std::string::npos ) {
+            iout << iINFO << "Found user defined charge in command line. This \
+will be used for all QM regions and will take precedence over all other charge \
+definitions.\n" << endi;
+        }
+        else if ( chrgLoc == std::string::npos && (simParams->qmChrgFromPSF || chrgCount == qmNumGrps) ) {
+        // If no charge was defined in the configuration line, gets from PSF and/or 
+        // from user defined charges (through the QMCharge keyword).
+            simParams->qmMOPACAddConfigChrg = true;
+        }
+        else
+        {
+        // If we could nont find a charge definition in the config line AND
+        // no specific charge was selected for each QM region through QMCharge AND
+        // the QMChargeFromPSF was not turned ON, the we stop NAMD and scream at the user.
+//         if ( chrgLoc == std::string::npos && (chrgCount != qmNumGrps ) && !simParams->qmChrgFromPSF) 
+            iout << iERROR << "Could not find charge for all QM groups. For MOPAC, \
+charges can be defined through QMConfigLine, QMCharge or QMChargeFromPSF keywords.\n" << endi;
+            NAMD_die("Error processing QM information.");
+        }
+        
+    }
+    
+    if (simParams->qmFormat == QMFormatORCA ) {
+        if ((chrgCount != qmNumGrps ) && !simParams->qmChrgFromPSF) {
+            // If we are not supposed to get charges from the PSF, and not 
+            // enough charges were set to cover all QM regions, 
+            // we stop NAMD and scream at the user.
+            iout << iERROR << "Could not find charge for all QM groups. For ORCA, \
+charges can be defined through QMCharge or QMChargeFromPSF keywords.\n" << endi;
+            NAMD_die("Error processing QM information.");
+        }
+    }
     
     // If mechanichal embedding was requested but we have QM-MM bonds, we need 
     // to send extra info to ComputeQM to preserve calculation speed.
@@ -1415,17 +1464,78 @@ void Molecule::prepare_qm(const char *pdbFileName,
     } 
     
     
+    if (simParams->qmCSMD) {
+        qmcSMD = simParams->qmCSMD;
+        read_qm_csdm_file(qmGrpIDMap);
+    }
+    
     ///////////////////////////////
     /// Topology preparation
     
-    // Modifies Atom charges.
-    // QM atoms cannot have charges in the standard location, to keep
-    // NAMD from calculating electrostatic interactions between QM and MM atoms.
-    // We handle electrostatics ourselves in ComputeQM.C and in special
-    // modifications for PME.
-    for (int i=0; i<qmNumQMAtoms; i++) {
-        qmAtmChrg[i] = atoms[qmAtmIndx[i]].charge;
-        atoms[qmAtmIndx[i]].charge = 0;
+    if (simParams->qmElecEmbed) {
+        // Modifies Atom charges for Electrostatic Embedding.
+        // QM atoms cannot have charges in the standard location, to keep
+        // NAMD from calculating electrostatic interactions between QM and MM atoms.
+        // We handle electrostatics ourselves in ComputeQM.C and in special
+        // modifications for PME.
+        for (int i=0; i<qmNumQMAtoms; i++) {
+            qmAtmChrg[i] = atoms[qmAtmIndx[i]].charge;
+            atoms[qmAtmIndx[i]].charge = 0;
+        }
+    }
+    
+    
+    if ( simParams->extraBondsOn) {
+        // Lifted from Molecule::build_extra_bonds
+        
+        StringList *file = cfgList->find("extraBondsFile");
+        
+        char err_msg[512];
+        int a1,a2; float k, ref;
+        
+        for ( ; file; file = file->next ) {  // loop over files
+            FILE *f = fopen(file->data,"r");
+//             if ( ! f ) {
+//               sprintf(err_msg, "UNABLE TO OPEN EXTRA BONDS FILE %s", file->data);
+//               NAMD_err(err_msg);
+//             } else {
+//               iout << iINFO << "READING EXTRA BONDS FILE " << file->data <<"\n"<<endi;
+//             }
+            
+            while ( 1 ) {
+              char buffer[512];
+              int ret_code;
+              do {
+                ret_code = NAMD_read_line(f, buffer);
+              } while ( (ret_code==0) && (NAMD_blank_string(buffer)) );
+              if (ret_code!=0) break;
+
+              char type[512];
+              sscanf(buffer,"%s",type);
+              
+              int badline = 0;
+              if ( ! strncasecmp(type,"bond",4) ) {
+                if ( sscanf(buffer, "%s %d %d %f %f %s",
+                    type, &a1, &a2, &k, &ref, err_msg) != 5 ) badline = 1;
+                
+                // If an extra bond is defined between QM atoms, we make
+                // note so that it wont be deleted when we delete bonded 
+                // interactions between QM atoms.
+                if( qmAtomGroup[a1] > 0 && qmAtomGroup[a2]) {
+                    Bond tmp;
+                    tmp.bond_type = 0;
+                    tmp.atom1 = a1;  tmp.atom2 = a2;
+                    qmExtraBonds.add(tmp);
+                }
+                
+                
+              }else if ( ! strncasecmp(type,"#",1) ) {
+                continue;  // comment
+              }
+              
+            }
+            fclose(f);
+        }
     }
     
     return;
@@ -1435,11 +1545,11 @@ void Molecule::prepare_qm(const char *pdbFileName,
 
 // Adapted from Molecule::delete_alch_bonded
 void Molecule::delete_qm_bonded(void)  {
-    
+
 #ifdef MEM_OPT_VERSION
     NAMD_die("QMMM interface is not supported in memory optimized builds.");
 #else
-
+    
     DebugM(3,"Cleaning QM bonds, angles, dihedrals, impropers and crossterms.\n")
     
     // Bonds
@@ -1448,9 +1558,29 @@ void Molecule::delete_qm_bonded(void)  {
     int nonQMBondCount = 0;
     qmDroppedBonds = 0;
     for (int i = 0; i < numBonds; i++) {
+        
         int part1 = qmAtomGroup[bonds[i].atom1];
         int part2 = qmAtomGroup[bonds[i].atom2];
         if (part1 > 0 && part2 > 0 ) {
+            
+            // If the user defined extra bonds, we check if the QM-QM bond is an "extra"
+            // bond, and do not delete it.
+            if (simParams->extraBondsOn) {
+//                 std::cout << "Checking Bond: " << bonds[i].atom1 << "," << bonds[i].atom2 << std::endl ;
+                
+                for (int ebi=0; ebi < qmExtraBonds.size() ; ebi++) {
+                    
+                    if( (qmExtraBonds[ebi].atom1 == bonds[i].atom1 || 
+                        qmExtraBonds[ebi].atom1 == bonds[i].atom2) && 
+                    (qmExtraBonds[ebi].atom2 == bonds[i].atom1 || 
+                        qmExtraBonds[ebi].atom2 == bonds[i].atom2) ) {
+//                         std::cout << "This is an extra bond! We will keep it." << std::endl;
+                        nonQMBonds[nonQMBondCount++] = bonds[i];
+                        break;
+                    }
+                }
+            }
+            
             qmDroppedBonds++;
         } else {
             // Just a simple sanity check.
@@ -1589,6 +1719,158 @@ void Molecule::delete_qm_bonded(void)  {
           << " crossterms.\n" << endi ;
   }
   
-#endif // MEM_OPT_VERSION
+#endif
 }
+
+typedef std::pair<int,int> cSMDPair ;
+
+void Molecule::read_qm_csdm_file(std::map<Real,int> &qmGrpIDMap)  {
+    
+    std::ifstream cSMDInputFile ;
+    std::string Line("") ;
+    
+    iout << iINFO << "Reading QM cSMD configuration file: " << 
+        simParams->qmCSMDFile << "\n" << endi ;
+    
+    cSMDInputFile.open( simParams->qmCSMDFile ) ;
+    
+    if (! cSMDInputFile.good())
+    {
+        NAMD_die("Configuration file for QM cSMD could not be read!") ;
+    }
+    
+    
+    // Index of Conditional SMD guides per group
+    ResizeArray<ResizeArray<int> > cSMDindexV;
+    cSMDindexV.resize(qmNumGrps);
+    // Atom indices for Origin and Target of cSMD
+    ResizeArray<cSMDPair> cSMDpairsV;
+    // Spring constants for cSMD
+    ResizeArray<Real> cSMDKsV;
+    // Speed of movement of guide particles for cSMD.
+    ResizeArray<Real> cSMDVelsV;
+    // Distance cutoff for guide particles for cSMD.
+    ResizeArray<Real> cSMDcoffsV;
+    
+    while( ! cSMDInputFile.eof() )
+    {
+        getline(cSMDInputFile, Line) ;
+        
+        if ( ! Line.length() )
+            continue;
+        
+        if (Line.substr(0,1) == std::string("#") )
+            continue;
+        
+        auto strVec = split( Line, " ");
+        
+        if (strVec.size() != 5 ) {
+            iout << iERROR << "Format error in QM cSDM configuration file: " 
+            << Line << "\n" << endi;
+            NAMD_die("Error processing QM information.");
+        }
+        
+        std::stringstream storConv ;
+        Real convData ;
+        
+        cSMDpairsV.add( cSMDPair(0,0) );
+        cSMDKsV.add(0);
+        cSMDVelsV.add(0);
+        cSMDcoffsV.add(0);
+        
+        for (int i=0; i < 5; i++ ) {
+            storConv.clear() ;
+            storConv << strVec[i] ;
+            storConv >> convData;
+            if (storConv.fail()) {
+                iout << iERROR << "Error parsing QM cSMD configuration file: " 
+                << convData << "\n" << endi;
+                NAMD_die("Error processing QM information.");
+            }
+            
+            switch (i) {
+            case 0:
+                cSMDpairsV[cSMDnumInst].first = convData ;
+                break;
+            case 1:
+                cSMDpairsV[cSMDnumInst].second = convData ;
+                break;
+            case 2:
+                cSMDKsV[cSMDnumInst] = convData ;
+                break;
+            case 3:
+                cSMDVelsV[cSMDnumInst] = convData ;
+                break;
+            case 4:
+                cSMDcoffsV[cSMDnumInst] = convData ;
+                break;
+            }
+        }
+        
+        // Sanity check
+        if (cSMDpairsV[cSMDnumInst].first == cSMDpairsV[cSMDnumInst].second) {
+            iout << iERROR << "Conditional SMD atoms must be different! We got " << 
+            cSMDpairsV[cSMDnumInst].first << " and " << cSMDpairsV[cSMDnumInst].second << "\n" << endi;
+            NAMD_die("Error processing QM information.") ;
+        }
+        
+        // Sanity check
+        if (qmAtomGroup[cSMDpairsV[cSMDnumInst].first] == 0 ||
+            qmAtomGroup[cSMDpairsV[cSMDnumInst].second] == 0) {
+            iout << iERROR << "Atoms " << cSMDpairsV[cSMDnumInst].first << " and " << 
+            cSMDpairsV[cSMDnumInst].second << " MUST be assigned as QM atoms.\n" << endi;
+            NAMD_die("Error processing QM information.") ;
+        }
+        
+        // Sanity check
+        if (qmAtomGroup[cSMDpairsV[cSMDnumInst].first] != 
+            qmAtomGroup[cSMDpairsV[cSMDnumInst].second] ) {
+            iout << iERROR << "Atoms in cSMD MUST be assigned to the same QM group.\n" << endi;
+            NAMD_die("Error processing QM information.") ;
+        }
+        
+        int grpIndx = qmGrpIDMap[qmAtomGroup[cSMDpairsV[cSMDnumInst].first]] ;
+        
+        iout << iINFO << "Adding cSMD data: (" << cSMDnumInst << ") " << 
+        cSMDpairsV[cSMDnumInst].first << "," << cSMDpairsV[cSMDnumInst].second << "," << 
+        cSMDKsV[cSMDnumInst] << "," << cSMDVelsV[cSMDnumInst] << "," << cSMDcoffsV[cSMDnumInst] <<
+        " to QM Group " << grpIndx << "\n" << endi ;
+        
+        cSMDindexV[grpIndx].add(cSMDnumInst);
+        
+        cSMDnumInst++;
+    }
+    
+    cSMDindex = new int*[qmNumGrps];
+    cSMDindxLen = new int[qmNumGrps];
+    
+    for (int i=0; i<qmNumGrps; i++) {
+            cSMDindex[i] = new int[cSMDindexV[i].size()];
+            cSMDindxLen[i] = cSMDindexV[i].size();
+    
+            for (int j=0; j<cSMDindxLen[i]; j++)
+                    cSMDindex[i][j] = cSMDindexV[i][j] ;
+    }
+    
+    cSMDpairs = new int*[cSMDnumInst];
+    for (int i=0; i<cSMDnumInst; i++)
+            cSMDpairs[i] = new int[2];
+    cSMDKs  = new Real[cSMDnumInst]; 
+    cSMDVels = new Real[cSMDnumInst];
+    cSMDcoffs = new Real[cSMDnumInst];
+
+    for (int i=0; i<cSMDnumInst; i++) {
+            cSMDpairs[i][0] = cSMDpairsV[i].first;
+            cSMDpairs[i][1] = cSMDpairsV[i].second;
+    
+            cSMDKs[i] = cSMDKsV[i];
+            cSMDVels[i] = cSMDVelsV[i];
+            cSMDcoffs[i] = cSMDcoffsV[i];
+    }
+    
+}
+
+
+
+
 

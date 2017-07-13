@@ -674,7 +674,8 @@ private:
     
   int qmDroppedBonds, qmDroppedAngles, qmDroppedDihedrals;
   int qmDroppedImpropers, qmDroppedCrossterms;
-    
+  ResizeArray<Bond> qmExtraBonds;
+  
   Bool qmReplaceAll;              // Indicates if all forces should be replaced.
   int qmNumQMAtoms;           // Number of QM atoms, from all groups.
   
@@ -767,6 +768,27 @@ private:
   std::map<int,int> qmClassicSolv ;
   
   /////////////////////////
+  // Conditional SMD
+    
+    void read_qm_csdm_file(std::map<Real,int> &qmGrpIDMap) ;
+    
+    Bool qmcSMD;
+	// Total number of cSMD instances.
+	int cSMDnumInst;
+    // Num instances per QM group
+    int* cSMDindxLen;
+    // Index of Conditional SMD guides per QM group
+    int** cSMDindex;
+    // Atom indices for Origin and Target of cSMD
+    int** cSMDpairs;
+    // Spring constants for cSMD
+    Real* cSMDKs;
+    // Speed of movement of guide particles for cSMD.
+    Real* cSMDVels;
+    // Distance cutoff for guide particles for cSMD.
+    Real* cSMDcoffs;
+  
+  /////////////////////////
   // end QM
   /////////////////////////
   
@@ -821,6 +843,15 @@ public:
   int get_qmTotCustPCs() { return qmTotCustPCs; } ;
   int *get_qmCustPCSizes()  { return qmCustPCSizes; } ;
   int *get_qmCustomPCIdxs() { return qmCustomPCIdxs; } ;
+  
+  Bool get_qmcSMD() { return qmcSMD;} ;
+  int get_cSMDnumInst() { return cSMDnumInst;} ;
+  int const * get_cSMDindxLen() { return cSMDindxLen;} ;
+  int const * const * get_cSMDindex() {return cSMDindex;} ;
+  int const * const * get_cSMDpairs() {return cSMDpairs;} ;
+  const Real* get_cSMDKs() {return cSMDKs;} ;
+  const Real* get_cSMDVels() {return cSMDVels;} ;
+  const Real* get_cSMDcoffs() {return cSMDcoffs;} ;
   
   void prepare_qm(const char *pdbFileName, Parameters *params, ConfigList *cfgList) ;
   void delete_qm_bonded() ;

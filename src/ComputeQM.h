@@ -14,6 +14,7 @@ class SubmitReduction;
 class QMForceMsg;
 class QMCoordMsg;
 class ComputeQMAtom;
+class QMGrpCalcMsg;
 
 struct patchDataStrc {
     Box<Patch, CompAtom >* posBoxP;
@@ -97,6 +98,19 @@ struct meMMQMGrp {
     }
 } ;
 
+struct QMForce {
+  int replace;
+  Force force;
+  int homeIndx;
+  float charge;
+  int id;
+  QMForce() : replace(0), force(0), homeIndx(-1), charge(0), id(-1) {;}
+};
+
+typedef AtomID Origin;
+typedef AtomID Target;
+typedef std::pair<Origin,Target> cSMDPair;
+
 class ComputeQM : public ComputeHomePatches {
 public:
   ComputeQM(ComputeID c);
@@ -108,7 +122,7 @@ public:
   
   void saveResults(QMForceMsg *);
   void processFullQM(QMCoordMsg *) ;
-
+  
  private:
   SubmitReduction *reduction;
   
@@ -141,6 +155,7 @@ public:
   SortedArray<int> pcIDSortList ;
   
 };
+
 
 
 SortedArray<LSSSubsDat> &lssSubs(ComputeQMMgr *mgr) ;

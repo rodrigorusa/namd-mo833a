@@ -3346,7 +3346,14 @@ void Controller::printEnergies(int step, int minimize)
         }
 
 	iout << "\n\n" << endi;
-
+        
+        
+        iout << "QMETITLE:      TS";
+        iout << FORMAT("QMID");
+        iout << FORMAT("ENERGY");
+        if (simParameters->PMEOn) iout << FORMAT("PMECORRENERGY");
+        iout << "\n\n" << endi;
+        
     }
 
     // N.B.  HP's aCC compiler merges FORMAT calls in the same expression.

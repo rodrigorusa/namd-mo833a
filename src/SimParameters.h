@@ -436,6 +436,7 @@ public:
         Bool qmForcesOn;               //  Are QM/MM command forces present?
         char qmParamPDB[128];
         Bool qmParamPDBDefined;
+        Bool qmChrgFromPSF;
         char qmExecPath[256];
         char qmSoftware[128];
         char qmChrgModeS[16];
@@ -448,6 +449,7 @@ public:
         Bool qmPrepProcOn;
         int qmFormat ;
         Bool qmReplaceAll ;
+        Bool qmMOPACAddConfigChrg;
         
         Bool qmBondOn;
         char qmBondColumn[16];
@@ -474,6 +476,9 @@ public:
         char qmLSSResname[5] ;
         char qmLSSModeS[16];
         int qmLSSMode;
+        
+        Bool qmCSMD;
+        char qmCSMDFile[128];
         
         int qmOutFreq ;
         int qmPosOutFreq ;

@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <algorithm>
 
 #include "ComputePme.h"
 #include "ComputePmeMgr.decl.h"
@@ -88,6 +89,12 @@ struct ComputeQMAtom {
         vdwType = ref.vdwType;
     }
 };
+
+// sort using a custom function
+bool custom_ComputeQMAtom_Less(const ComputeQMAtom a,const ComputeQMAtom b)
+{   
+    return a.id < b.id;
+}
 
 #define PCMODEUPDATESEL 1
 #define PCMODEUPDATEPOS 2
@@ -162,15 +169,6 @@ public:
   int sourceNode;
   int numAtoms;
   ComputeQMPntChrg *coord;
-};
-
-struct QMForce {
-  int replace;
-  Force force;
-  int homeIndx;
-  float charge;
-  int id;
-  QMForce() : replace(0), force(0), homeIndx(-1), charge(0), id(-1) {;}
 };
 
 class QMGrpResMsg : public CMessage_QMGrpResMsg {
@@ -365,6 +363,31 @@ struct LSSDataStr {
     }
 } ;
 
+static char *FORMAT(BigReal X)
+{
+  static char tmp_string[25];
+  const double maxnum = 9999999999.9999;
+  if ( X > maxnum ) X = maxnum;
+  if ( X < -maxnum ) X = -maxnum;
+  sprintf(tmp_string," %14.4f",X); 
+  return tmp_string;
+}
+
+static char *FORMAT(const char *X)
+{
+  static char tmp_string[25];
+  sprintf(tmp_string," %14s",X); 
+  return tmp_string;
+}
+
+static char *QMETITLE(int X)
+{
+  static char tmp_string[21];
+  sprintf(tmp_string,"QMENERGY: %7d",X); 
+  return  tmp_string;
+}
+
+
 typedef std::pair<int, LSSDataStr> atmLSSData;
 typedef std::map<int, LSSDataStr> LSSDataMap;
 
@@ -489,10 +512,31 @@ private:
                      const QMPCVec grpPntChrgVec,
                      QMPCVec &grpAppldChrgVec) ;
     
-    void pntChrgSwitching(QMGrpCalcMsg* msg) ;
+    void pntChrgSwitching(QMGrpCalcMsg* msg, QMAtomData *pcPpme) ;
     
     void lssPrepare() ;
     void lssUpdate(int grpIter, QMAtmVec &grpQMAtmVec, QMPCVec &grpPntChrgVec);
+	
+	void calcCSMD(int grpIndx,int numQMAtoms, const QMAtomData *atmP, Force *resForce) ;
+	Bool cSMDon;
+
+    int cSMDnumInstances, cSMDInitGuides;
+    // Index of Conditional SMD guides per QM group
+    int const * const * cSMDindex;
+    // Num instances per QM group
+    int const * cSMDindxLen;
+    // Positions of Conditional SMD guides
+    Position* cSMDguides;
+    // Atom indices for Origin and Target of cSMD
+    int const * const * cSMDpairs;
+    // Spring constants for cSMD
+    Real const * cSMDKs;
+    // Speed of movement of guide particles for cSMD.
+    Real const * cSMDVels;
+    // Distance cutoff for guide particles for cSMD.
+    Real const * cSMDcoffs;
+    // Vector where we store all calculated cSMD forces
+    Force * cSMDForces ;
     
     #ifdef DEBUG_QM
     void Write_PDB(std::string Filename, const QMGrpCalcMsg *dataMsg);
@@ -623,6 +667,7 @@ void ComputeQM::initialize()
             
         }
     }
+    
 }
 
 
@@ -632,8 +677,8 @@ void ComputeQM::doWork()
     
     ResizeArrayIter<PatchElem> ap(patchList);
     
-    int timeStep ;
-    
+	int timeStep;
+	
     #ifdef DEBUG_QM
     DebugM(4,"----> Initiating QM work on rank " << CkMyPe() <<
     " with " << patchList.size() << " patches." << std::endl );
@@ -843,6 +888,25 @@ void ComputeQMMgr::recvPartQM(QMCoordMsg*msg)
             replaceForces = 1;
         }
         
+        cSMDon = molPtr->get_qmcSMD() ;
+        if (cSMDon) {
+                
+                // We have to initialize the guide particles during the first step.
+                cSMDInitGuides = 0;
+                
+                cSMDnumInstances = molPtr->get_cSMDnumInst();
+                cSMDindex = molPtr->get_cSMDindex();
+                cSMDindxLen = molPtr->get_cSMDindxLen();
+                cSMDpairs = molPtr->get_cSMDpairs(); 
+                cSMDKs = molPtr->get_cSMDKs();
+                cSMDVels = molPtr->get_cSMDVels();
+                cSMDcoffs = molPtr->get_cSMDcoffs();
+                
+                cSMDguides = new Position[cSMDnumInstances];
+                cSMDForces = new Force[cSMDnumInstances];
+        }
+		
+		
         DebugM(4,"Initializing DCD file for charge information." << std::endl);
         
         // Initializes output DCD file for charge information.
@@ -1204,7 +1268,7 @@ void ComputeQMMgr::recvPartQM(QMCoordMsg*msg)
             
             #ifdef DEBUG_QM
             if (j == 0)
-                Write_PDB("/home/melomcr/Research/NAMD_QMMM/TestSystem/qmMsg.pdb", qmFullMsg) ;
+                Write_PDB("qmMsg.pdb", qmFullMsg) ;
             #endif
             
             // The messages are deleted later, we will need them.
@@ -1580,7 +1644,6 @@ void ComputeQMMgr::procBonds(int numBonds,
         Position mmPos = grpAppldChrgVec[mmIndex].position ;
         BigReal mmCharge = grpAppldChrgVec[mmIndex].charge/numTargs[bondIndx] ;
         
-        
         // gives part of the MM charge to neighboring atoms
         for (int i=0; i<numTargs[bondIndx]; i++){
             
@@ -1610,8 +1673,6 @@ void ComputeQMMgr::procBonds(int numBonds,
                 case QMSCHEMECS:
                 {
                 
-//                 grpAppldChrgVec[trgIndxLocal].charge += mmCharge ;
-                    
                 // Charge Shifting Scheme (DOI: 10.1021/ct100530r)
                 // Here we create a dipole to counter act the charge movement
                 // we created by moving parts of the MM charge to target MM atoms.
@@ -1629,20 +1690,32 @@ void ComputeQMMgr::procBonds(int numBonds,
                 
                 Position trgPos = grpAppldChrgVec[trgIndxLocal].position ;
                 
+                // We now store in MM2 to which PC it is bound (the index for MM1).
+                // This will be used to decompose virtual PC forces onto MM1 and MM2.
+                grpAppldChrgVec[trgIndxLocal].qmGrpID = -2;
+                grpAppldChrgVec[trgIndxLocal].homeIndx = mmIndex;
+                
                 // We create a new point charge at the same position so that
                 // the fraction of charge from the MM1 atom is "added" to the
                 // MM2 position, but without actually changing the charge of 
                 // the original MM2 atom. This trick helps keeping the original 
                 // charge for electrostatic calculations after the new charges 
                 // of QM atoms is received from the QM software.
+                Real Cq0 = 1.0;
                 grpAppldChrgVec.push_back(
-                    ComputeQMPntChrg(trgPos, mmCharge, -1, 0, -1, 0, 0, 0)
+                    // Cq is stored in the distance slot, since it has not been computed
+                    // for a virtual charge.
+                    ComputeQMPntChrg(trgPos, mmCharge, trgIndxLocal, 0, -1, Cq0, 0, 0)
                 );
                 
                 Vector bondVec = trgPos - mmPos ;
                 
-                Vector bondVec1 = bondVec*0.94 ;
-                Vector bondVec2 = bondVec*1.06 ;
+                // For Cq-plus virtual charge
+                Real Cqp = 0.94;
+                // For Cq-minus virtual charge
+                Real Cqm = 1.06;
+                Vector bondVec1 = bondVec*Cqp ;
+                Vector bondVec2 = bondVec*Cqm ;
                 
                 Position chrgPos1 = mmPos + bondVec1;
                 Position chrgPos2 = mmPos + bondVec2;
@@ -1650,13 +1723,12 @@ void ComputeQMMgr::procBonds(int numBonds,
                 BigReal trgChrg1 = mmCharge;
                 BigReal trgChrg2 = -1*mmCharge;
                 
-                
                 grpAppldChrgVec.push_back(
-                    ComputeQMPntChrg(chrgPos1, trgChrg1, -1, 0, -1, 0, 0, 0)
+                    ComputeQMPntChrg(chrgPos1, trgChrg1, trgIndxLocal, 0, -1, Cqp, 0, 0)
                 );
                 
                 grpAppldChrgVec.push_back(
-                    ComputeQMPntChrg(chrgPos2, trgChrg2, -1, 0, -1, 0, 0, 0)
+                    ComputeQMPntChrg(chrgPos2, trgChrg2, trgIndxLocal, 0, -1, Cqm, 0, 0)
                 );
                 
                 } break;
@@ -1683,26 +1755,36 @@ void ComputeQMMgr::procBonds(int numBonds,
                 
                 Position trgPos = grpAppldChrgVec[trgIndxLocal].position ;
                 
+                // We now store in MM2 to which PC it is bound (the index for MM1).
+                // This will be used to decompose virtual PC forces onto MM1 and MM2.
+                grpAppldChrgVec[trgIndxLocal].qmGrpID = -2;
+                grpAppldChrgVec[trgIndxLocal].homeIndx = mmIndex;
+                
                 // We create a new point charge at the same position so that
                 // the fraction of charge from the MM1 atom is "added" to the
                 // MM2 position, but without actually changing the charge of 
                 // the original MM2 atom. This trick helps keeping the original 
                 // charge for electrostatic calculations after the new charges 
                 // of QM atoms is received from the QM software.
+                Real Cq0 = 1.0;
                 grpAppldChrgVec.push_back(
-                    ComputeQMPntChrg(trgPos, -1*mmCharge, -1, 0, -1, 0, 0, 0)
+                    // Cq is stored in the distance slot, since it has not been computed
+                    // for a virtual charge.
+                    ComputeQMPntChrg(trgPos, -1*mmCharge, trgIndxLocal, 0, -1, Cq0, 0, 0)
                 );
                 
                 Vector bondVec = trgPos - mmPos ;
                 
-                Vector bondVec1 = bondVec*0.5 ;
+                // For Cq-plus virtual charge
+                Real Cq1 = 0.5;
+                Vector bondVec1 = bondVec*Cq1 ;
                 
                 Position chrgPos1 = mmPos + bondVec1;
                 
                 BigReal trgChrg1 = 2*mmCharge;
                 
                 grpAppldChrgVec.push_back(
-                    ComputeQMPntChrg(chrgPos1, trgChrg1, -1, 0, -1, 0, 0, 0)
+                    ComputeQMPntChrg(chrgPos1, trgChrg1, trgIndxLocal, 0, -1, Cq1, 0, 0)
                 );
                 
                 
@@ -1737,9 +1819,9 @@ void ComputeQMMgr::procBonds(int numBonds,
         
         // We keep this "point charge" so we can calculate forces on it later
         // but it will not influence the QM system.
-        // We use the qmGrpID variable to send the message that this poitn charge 
-        // should be ignored since this variable will not be relevant anymore,
-        // all point charges gathered here are for a specific qmGroup.
+        // We use the qmGrpID variable to send the message that this point charge 
+        // should be ignored since this variable will not be relevant anymore.
+        // All point charges gathered here are for a specific qmGroup.
         grpAppldChrgVec[mmIndex].qmGrpID = -1 ;
     }
     
@@ -1788,8 +1870,9 @@ void ComputeQMMgr::recvPntChrg(QMPntChrgMsg *msg) {
     const int *const *const chargeTarget = molPtr->get_qmMMChargeTarget() ;
     const int *const numTargs = molPtr->get_qmMMNumTargs() ;
     
-    BigReal constants = COULOMB*simParams->nonbondedScaling/(simParams->dielectric*4.0*PI) ;
-//     BigReal constants = COULOMB*simParams->nonbondedScaling/(simParams->dielectric) ;
+//     BigReal constants = COULOMB*simParams->nonbondedScaling/(simParams->dielectric*4.0*PI) ;
+    // COULOMB is in kcal*￼Angs/(mol￼*e^2)
+    BigReal constants = COULOMB ;
     
     if ( qmPCFreq > 0 ) {
         DebugM(4,"Using point charge stride of " << qmPCFreq << "\n")
@@ -1905,16 +1988,7 @@ void ComputeQMMgr::recvPntChrg(QMPntChrgMsg *msg) {
     
     // Vector of dummy atoms created to treat QM-MM bonds.
     std::vector<dummyData> dummyAtoms ;
-    
-    // This will hold a big sting with all configuration lines the user supplied.
-    std::string configLines ;
-    StringList *current = Node::Object()->configList->find("QMConfigLine");
-    for ( ; current; current = current->next ) {
-        std::string confLineStr(current->data);
-        configLines.append(confLineStr);
-        configLines.append("\n");
-    }
-    
+
     // Initializes the loop for receiving the QM results.
     thisProxy[0].recvQMResLoop() ;
     
@@ -1931,6 +2005,30 @@ void ComputeQMMgr::recvPntChrg(QMPntChrgMsg *msg) {
         DebugM(4,"Calculating QM group " << grpIter +1 
         << " (ID: " << grpID[grpIter] << ")." << std::endl);
         
+        DebugM(4,"Compiling Config Lines into one string for message...\n");
+        
+        // This will hold a big sting with all configuration lines the user supplied.
+        int lineIter = 0 ;
+        std::string configLines ;
+        StringList *current = Node::Object()->configList->find("QMConfigLine");
+        for ( ; current; current = current->next ) {
+            std::string confLineStr(current->data);
+            
+            // In case we need to add charges to MOPAC command line.
+            if (simParams->qmFormat == QMFormatMOPAC && simParams->qmMOPACAddConfigChrg && lineIter == 0) {
+                std::ostringstream itosConv ;
+                itosConv << grpChrg[grpIter] ;
+                confLineStr.append( " CHARGE=" );
+                confLineStr.append( itosConv.str() );
+                
+            }
+            
+            configLines.append(confLineStr);
+            configLines.append("\n");
+            
+            lineIter++;
+        }
+        
         DebugM(4,"Determining point charges...\n");
         
         Real qmTotalCharge = 0;
@@ -1944,6 +2042,9 @@ void ComputeQMMgr::recvPntChrg(QMPntChrgMsg *msg) {
         if ((fabsf(roundf(qmTotalCharge) - qmTotalCharge) <= 0.001f) ) {
             qmTotalCharge = roundf(qmTotalCharge) ;
         }
+        
+        // Sorts the vector so that the QM message is always built with the same order of atoms.
+        std::sort(grpQMAtmVec.begin(), grpQMAtmVec.end(), custom_ComputeQMAtom_Less);
         
         Real pcTotalCharge = 0;
         // Loads the point charges to a local vector for this QM group.
@@ -2167,8 +2268,12 @@ void ComputeQMMgr::recvPntChrg(QMPntChrgMsg *msg) {
             // the point charge type is 1, unless it is from an 
             // atom which is bound to a QM atom.
             if (i < grpPntChrgVec.size()) {
-                if (grpAppldChrgVec[i].qmGrpID < 0) {
+                if (grpAppldChrgVec[i].qmGrpID == -1) {
                     dataP->type = QMPCTYPE_IGNORE ;
+                }
+                else if (grpAppldChrgVec[i].qmGrpID == -2) {
+                    dataP->type = QMPCTYPE_CLASSICAL ;
+                    dataP->bountToIndx = grpAppldChrgVec[i].homeIndx;
                 }
                 else {
                     dataP->type = QMPCTYPE_CLASSICAL ;
@@ -2177,6 +2282,7 @@ void ComputeQMMgr::recvPntChrg(QMPntChrgMsg *msg) {
             else {
                 // Extra charges are created to handle QM-MM bonds (if they exist).
                 dataP->type = QMPCTYPE_EXTRA ;
+                dataP->bountToIndx = grpAppldChrgVec[i].id;
             }
             dataP++;
         }
@@ -2202,6 +2308,9 @@ void ComputeQMMgr::recvPntChrg(QMPntChrgMsg *msg) {
         
         strcpy(msg->configLines, configLines.c_str());
         
+        if (cSMDon)
+            calcCSMD(grpIter, msg->numQMAtoms, qmP, cSMDForces) ;
+		
         int targetPE = qmPEs[peIter] ;
         
         DebugM(4,"Sending QM group " << grpIter << " (ID " << grpID[grpIter] 
@@ -2233,17 +2342,23 @@ void ComputeQMMgr::recvPntChrg(QMPntChrgMsg *msg) {
 
 void ComputeQMMgr::storeQMRes(QMGrpResMsg *resMsg) {
     
-    iout << iINFO << "Storing QM results for region " << resMsg->grpIndx  
-    << " (ID: "  << grpID[resMsg->grpIndx] 
-    << ") with original energy: " << endi;
-    std::cout << std::fixed << std::setprecision(6) << resMsg->energyOrig << endi;
-    iout << " Kcal/mol\n" << endi;
+//     iout << iINFO << "Storing QM results for region " << resMsg->grpIndx  
+//     << " (ID: "  << grpID[resMsg->grpIndx] 
+//     << ") with original energy: " << endi;
+//     std::cout << std::fixed << std::setprecision(6) << resMsg->energyOrig << endi;
+//     iout << " Kcal/mol\n" << endi;
     
-    if (resMsg->energyCorr != resMsg->energyOrig) {
-        iout << iINFO << "PME corrected energy: " << endi;
-        std::cout << std::fixed << std::setprecision(6) << resMsg->energyCorr << endi;
-        iout << " Kcal/mol\n" << endi;
-    }
+//     if (resMsg->energyCorr != resMsg->energyOrig) {
+//         iout << iINFO << "PME corrected energy: " << endi;
+//         std::cout << std::fixed << std::setprecision(6) << resMsg->energyCorr << endi;
+//         iout << " Kcal/mol\n" << endi;
+//     }
+    
+    iout << QMETITLE(timeStep);
+    iout << FORMAT(grpID[resMsg->grpIndx]);
+    iout << FORMAT(resMsg->energyOrig);
+    if (resMsg->energyCorr != resMsg->energyOrig) iout << FORMAT(resMsg->energyCorr);
+    iout << "\n\n" << endi;
     
     totalEnergy += resMsg->energyCorr ;
     
@@ -2269,6 +2384,14 @@ void ComputeQMMgr::storeQMRes(QMGrpResMsg *resMsg) {
         qmTotalCharge = roundf(qmTotalCharge) ;
     }
     
+    // In case we are calculating cSMD forces, apply them now.
+    if (cSMDon) {
+        for ( int i=0; i < cSMDindxLen[resMsg->grpIndx]; i++ ) {
+            int cSMDit = cSMDindex[resMsg->grpIndx][i];
+            force[ cSMDpairs[cSMDit][0] ].force += cSMDForces[cSMDit];
+        }
+    }
+
     DebugM(4,"QM total charge received is " << qmTotalCharge << std::endl);
     
     DebugM(4,"Current accumulated energy is " << totalEnergy << std::endl);
@@ -2301,7 +2424,7 @@ void ComputeQMMgr::procQMRes() {
         write_dcdstep(dcdOutFile, numQMAtms, x, y, z, 0) ;
     }
     
-    // Writes a DCD file with the charges of all QM atoms at a frequency 
+    // Writes a DCD file with the positions of all QM atoms at a frequency 
     // defined by the user in qmPosOutFreq.
     if ( simParams->qmPosOutFreq > 0 && 
          timeStep % simParams->qmPosOutFreq == 0 ) {
@@ -2594,8 +2717,23 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
     
     DebugM(4,"Running MOPAC on PE " << CkMyPe() << std::endl);
     
-    if (msg->switching)
-        pntChrgSwitching(msg) ;
+    QMAtomData *atmP = msg->data ;
+    QMAtomData *pcP = msg->data + msg->numAllAtoms ;
+    
+    // We create a pointer for PME correction, which may point to
+    // a copy of the original point charge array, with unchanged charges,
+    // or points to the original array in case no switching or charge
+    // scheme is being used.
+    QMAtomData *pcPpme = NULL;
+    if (msg->switching) {
+        
+        if (msg->PMEOn)
+            pcPpme = new QMAtomData[msg->numRealPntChrgs];
+        
+        pntChrgSwitching(msg, pcPpme) ;
+    } else {
+        pcPpme = pcP;
+    }
     
     // For each QM group, create a subdirectory where files will be palced.
     std::string baseDir(msg->baseDir);
@@ -2685,8 +2823,6 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
     
     // write QM and dummy atom coordinates to input file and
     // MM electric field from MM point charges.
-    QMAtomData *atmP = msg->data ;
-    QMAtomData *pcP = msg->data + msg->numAllAtoms ;
     for (size_t i=0; i<msg->numAllAtoms; ++i, ++atmP ) {
         
         double x = atmP->position.x;
@@ -2700,9 +2836,13 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
         if (msg->numAllPntChrgs) {
             BigReal phi = 0;
             
+            // The Electrostatic Potential is calculated according to
+            // the QMMM Keyword documentation for MOPAC
+            // http://openmopac.net/manual/QMMM.html
             pcP = msg->data + msg->numAllAtoms ;
             for ( size_t j=0; j < msg->numAllPntChrgs; ++j, ++pcP ) {
                 
+                // In case of QM-MM bonds, the charge of the MM1 atom is ignored
                 if (pcP->type == QMPCTYPE_IGNORE)
                     continue;
                 
@@ -2715,10 +2855,12 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
                 BigReal rij = sqrt((x-xMM)*(x-xMM) +
                      (y-yMM)*(y-yMM) +
                      (z-zMM)*(z-zMM) ) ;
-                     
+                
                 phi += charge/rij ;
             }
             
+            // We use the same Coulomb constant used in the rest of NAMD
+            // instead of the suggested rounded 332 suggested by MOPAC.
             phi = phi*constants ;
             
             iret = fprintf(chrgFile,"%s %f %f %f %f\n",
@@ -2832,12 +2974,13 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
         // numbers separated by space(s). When the "overlap matrix" 
         // string is found, we break the loop and stop reading the file.
         
-        
-        if ( strstr(line,"TOTAL_ENERGY") != NULL ) {
+        // if ( strstr(line,"TOTAL_ENERGY") != NULL ) {
+        if ( strstr(line,"HEAT_OF_FORMATION") != NULL ) {
             
             char strEnergy[14], *endPtr ;
             
-            strncpy(strEnergy, line + 17, 13) ;
+            //strncpy(strEnergy, line + 17, 13) ;
+            strncpy(strEnergy, line + 28, 13) ;
             strEnergy[13] = '\0';
             
             // We have to convert the notation from FORTRAN double precision to
@@ -2849,7 +2992,7 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
             }
             
             // In MOPAC, the total energy is given in EV, so we convert to Kcal/mol
-            resMsg->energyOrig *= 23.060 ;
+//             resMsg->energyOrig *= 23.060 ; // We now read Heat of Formation, which is given in Kcal/Mol
             
 //             DebugM(4,"Reading QM energy from file: " << resMsg->energyOrig << "\n");
             
@@ -2929,9 +3072,13 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
                 }
                 
                 // If we are reading charges from Dummy atoms,
-                // place them on the appropriate QM atom.
+                // place them on the appropriate QM atoms.
                 if ( msg->numQMAtoms <= atmIndx &&
                     atmIndx < msg->numAllAtoms ) {
+                    // We keep the calculated charge in the dummy atom
+                    // so that we can calculate electrostatic forces later on.
+                    atmP[atmIndx].charge = localCharge;
+                    
                     // The dummy atom points to the QM atom to which it is bound.
                     int qmInd = atmP[atmIndx].bountToIndx ;
                     resForce[qmInd].charge += localCharge;
@@ -3068,6 +3215,9 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
             }
             
         }
+        for (size_t j=msg->numQMAtoms; j<msg->numAllAtoms; ++j ) {
+            atmP[j].charge = 0;
+        }
     }
     
     // remove force file
@@ -3084,40 +3234,137 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
     atmP = msg->data ;
     pcP = msg->data + msg->numAllAtoms ;
     
-    // The initial point charge index for the force message is the number of QM
+    // The initial point charge index for the *force* message is the number of QM
     // atoms, since the dummy atoms have no representation in NAMD
     int pcIndx = msg->numQMAtoms;
     
-    // We only loop over point charges from real atoms, ignoring the ones 
-    // created to handle QM-MM bonds.
-    for (size_t i=0; i < msg->numRealPntChrgs; i++, pcIndx++ ) {
+    // ---- WARNING  ----
+            // We need to apply the force felt by each QM atom due to the classical 
+            // point charges sent to MOPAC.
+            // MOPAC takes the MM electrostatic potential into cosideration ONLY
+            // when performing the SCF calculation and when returning the energy
+            // of the system, but it does not apply the potential to the final
+            // gradient calculation, therefore, we calculate the resulting force
+            // here.
+    // Initialize force vector for electrostatic contribution
+    std::vector<Force> qmElecForce ;
+    for (size_t j=0; j<msg->numAllAtoms; ++j )
+        qmElecForce.push_back( Force(0) );
+    
+    // We loop over point charges and distribute the forces applied over
+    // virtual point charges to the MM1 and MM2 atoms (if any virtual PCs exists).
+    for (size_t i=0; i < msg->numAllPntChrgs; i++, pcIndx++ ) {
         
-        BigReal Force = 0;
+        // No force was applied to the QM region due to this charge, so it 
+        // does not receive any back from the QM region. It must be an MM1 atom
+        // from a QM-MM bond.
+        if (pcP[i].type == QMPCTYPE_IGNORE)
+            continue;
+        
+        Force totalForce(0);
         
         BigReal pntCharge = pcP[i].charge;
         
         Position posMM = pcP[i].position ;
         
-        for (size_t j=0; j<msg->numQMAtoms; ++j ) {
-            
-            // Not perfect
-            // This prevents the MM point charge of a MM-QM bond from feeling 
-            // the influence from the QM atom it is bount to. 
-            if ( pcP[i].bountToIndx == j ) {
-                DebugM(4,"Skiping charged interaction between " << atmP[j].id 
-                << " and " << pcP[i].id << std::endl);
-                continue ;
-            }
+        for (size_t j=0; j<msg->numAllAtoms; ++j ) {
             
             BigReal qmCharge = atmP[j].charge ;
             
-            Force = pntCharge*qmCharge*constants ;
+            BigReal force = pntCharge*qmCharge*constants ;
             
-            Position rVec = posMM - atmP[i].position ;
+            Position rVec = posMM - atmP[j].position ;
             
-            Force /= rVec.length2();
+            force /= rVec.length2();
             
-            resForce[pcIndx].force += Force*(rVec*rVec.length());
+            // We accumulate the total force felt by a point charge
+            // due to the QM charge distribution. This total force
+            // will be applied to the point charge if it is a real one,
+            // or will be distirbuted over MM1 and MM2 point charges, it 
+            // this is a virtual point charge.
+            totalForce += force*rVec.unit();
+            
+            // Accumulate force felt by a QM atom due to point charges.
+            qmElecForce[j] += -1*force*rVec.unit();
+        }
+        
+        if (pcP[i].type == QMPCTYPE_CLASSICAL) {
+            // If we already ignored MM1 charges, we take all other 
+            // non-virtual charges and apply forces directly to them.
+            resForce[pcIndx].force += totalForce;
+        }
+        else {
+            // If we are handling virtual PC, we distribute the force over
+            // MM1 and MM2.
+            
+            // Virtual PC are bound to MM2.
+            int mm2Indx = pcP[i].bountToIndx;
+            // MM2 charges are bound to MM1.
+            int mm1Indx = pcP[mm2Indx].bountToIndx;
+            
+            Real Cq = pcP[i].dist;
+            
+            Force mm1Force = (1-Cq)*totalForce ;
+            Force mm2Force = Cq*totalForce ;
+            
+            resForce[msg->numQMAtoms + mm1Indx].force += mm1Force;
+            resForce[msg->numQMAtoms + mm2Indx].force += mm2Force;
+        }
+        
+    }
+    
+    // We now apply the accumulated electrostatic force contribution
+    // to QM atoms.
+    for (size_t j=0; j<msg->numAllAtoms; ++j ) {
+        
+        if (j < msg->numQMAtoms ) {
+            resForce[j].force += qmElecForce[j];
+            
+        } else {
+            // In case the QM atom is a Link atom, we redistribute 
+            // its force as bove.
+            
+            // The dummy atom points to the QM atom to which it is bound.
+            // The QM atom and the MM atom (in a QM-MM bond) point to each other.
+            int qmInd = atmP[j].bountToIndx ;
+            int mmInd = atmP[qmInd].bountToIndx ;
+            
+            Vector dir = pcP[mmInd].position - atmP[qmInd].position ;
+            Real mmqmDist = dir.length() ;
+            
+            Real linkDist = Vector(atmP[j].position - 
+                            atmP[qmInd].position).length() ;
+            
+            Force linkForce = qmElecForce[j];
+            
+            Vector base = (linkDist/(mmqmDist*mmqmDist*mmqmDist))*dir;
+            // Unit vectors
+            Vector xuv(1,0,0), yuv(0,1,0), zuv(0,0,1);
+            Real xDelta = pcP[mmInd].position.x - atmP[qmInd].position.x;
+            Real yDelta = pcP[mmInd].position.y - atmP[qmInd].position.y;
+            Real zDelta = pcP[mmInd].position.z - atmP[qmInd].position.z;
+            
+            Force qmForce = (linkForce*((1 - linkDist/mmqmDist)*xuv + 
+                        (xDelta)*base) )*xuv;
+            
+            qmForce += (linkForce*((1 - linkDist/mmqmDist)*yuv + 
+                        (yDelta)*base) )*yuv;
+            
+            qmForce += (linkForce*((1 - linkDist/mmqmDist)*zuv + 
+                        (zDelta)*base) )*zuv;
+            
+            
+            Force mmForce = (linkForce*((linkDist/mmqmDist)*xuv -
+                        (xDelta)*base) )*xuv;
+            
+            mmForce += (linkForce*((linkDist/mmqmDist)*yuv -
+                        (yDelta)*base) )*yuv;
+            
+            mmForce += (linkForce*((linkDist/mmqmDist)*zuv -
+                        (zDelta)*base) )*zuv;
+            
+            resForce[qmInd].force += qmForce;
+            resForce[msg->numQMAtoms + mmInd].force += mmForce;
         }
     }
     
@@ -3185,19 +3432,14 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
         // created to handle QM-MM bonds.
         for (size_t i=0; i < msg->numRealPntChrgs; i++, pcIndx++ ) {
             
-            BigReal p_i_charge = pcP[i].charge ;
-            Position pos_i = pcP[i].position ;
+            BigReal p_i_charge = pcPpme[i].charge;
+            Position pos_i = pcPpme[i].position ;
             
             const BigReal kq_i = p_i_charge * constants;
             
             Force fixForce = 0;
             
             for (size_t j=0; j<msg->numQMAtoms; ++j ) {
-                
-                // Not perfect
-                // This prevents the MM point charge of a MM-QM bond from feeling 
-                // the influence from the QM atom it is bount to. 
-                if ( pcP[i].bountToIndx == j ) continue ;
                 
                 BigReal p_j_charge = atmP[j].charge ;
                 
@@ -3234,7 +3476,6 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
         
     }
     
-    
     // Calculates the virial contribution form the forces on QM atoms and 
     // point charges calculated here.
     for (size_t i=0; i < msg->numQMAtoms; i++) {
@@ -3259,6 +3500,9 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
     // Send message to rank zero with results.
     QMProxy[0].recvQMRes(resMsg);
     
+    if (msg->switching && msg->PMEOn)
+        delete [] pcPpme;
+    
     delete msg;
     return ;
 }
@@ -3272,7 +3516,7 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
     const size_t lineLen = 256;
     char *line = new char[lineLen];
     
-    std::string qmCommand, inputFileName, outputFileName, pntChrgFileName;
+    std::string qmCommand, inputFileName, outputFileName, pntChrgFileName, pcGradFilename;
     std::string tmpRedirectFileName, pcGradFileName;
     
     // For coulomb calculation
@@ -3282,8 +3526,22 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
     
     DebugM(4,"Running ORCA on PE " << CkMyPe() << std::endl);
     
-    if (msg->switching)
-        pntChrgSwitching(msg) ;
+    QMAtomData *pcP = msg->data + msg->numAllAtoms ;
+    
+    // We create a pointer for PME correction, which may point to
+    // a copy of the original point charge array, with unchanged charges,
+    // or points to the original array in case no switching or charge
+    // scheme is being used.
+    QMAtomData *pcPpme = NULL;
+    if (msg->switching) {
+        
+        if (msg->PMEOn)
+            pcPpme = new QMAtomData[msg->numRealPntChrgs];
+        
+        pntChrgSwitching(msg, pcPpme) ;
+    } else {
+        pcPpme = pcP;
+    }
     
     // For each QM group, create a subdirectory where files will be palced.
     std::string baseDir(msg->baseDir);
@@ -3344,7 +3602,11 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
     outputFileName = inputFileName ;
     outputFileName.append(".engrad") ;
     
-    QMAtomData *pcP = msg->data + msg->numAllAtoms ;
+    // Builds the file name where orca will place gradients acting on 
+    // point charges
+    pcGradFilename = inputFileName ;
+    pcGradFilename.append(".pcgrad") ;
+    
     if (msg->numAllPntChrgs) {
         // Builds the file name where we will write the point charges.
         pntChrgFileName = inputFileName ;
@@ -3423,7 +3685,7 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
         for ( size_t j=0; j < msg->numAllPntChrgs; j++, ++pcP) {
             
             if (pcP->type == QMPCTYPE_IGNORE)
-                    continue;
+                continue;
             
             double charge = pcP->charge;
             
@@ -3844,8 +4106,6 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
         fclose(outputFile);
     }
     
-    delete [] line;
-    
     // remove force file
 //     DebugM(4, "Removing output file: " << outputFileName << std::endl) ;
 //     iret = remove(outputFileName);
@@ -3861,48 +4121,83 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
     // atoms, since the dummy atoms have no representation in NAMD
     int pcIndx = msg->numQMAtoms;
     
-    // We only loop over point charges from real atoms, ignoring the ones 
-    // created to handle QM-MM bonds.
-    for (size_t i=0; i < msg->numRealPntChrgs; i++, pcIndx++ ) {
-        
-        BigReal Force = 0;
-        
-        BigReal pntCharge = pcP[i].charge;
-        
-        BigReal xMM = pcP[i].position.x;
-        BigReal yMM = pcP[i].position.y;
-        BigReal zMM = pcP[i].position.z;
-        
-        for (size_t j=0; j<msg->numQMAtoms; ++j ) {
-            
-            // Not perfect
-            // This prevents the MM point charge of a MM-QM bond from feeling 
-            // the influence from the QM atom it is bount to. 
-            if ( pcP[i].bountToIndx == j ) continue ;
-            
-            BigReal qmCharge = atmP[j].charge ;
-            
-            Force = pntCharge*qmCharge*constants ;
-            
-            BigReal xQM = atmP[j].position.x;
-            BigReal yQM = atmP[j].position.y;
-            BigReal zQM = atmP[j].position.z;
-            
-            BigReal x_ij = (xMM - xQM);
-            BigReal y_ij = (yMM - yQM);
-            BigReal z_ij = (zMM - zQM);
-            
-            BigReal r2 = (x_ij*x_ij + y_ij*y_ij + z_ij*z_ij);
-            BigReal rNorm = sqrt(r2) ;
-            
-            Force /= r2;
-            
-            resForce[pcIndx].force.x += Force*x_ij/rNorm;
-            resForce[pcIndx].force.y += Force*y_ij/rNorm;
-            resForce[pcIndx].force.z += Force*z_ij/rNorm;
+    // If there are no point charges, orca will not create a "pcgrad" file.
+    if (msg->numAllPntChrgs > 0) {
+    
+        // opens redirected output file
+        outputFile = fopen(pcGradFileName.c_str(),"r");
+        if ( ! outputFile ) {
+            iout << iERROR << "Could not find PC gradient output file:"
+            << pcGradFileName << std::endl << endi;
+            NAMD_die(strerror(errno)); 
         }
         
+        DebugM(4,"Opened pc output for gradient reading: " << pcGradFileName.c_str() << "\n");
+        
+        int pcgradNumPC = 0, readPC = 0;
+        iret = fscanf(outputFile,"%d\n", &pcgradNumPC );
+        if ( iret != 1 ) {
+            NAMD_die("Error reading PC forces file.");
+        }
+        DebugM(4,"Found in pc gradient output: " << pcgradNumPC << " point charge grads.\n");
+        
+        // We loop over point charges, reading the total electrostatic force 
+        // applied on them by the QM region.
+        // We redistribute the forces applied over virtual point
+        // charges to the MM1 and MM2 atoms (if any virtual PCs exists).
+        for (size_t i=0; i < msg->numAllPntChrgs; i++, pcIndx++ ) {
+            
+            Force totalForce(0);
+            
+            // No force was applied to the QM region due to this charge, since it
+            // was skipped when writing down point charges to the QM software, so it
+            // does not receive any back from the QM region. It must be an MM1 atom
+            // from a QM-MM bond.
+            if (pcP[i].type == QMPCTYPE_IGNORE)
+                continue;
+            
+            fgets(line, lineLen, outputFile);
+            
+            iret = sscanf(line,"%lf %lf %lf\n", &totalForce[0], &totalForce[1], &totalForce[2] );
+            if ( iret != 3 ) {
+                NAMD_die("Error reading PC forces file.");
+            }
+            // All gradients are given in Eh/a0 (Hartree over Bohr radius)
+            // NAMD needs forces in kcal/mol/angstrons
+            // The conversion factor is 627.509469/0.529177 = 1185.82151
+            totalForce *= -1185.82151;
+            
+            if (pcP[i].type == QMPCTYPE_CLASSICAL) {
+                // If we already ignored MM1 charges, we take all other 
+                // non-virtual charges and apply forces directly to them.
+                resForce[pcIndx].force += totalForce;
+            }
+            else {
+                // If we are handling virtual PC, we distribute the force over
+                // MM1 and MM2.
+                
+                Force mm1Force(0), mm2Force(0);
+                
+                // Virtual PC are bound to MM2.
+                int mm2Indx = pcP[i].bountToIndx;
+                // MM2 charges are bound to MM1.
+                int mm1Indx = pcP[mm2Indx].bountToIndx;
+                
+                Real Cq = pcP[i].dist;
+                
+                mm1Force = (1-Cq)*totalForce ;
+                mm2Force = Cq*totalForce ;
+                
+                resForce[msg->numQMAtoms + mm1Indx].force += mm1Force;
+                resForce[msg->numQMAtoms + mm2Indx].force += mm2Force;
+            }
+            
+        }
+        
+        fclose(outputFile);
     }
+    
+    delete [] line;
     
     // Adjusts forces from PME, canceling contributions from the QM and 
     // direct Coulomb forces calculated here.
@@ -3965,19 +4260,14 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
         // created to handle QM-MM bonds.
         for (size_t i=0; i < msg->numRealPntChrgs; i++, pcIndx++ ) {
             
-            BigReal p_i_charge = pcP[i].charge ;
-            Position pos_i = pcP[i].position ;
+            BigReal p_i_charge = pcPpme[i].charge;
+            Position pos_i = pcPpme[i].position ;
             
             const BigReal kq_i = p_i_charge * constants;
             
             Force fixForce = 0;
             
             for (size_t j=0; j<msg->numQMAtoms; ++j ) {
-                
-                // Not perfect
-                // This prevents the MM point charge of a MM-QM bond from feeling 
-                // the influence from the QM atom it is bount to. 
-                if ( pcP[i].bountToIndx == j ) continue ;
                 
                 BigReal p_j_charge = atmP[j].charge ;
                 
@@ -4041,6 +4331,9 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
     // Send message to rank zero with results.
     QMProxy[0].recvQMRes(resMsg);
     
+    if (msg->switching && msg->PMEOn)
+        delete [] pcPpme;
+    
     delete msg;
     return ;
 }
@@ -4057,8 +4350,22 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
     
     DebugM(4,"Running USER DEFINED SOFTWARE on PE " << CkMyPe() << std::endl);
     
-    if (msg->switching)
-        pntChrgSwitching(msg) ;
+    QMAtomData *pcP = msg->data + msg->numAllAtoms ;
+    
+    // We create a pointer for PME correction, which may point to
+    // a copy of the original point charge array, with unchanged charges,
+    // or points to the original array in case no switching or charge
+    // scheme is being used.
+    QMAtomData *pcPpme = NULL;
+    if (msg->switching) {
+        
+        if (msg->PMEOn)
+            pcPpme = new QMAtomData[msg->numRealPntChrgs];
+        
+        pntChrgSwitching(msg, pcPpme) ;
+    } else {
+        pcPpme = pcP;
+    }
     
     // For each QM group, create a subdirectory where files will be palced.
     std::string baseDir(msg->baseDir);
@@ -4112,7 +4419,6 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
     outputFileName.append(".result") ;
     
     int numPntChrgs = 0;
-    QMAtomData *pcP = msg->data + msg->numAllAtoms ;
     for (int i=0; i<msg->numAllPntChrgs; i++ ) {
         if (pcP[i].type != QMPCTYPE_IGNORE)
             numPntChrgs++;
@@ -4139,6 +4445,7 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
         
     }
     
+    int numWritenPCs = 0;
     // Write point charges to file.
     pcP = msg->data + msg->numAllAtoms ;
     for ( size_t j=0; j < msg->numAllPntChrgs; j++, ++pcP) {
@@ -4155,6 +4462,8 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
         iret = fprintf(inputFile,"%f %f %f %f\n",
                        x,y,z,charge);
         if ( iret < 0 ) { NAMD_die(strerror(errno)); }
+        
+        numWritenPCs++;
     }
     
     DebugM(4,"Closing input file\n");
@@ -4246,12 +4555,25 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
     // Reads the data form the output file created by the QM software.
     // Gradients over the QM atoms, and Charges for QM atoms will be read.
     
-    iret = fscanf(outputFile,"%lf\n", &resMsg->energyOrig);
-    if ( iret != 1 ) {
+    // Number of point charges for which we will receive forces.
+    int usrPCnum = 0;
+    const size_t lineLen = 256;
+    char *line = new char[lineLen];
+    
+    fgets(line, lineLen, outputFile);
+    
+//     iret = fscanf(outputFile,"%lf %d\n", &resMsg->energyOrig, &usrPCnum);
+    iret = sscanf(line,"%lf %i\n", &resMsg->energyOrig, &usrPCnum);
+    if ( iret < 1 ) {
         NAMD_die("Error reading energy from QM results file.");
     }
     
     resMsg->energyCorr = resMsg->energyOrig;
+    
+    if (iret == 2 && numWritenPCs != usrPCnum) {
+        iout << iERROR << "Number of point charges does not match what was provided!\n" << endi ;
+        NAMD_die("Error reading QM results file.");
+    }
     
     size_t atmIndx;
     double localForce[3];
@@ -4264,7 +4586,7 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
                       localForce+2,
                       &localCharge);
         if ( iret != 4 ) {
-            NAMD_die("Error reading gradient and charge from QM results file.");
+            NAMD_die("Error reading forces and charge from QM results file.");
         }
         
         // If we are reading charges and forces on QM atoms, store
@@ -4279,13 +4601,17 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
             resForce[atmIndx].charge = localCharge;
         }
         
-        // If we are reading forces applied on Dummy atoms,
+        // If we are reading charges and forces applied on Dummy atoms,
         // place them on the appropriate QM and MM atoms to conserve energy.
         
         // This implementation was based on the description in 
         // DOI: 10.1002/jcc.20857  :  Equations 30 to 32
         if ( msg->numQMAtoms <= atmIndx &&
         atmIndx < msg->numAllAtoms ) {
+            
+            // We keep the calculated charge in the dummy atom
+            // so that we can calculate electrostatic forces later on.
+            atmP[atmIndx].charge = localCharge;
             
             // If we are reading charges from Dummy atoms,
             // place them on the appropriate QM atom.
@@ -4337,7 +4663,63 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
         }
     }
     
+    // The initial point charge index for the force message is the number of QM
+    // atoms, since the dummy atoms have no representation in NAMD
+    int pcIndx = msg->numQMAtoms;
+    
+    if (usrPCnum > 0) {
+        // We loop over point charges, reading the total electrostatic force 
+        // applied on them by the QM region.
+        // We redistribute the forces applied over virtual point
+        // charges to the MM1 and MM2 atoms (if any virtual PCs exists).
+        for (size_t i=0; i < msg->numAllPntChrgs; i++, pcIndx++ ) {
+            
+            Force totalForce(0);
+            
+            // No force was applied to the QM region due to this charge, since it
+            // was skipped when writing down point charges to the QM software, so it
+            // does not receive any back from the QM region. It must be an MM1 atom
+            // from a QM-MM bond.
+            if (pcP[i].type == QMPCTYPE_IGNORE)
+                continue;
+            
+            iret = fscanf(outputFile,"%lf %lf %lf\n", 
+                           &totalForce[0], &totalForce[1], &totalForce[2]);
+            if ( iret != 3 ) {
+                NAMD_die("Error reading PC forces from QM results file.");
+            }
+            
+            if (pcP[i].type == QMPCTYPE_CLASSICAL) {
+                // If we already ignored MM1 charges, we take all other 
+                // non-virtual charges and apply forces directly to them.
+                resForce[pcIndx].force += totalForce;
+            }
+            else {
+                // If we are handling virtual PC, we distribute the force over
+                // MM1 and MM2.
+                
+                Force mm1Force(0), mm2Force(0);
+                
+                // Virtual PC are bound to MM2.
+                int mm2Indx = pcP[i].bountToIndx;
+                // MM2 charges are bound to MM1.
+                int mm1Indx = pcP[mm2Indx].bountToIndx;
+                
+                Real Cq = pcP[i].dist;
+                
+                mm1Force = (1-Cq)*totalForce ;
+                mm2Force = Cq*totalForce ;
+                
+                resForce[msg->numQMAtoms + mm1Indx].force += mm1Force;
+                resForce[msg->numQMAtoms + mm2Indx].force += mm2Force;
+            }
+            
+            
+        }
+    }
+    
     fclose(outputFile);
+    delete [] line;
     
     // In case charges are not to be read form the QM software output,
     // we load the origianl atom charges.
@@ -4363,6 +4745,9 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
             }
             
         }
+        for (size_t j=msg->numQMAtoms; j<msg->numAllAtoms; ++j ) {
+            atmP[j].charge = 0;
+        }
     }
     
     // remove force file
@@ -4370,57 +4755,72 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
 //     iret = remove(outputFileName);
 //     if ( iret ) { NAMD_die(strerror(errno)); }
     
-    
-    DebugM(4, "Applying forces on " << msg->numRealPntChrgs << " point charges" << std::endl) ;
-    
-    atmP = msg->data ;
-    pcP = msg->data + msg->numAllAtoms ;
-    
-    // The initial point charge index for the force message is the number of QM
-    // atoms, since the dummy atoms have no representation in NAMD
-    int pcIndx = msg->numQMAtoms;
-    
-    // We only loop over point charges from real atoms, ignoring the ones 
-    // created to handle QM-MM bonds.
-    for (size_t i=0; i < msg->numRealPntChrgs; i++, pcIndx++ ) {
+    if (usrPCnum == 0) {
+        DebugM(4, "Applying forces on " << msg->numRealPntChrgs << " point charges" << std::endl) ;
         
-        BigReal Force = 0;
+        atmP = msg->data ;
+        pcP = msg->data + msg->numAllAtoms ;
         
-        BigReal pntCharge = pcP[i].charge;
-        
-        BigReal xMM = pcP[i].position.x;
-        BigReal yMM = pcP[i].position.y;
-        BigReal zMM = pcP[i].position.z;
-        
-        for (size_t j=0; j<msg->numQMAtoms; ++j ) {
+        // We only loop over point charges from real atoms, ignoring the ones 
+        // created to handle QM-MM bonds.
+        for (size_t i=0; i < msg->numRealPntChrgs; i++, pcIndx++ ) {
             
-            // Not perfect
-            // This prevents the MM point charge of a MM-QM bond from feeling 
-            // the influence from the QM atom it is bount to. 
-            if ( pcP[i].bountToIndx == j ) continue ;
+            // No force was applied to the QM region due to this charge, so it 
+            // does not receive any back from the QM region. It must be an MM1 atom
+            // from a QM-MM bond.
+            if (pcP[i].type == QMPCTYPE_IGNORE)
+                continue;
             
-            BigReal qmCharge = atmP[j].charge ;
+            Force totalForce(0);
             
-            Force = pntCharge*qmCharge*constants ;
+            BigReal pntCharge = pcP[i].charge;
             
-            BigReal xQM = atmP[j].position.x;
-            BigReal yQM = atmP[j].position.y;
-            BigReal zQM = atmP[j].position.z;
+            Position posMM = pcP[i].position ;
             
-            BigReal x_ij = (xMM - xQM);
-            BigReal y_ij = (yMM - yQM);
-            BigReal z_ij = (zMM - zQM);
+            for (size_t j=0; j<msg->numAllAtoms; ++j ) {
+                
+                BigReal qmCharge = atmP[j].charge ;
+                
+                BigReal force = pntCharge*qmCharge*constants ;
+                
+                Position rVec = posMM - atmP[j].position ;
+                
+                force /= rVec.length2();
+                
+                // We accumulate the total force felt by a point charge
+                // due to the QM charge distribution. This total force
+                // will be applied to the point charge if it is a real one,
+                // or will be distirbuted over MM1 and MM2 point charges, it 
+                // this is a virtual point charge.
+                totalForce += force*rVec.unit();
+            }
             
-            BigReal r2 = (x_ij*x_ij + y_ij*y_ij + z_ij*z_ij);
-            BigReal rNorm = sqrt(r2) ;
+            if (pcP[i].type == QMPCTYPE_CLASSICAL) {
+                // If we already ignored MM1 charges, we take all other 
+                // non-virtual charges and apply forces directly to them.
+                resForce[pcIndx].force += totalForce;
+            }
+            else {
+                // If we are handling virtual PC, we distribute the force over
+                // MM1 and MM2.
+                
+                Force mm1Force(0), mm2Force(0);
+                
+                // Virtual PC are bound to MM2.
+                int mm2Indx = pcP[i].bountToIndx;
+                // MM2 charges are bound to MM1.
+                int mm1Indx = pcP[mm2Indx].bountToIndx;
+                
+                Real Cq = pcP[i].dist;
+                
+                mm1Force = (1-Cq)*totalForce ;
+                mm2Force = Cq*totalForce ;
+                
+                resForce[msg->numQMAtoms + mm1Indx].force += mm1Force;
+                resForce[msg->numQMAtoms + mm2Indx].force += mm2Force;
+            }
             
-            Force /= r2;
-            
-            resForce[pcIndx].force.x += Force*x_ij/rNorm;
-            resForce[pcIndx].force.y += Force*y_ij/rNorm;
-            resForce[pcIndx].force.z += Force*z_ij/rNorm;
         }
-        
     }
     
     // Adjusts forces from PME, canceling contributions from the QM and 
@@ -4484,19 +4884,14 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
         // created to handle QM-MM bonds.
         for (size_t i=0; i < msg->numRealPntChrgs; i++, pcIndx++ ) {
             
-            BigReal p_i_charge = pcP[i].charge ;
-            Position pos_i = pcP[i].position ;
+            BigReal p_i_charge = pcPpme[i].charge;
+            Position pos_i = pcPpme[i].position ;
             
             const BigReal kq_i = p_i_charge * constants;
             
             Force fixForce = 0;
             
             for (size_t j=0; j<msg->numQMAtoms; ++j ) {
-                
-                // Not perfect
-                // This prevents the MM point charge of a MM-QM bond from feeling 
-                // the influence from the QM atom it is bount to. 
-                if ( pcP[i].bountToIndx == j ) continue ;
                 
                 BigReal p_j_charge = atmP[j].charge ;
                 
@@ -4560,12 +4955,15 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
     // Send message to rank zero with results.
     QMProxy[0].recvQMRes(resMsg);
     
+    if (msg->switching && msg->PMEOn)
+        delete [] pcPpme;
+    
     delete msg;
     return ;
 }
 
 
-void ComputeQMMgr::pntChrgSwitching(QMGrpCalcMsg *msg) {
+void ComputeQMMgr::pntChrgSwitching(QMGrpCalcMsg *msg, QMAtomData *pcPpme) {
     
     // We apply a switching function to the point charges so that there is a 
     // smooth decay of the electrostatic environment seen by the QM system.
@@ -4588,6 +4986,14 @@ void ComputeQMMgr::pntChrgSwitching(QMGrpCalcMsg *msg) {
     DebugM(4, "The initial total Point-Charge charge is " << PCScaleCharge
             << " before scaling type: " << msg->switchType << "\n" );
 #endif
+    
+    // If PME is on, we return an unchanged vector of charges so that a 
+    // PME correction can be calculated.
+    if (msg->PMEOn) {
+        for ( size_t i=0; i<msg->numRealPntChrgs; i++ ) {
+            pcPpme[i] = pcP[i];
+        }
+    }
     
     switch (msg->switchType) {
         
@@ -4689,6 +5095,9 @@ void ComputeQMMgr::pntChrgSwitching(QMGrpCalcMsg *msg) {
         
         int maxi = sortedDists.size(), mini = sortedDists.size()/2;
         Real fraction = correction/(maxi - mini); 
+        
+        DebugM(4, "The charge fraction added to the " << (maxi - mini)
+        << " most distant point charges is " << fraction << "\n");
         
         for (size_t i=mini; i<maxi ; i++) {
             
@@ -5223,6 +5632,76 @@ void ComputeQMMgr::lssUpdate(int grpIter, QMAtmVec& grpQMAtmVec,
     
     return;
 }
+
+void ComputeQMMgr::calcCSMD(int grpIndx, int numQMAtoms, const QMAtomData *atmP, Force *cSMDForces) {
+    
+    // For each Conditional SMD instance, we update the guide particle
+    // and calculate and apply the respective force.
+    for ( int i=0; i < cSMDindxLen[grpIndx]; i++ ) {
+        
+        // Defite target distance
+        Real tdist;
+        Force cSMDforce(0);
+        
+        // cSMD instance index
+        int cSMDit = cSMDindex[grpIndx][i] ;
+        AtomID src = -1, trgt = -1;
+        
+        // Finds local indices for the atoms involved in this cSMD instance
+        for (size_t indx=0; indx < numQMAtoms; ++indx) {
+            
+            if ( cSMDpairs[cSMDit][0] == atmP[indx].id )
+                src = indx ;
+            
+            if ( cSMDpairs[cSMDit][1] == atmP[indx].id )
+                trgt = indx ;
+            
+            if (src != -1 && trgt != -1)
+                break;
+        }
+        
+        // Finds the unit vector in the direction of the target
+        Vector trgtDir = atmP[trgt].position - atmP[src].position ;
+        tdist = trgtDir.length();
+        trgtDir /= tdist;
+        
+        // If this is the first time step, set up the guide particle.
+        if (cSMDInitGuides < cSMDnumInstances) {
+            cSMDguides[cSMDit] = atmP[src].position;
+            cSMDInitGuides++;
+        }
+        
+        // If the target is further away than "cutoff", advance the
+        // guide particle and apply force.
+        if (tdist > cSMDcoffs[cSMDit]) {
+            
+            cSMDguides[cSMDit] += trgtDir*cSMDVels[cSMDit];
+            
+            Vector guideDir = cSMDguides[cSMDit] - atmP[src].position ;
+            
+            // Calculate force in the direction of the guide particle.
+            guideDir *= cSMDKs[cSMDit] ;
+            cSMDforce = guideDir ;
+             
+        } 
+        else {
+            // If we pulled the Src towards Trgt closer than Cutoff,
+            // we reset the guide particle to the position of Src.
+            cSMDguides[cSMDit] = atmP[src].position;
+        }
+        
+        DebugM(4, cSMDit << ") Center at  " << cSMDguides[cSMDit] << " for target distance " << 
+        tdist << " and direction " << trgtDir << 
+        "." << std::endl);
+        
+        // We now save the force in a vector of length "cSMDnumInstances".
+        cSMDForces[cSMDit] = cSMDforce;
+        
+        iout << iINFO << "Calculated cSMD force vector " << cSMDforce
+        << " (atom "  << cSMDpairs[cSMDit][0] << " to " << cSMDpairs[cSMDit][1] << ")\n" << endi;
+    }
+}
+
 
 
 #ifdef DEBUG_QM
