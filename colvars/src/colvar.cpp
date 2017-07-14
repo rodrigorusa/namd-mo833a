@@ -29,6 +29,7 @@ colvar::colvar()
   : prev_timestep(-1)
 {
   // Initialize static array once and for all
+  runave_os = NULL;
   init_cv_requires();
 }
 
@@ -274,6 +275,7 @@ int colvar::init(std::string const &conf)
   return error_code;
 }
 
+
 #ifdef LEPTON
 int colvar::init_custom_function(std::string const &conf)
 {
@@ -415,7 +417,16 @@ int colvar::init_custom_function(std::string const &conf)
 
   return COLVARS_OK;
 }
-#endif
+
+#else
+
+int colvar::init_custom_function(std::string const &conf)
+{
+  return COLVARS_OK;
+}
+
+#endif // #ifdef LEPTON
+
 
 int colvar::init_grid_parameters(std::string const &conf)
 {
@@ -779,7 +790,6 @@ int colvar::init_components(std::string const &conf)
 
 void colvar::do_feature_side_effects(int id)
 {
-  // If enabled features are changed upstream, the features below should be refreshed
   switch (id) {
     case f_cv_total_force_calc:
       cvm::request_total_force();
@@ -850,20 +860,19 @@ int colvar::parse_analysis(std::string const &conf)
       cvm::error("Error: runAveStride must be commensurate with the restart frequency.\n", INPUT_ERROR);
     }
 
-    std::string runave_outfile;
     get_keyval(conf, "runAveOutputFile", runave_outfile,
                 std::string(cvm::output_prefix()+"."+
                              this->name+".runave.traj"));
 
     size_t const this_cv_width = x.output_width(cvm::cv_width);
-    cvm::backup_file(runave_outfile.c_str());
-    runave_os.open(runave_outfile.c_str());
-    runave_os << "# " << cvm::wrap_string("step", cvm::it_width-2)
-              << "  "
-              << cvm::wrap_string("running average", this_cv_width)
-              << " "
-              << cvm::wrap_string("running stddev", this_cv_width)
-              << "\n";
+    cvm::proxy->backup_file(runave_outfile);
+    runave_os = cvm::proxy->output_stream(runave_outfile);
+    *runave_os << "# " << cvm::wrap_string("step", cvm::it_width-2)
+               << "  "
+               << cvm::wrap_string("running average", this_cv_width)
+               << " "
+               << cvm::wrap_string("running stddev", this_cv_width)
+               << "\n";
   }
 
   acf_length = 0;
@@ -958,6 +967,22 @@ colvar::~colvar()
       break;
     }
   }
+
+#ifdef LEPTON
+  for (std::vector<Lepton::CompiledExpression *>::iterator cei = value_evaluators.begin();
+       cei != value_evaluators.end();
+       ++cei) {
+    if (*cei != NULL) delete (*cei);
+  }
+  value_evaluators.clear();
+
+  for (std::vector<Lepton::CompiledExpression *>::iterator gei = gradient_evaluators.begin();
+       gei != gradient_evaluators.end();
+       ++gei) {
+    if (*gei != NULL) delete (*gei);
+  }
+  gradient_evaluators.clear();
+#endif
 }
 
 
@@ -1954,16 +1979,15 @@ int colvar::write_output_files()
       cvm::log("Writing acf to file \""+acf_outfile+"\".\n");
 
       cvm::backup_file(acf_outfile.c_str());
-      cvm::ofstream acf_os(acf_outfile.c_str());
-      if (! acf_os.is_open()) {
-        cvm::error("Cannot open file \""+acf_outfile+"\".\n", FILE_ERROR);
-      }
-      write_acf(acf_os);
-      acf_os.close();
+      std::ostream *acf_os = cvm::proxy->output_stream(acf_outfile);
+      if (!acf_os) return cvm::get_error();
+      write_acf(*acf_os);
+      cvm::proxy->close_output_stream(acf_outfile);
     }
 
-    if (runave_os.is_open()) {
-      runave_os.close();
+    if (runave_os) {
+      cvm::proxy->close_output_stream(runave_outfile);
+      runave_os = NULL;
     }
   }
   return (cvm::get_error() ? COLVARS_ERROR : COLVARS_OK);
@@ -2241,12 +2265,12 @@ void colvar::calc_runave()
         }
         runave_variance *= 1.0 / cvm::real(runave_length-1);
 
-        runave_os << std::setw(cvm::it_width) << cvm::step_relative()
-                  << "  "
-                  << std::setprecision(cvm::cv_prec) << std::setw(cvm::cv_width)
-                  << runave << " "
-                  << std::setprecision(cvm::cv_prec) << std::setw(cvm::cv_width)
-                  << std::sqrt(runave_variance) << "\n";
+        *runave_os << std::setw(cvm::it_width) << cvm::step_relative()
+                   << "  "
+                   << std::setprecision(cvm::cv_prec) << std::setw(cvm::cv_width)
+                   << runave << " "
+                   << std::setprecision(cvm::cv_prec) << std::setw(cvm::cv_width)
+                   << std::sqrt(runave_variance) << "\n";
       }
 
       history_add_value(runave_length, *x_history_p, x);

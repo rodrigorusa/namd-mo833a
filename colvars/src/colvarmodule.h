@@ -52,11 +52,6 @@ You can browse the class hierarchy or the list of source files.
 #include <vector>
 #include <list>
 
-#ifdef NAMD_VERSION
-// use Lustre-friendly wrapper to POSIX write()
-#include "fstream_namd.h"
-#endif
-
 class colvarparse;
 class colvar;
 class colvarbias;
@@ -323,12 +318,6 @@ public:
   /// (Re)initialize the output trajectory and state file (does not write it yet)
   int setup_output();
 
-#ifdef NAMD_VERSION
-  typedef ofstream_namd ofstream;
-#else
-  typedef std::ofstream ofstream;
-#endif
-
   /// Read the input restart file
   std::istream & read_restart(std::istream &is);
   /// Write the output restart file
@@ -336,7 +325,7 @@ public:
 
   /// Open a trajectory file if requested (and leave it open)
   int open_traj_file(std::string const &file_name);
-  /// Close it
+  /// Close it (note: currently unused)
   int close_traj_file();
   /// Write in the trajectory file
   std::ostream & write_traj(std::ostream &os);
@@ -478,8 +467,7 @@ public:
   /// \brief Get the distance between two atomic positions with pbcs handled
   /// correctly
   static rvector position_distance(atom_pos const &pos1,
-                                    atom_pos const &pos2);
-
+                                   atom_pos const &pos2);
 
   /// \brief Get the square distance between two positions (with
   /// periodic boundary conditions handled transparently)
@@ -488,21 +476,7 @@ public:
   /// an analytical square distance (while taking the square of
   /// position_distance() would produce leads to a cusp)
   static real position_dist2(atom_pos const &pos1,
-                              atom_pos const &pos2);
-
-  /// \brief Get the closest periodic image to a reference position
-  /// \param pos The position to look for the closest periodic image
-  /// \param ref_pos (optional) The reference position
-  static void select_closest_image(atom_pos &pos,
-                                    atom_pos const &ref_pos);
-
-  /// \brief Perform select_closest_image() on a set of atomic positions
-  ///
-  /// After that, distance vectors can then be calculated directly,
-  /// without using position_distance()
-  static void select_closest_images(std::vector<atom_pos> &pos,
-                                     atom_pos const &ref_pos);
-
+                             atom_pos const &pos2);
 
   /// \brief Names of groups from a Gromacs .ndx file to be read at startup
   std::list<std::string> index_group_names;
@@ -563,13 +537,10 @@ protected:
   std::string cv_traj_name;
 
   /// Collective variables output trajectory file
-  colvarmodule::ofstream cv_traj_os;
+  std::ostream *cv_traj_os;
 
   /// Appending to the existing trajectory file?
   bool cv_traj_append;
-
-  /// Output restart file
-  colvarmodule::ofstream restart_out_os;
 
 private:
 
@@ -709,18 +680,6 @@ inline int cvm::replica_comm_send(char* msg_data, int msg_len, int dest_rep) {
 inline void cvm::request_total_force()
 {
   proxy->request_total_force(true);
-}
-
-inline void cvm::select_closest_image(atom_pos &pos,
-                                       atom_pos const &ref_pos)
-{
-  proxy->select_closest_image(pos, ref_pos);
-}
-
-inline void cvm::select_closest_images(std::vector<atom_pos> &pos,
-                                        atom_pos const &ref_pos)
-{
-  proxy->select_closest_images(pos, ref_pos);
 }
 
 inline cvm::rvector cvm::position_distance(atom_pos const &pos1,

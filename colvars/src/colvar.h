@@ -241,10 +241,8 @@ public:
   /// Parse the CVC configuration and allocate their data
   int init_components(std::string const &conf);
 
-#ifdef LEPTON
   /// Parse parameters for custom function with Lepton
   int init_custom_function(std::string const &conf);
-#endif
 
   /// Init defaults for grid options
   int init_grid_parameters(std::string const &conf);
@@ -484,7 +482,9 @@ protected:
   /// Timesteps to skip between two values in the running average series
   size_t         runave_stride;
   /// Name of the file to write the running average
-  cvm::ofstream  runave_os;
+  std::string    runave_outfile;
+  /// File to write the running average
+  std::ostream  *runave_os;
   /// Current value of the running average
   colvarvalue    runave;
   /// Current value of the square deviation from the running average

@@ -26,6 +26,9 @@
 
 colvarmodule::colvarmodule(colvarproxy *proxy_in)
 {
+  depth_s = 0;
+  cv_traj_os = NULL;
+
   // pointer to the proxy object
   if (proxy == NULL) {
     proxy = proxy_in;
@@ -34,11 +37,9 @@ colvarmodule::colvarmodule(colvarproxy *proxy_in)
     // TODO relax this error to handle multiple molecules in VMD
     // once the module is not static anymore
     cvm::error("Error: trying to allocate the collective "
-               "variable module twice.\n");
+               "variable module twice.\n", BUG_ERROR);
     return;
   }
-
-  depth_s = 0;
 
   cvm::log(cvm::line_marker);
   cvm::log("Initializing the collective variables module, version "+
@@ -223,9 +224,9 @@ int colvarmodule::parse_config(std::string &conf)
   // update any necessary proxy data
   proxy->setup();
 
-  if (cv_traj_os.is_open()) {
+  if (cv_traj_os != NULL) {
     // configuration might have changed, better redo the labels
-    write_traj_label(cv_traj_os);
+    write_traj_label(*cv_traj_os);
   }
 
   return get_error();
@@ -921,11 +922,13 @@ int colvarmodule::write_restart_files()
        ((cvm::step_absolute() % restart_out_freq) == 0) ) {
     cvm::log("Writing the state file \""+
              restart_out_name+"\".\n");
-    proxy->backup_file(restart_out_name.c_str());
-    restart_out_os.open(restart_out_name.c_str());
-    if (!restart_out_os.is_open() || !write_restart(restart_out_os))
-      cvm::error("Error: in writing restart file.\n");
-    restart_out_os.close();
+    proxy->backup_file(restart_out_name);
+    std::ostream *restart_out_os = proxy->output_stream(restart_out_name);
+    if (!restart_out_os) return cvm::get_error();
+    if (!write_restart(*restart_out_os)) {
+      return cvm::error("Error: in writing restart file.\n", FILE_ERROR);
+    }
+    proxy->close_output_stream(restart_out_name);
   }
 
   return (cvm::get_error() ? COLVARS_ERROR : COLVARS_OK);
@@ -934,26 +937,26 @@ int colvarmodule::write_restart_files()
 
 int colvarmodule::write_traj_files()
 {
-  if (!cv_traj_os.is_open()) {
+  if (cv_traj_os == NULL) {
     open_traj_file(cv_traj_name);
   }
 
   // write labels in the traj file every 1000 lines and at first timestep
   if ((cvm::step_absolute() % (cv_traj_freq * 1000)) == 0 || cvm::step_relative() == 0) {
-    write_traj_label(cv_traj_os);
+    write_traj_label(*cv_traj_os);
   }
 
   if ((cvm::step_absolute() % cv_traj_freq) == 0) {
-    write_traj(cv_traj_os);
+    write_traj(*cv_traj_os);
   }
 
-  if (restart_out_freq && cv_traj_os.is_open()) {
+  if (restart_out_freq && (cv_traj_os != NULL)) {
     // flush the trajectory file if we are at the restart frequency
     if ( (cvm::step_relative() > 0) &&
          ((cvm::step_absolute() % restart_out_freq) == 0) ) {
       cvm::log("Synchronizing (emptying the buffer of) trajectory file \""+
                cv_traj_name+"\".\n");
-      cv_traj_os.flush();
+      proxy->flush_output_stream(cv_traj_os);
     }
   }
 
@@ -1043,9 +1046,9 @@ int colvarmodule::reset()
 
   proxy->reset();
 
-  if (cv_traj_os.is_open()) {
+  if (cv_traj_os != NULL) {
     // Do not close file here, as we might not be done with it yet.
-    cv_traj_os.flush();
+    proxy->flush_output_stream(cv_traj_os);
   }
 
   return (cvm::get_error() ? COLVARS_ERROR : COLVARS_OK);
@@ -1304,9 +1307,9 @@ int colvarmodule::write_output_files()
   }
   cvm::decrease_depth();
 
-  if (cv_traj_os.is_open()) {
-    // do not close to avoid problems with multiple NAMD runs
-    cv_traj_os.flush();
+  if (cv_traj_os != NULL) {
+    // do not close, there may be another run command
+    proxy->flush_output_stream(cv_traj_os);
   }
 
   return (cvm::get_error() ? COLVARS_ERROR : COLVARS_OK);
@@ -1420,9 +1423,10 @@ std::ostream & colvarmodule::write_restart(std::ostream &os)
   return os;
 }
 
+
 int colvarmodule::open_traj_file(std::string const &file_name)
 {
-  if (cv_traj_os.is_open()) {
+  if (cv_traj_os != NULL) {
     return COLVARS_OK;
   }
 
@@ -1430,36 +1434,35 @@ int colvarmodule::open_traj_file(std::string const &file_name)
   if (cv_traj_append) {
     cvm::log("Appending to colvar trajectory file \""+file_name+
              "\".\n");
-    cv_traj_os.open(file_name.c_str(), std::ios::app);
+    cv_traj_os = (cvm::proxy)->output_stream(file_name, std::ios::app);
   } else {
     cvm::log("Writing to colvar trajectory file \""+file_name+
              "\".\n");
     proxy->backup_file(file_name.c_str());
-    cv_traj_os.open(file_name.c_str());
+    cv_traj_os = (cvm::proxy)->output_stream(file_name);
   }
 
-  if (!cv_traj_os.is_open()) {
+  if (cv_traj_os == NULL) {
     cvm::error("Error: cannot write to file \""+file_name+"\".\n",
                FILE_ERROR);
   }
 
-  return (cvm::get_error() ? COLVARS_ERROR : COLVARS_OK);
+  return cvm::get_error();
 }
+
 
 int colvarmodule::close_traj_file()
 {
-  if (cv_traj_os.is_open()) {
-    cv_traj_os.close();
+  if (cv_traj_os != NULL) {
+    proxy->close_output_stream(cv_traj_name);
+    cv_traj_os = NULL;
   }
-  return (cvm::get_error() ? COLVARS_ERROR : COLVARS_OK);
+  return cvm::get_error();
 }
+
 
 std::ostream & colvarmodule::write_traj_label(std::ostream &os)
 {
-  if (!os.good()) {
-    cvm::error("Cannot write to trajectory file.");
-    return os;
-  }
   os.setf(std::ios::scientific, std::ios::floatfield);
 
   os << "# " << cvm::wrap_string("step", cvm::it_width-2)
@@ -1477,12 +1480,15 @@ std::ostream & colvarmodule::write_traj_label(std::ostream &os)
     (*bi)->write_traj_label(os);
   }
   os << "\n";
+
   if (cvm::debug()) {
-    os.flush();
+    proxy->flush_output_stream(&os);
   }
+
   cvm::decrease_depth();
   return os;
 }
+
 
 std::ostream & colvarmodule::write_traj(std::ostream &os)
 {
@@ -1503,9 +1509,11 @@ std::ostream & colvarmodule::write_traj(std::ostream &os)
     (*bi)->write_traj(os);
   }
   os << "\n";
+
   if (cvm::debug()) {
-    os.flush();
+    proxy->flush_output_stream(&os);
   }
+
   cvm::decrease_depth();
   return os;
 }
@@ -1590,17 +1598,9 @@ int colvarmodule::error(std::string const &message, int code)
 
 int colvarmodule::fatal_error(std::string const &message)
 {
-  // TODO once all non-fatal errors have been set to be handled by error(),
-  // set DELETE_COLVARS here for VMD to handle it
   set_error_bits(FATAL_ERROR);
   proxy->fatal_error(message);
   return get_error();
-}
-
-
-void cvm::exit(std::string const &message)
-{
-  proxy->exit(message);
 }
 
 
