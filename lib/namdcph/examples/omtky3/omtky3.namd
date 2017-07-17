@@ -1,4 +1,4 @@
-source ../../lib/namdcph/namdcph.tcl
+source ../../namdcph.tcl
 cphConfigFile toppar/conf_cph36_prot.json
 
 paratypecharmm on
@@ -10,7 +10,7 @@ topology toppar/top_all36_prot.rtf
 topology toppar/top_cph36_prot.rtf
 
 
-structure .topology/omtky3.hmr.psf
+structure topology/omtky3.hmr.psf
 coordinates topology/omtky3.pdb
 binCoordinates topology/omtky3.coor
 binVelocities topology/omtky3.vel
