@@ -3347,12 +3347,13 @@ void Controller::printEnergies(int step, int minimize)
 
 	iout << "\n\n" << endi;
         
-        
-        iout << "QMETITLE:      TS";
-        iout << FORMAT("QMID");
-        iout << FORMAT("ENERGY");
-        if (simParameters->PMEOn) iout << FORMAT("PMECORRENERGY");
-        iout << "\n\n" << endi;
+        if (simParameters->qmForcesOn) {
+            iout << "QMETITLE:      TS";
+            iout << FORMAT("QMID");
+            iout << FORMAT("ENERGY");
+            if (simParameters->PMEOn) iout << FORMAT("PMECORRENERGY");
+            iout << "\n\n" << endi;
+        }
         
     }
 
