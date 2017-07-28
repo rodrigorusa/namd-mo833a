@@ -196,10 +196,10 @@ proc ::cphSystem::proposeResidueTautomerization {segresid {maxAttempts 10}} {
 # Compute the (reduced) energy difference for a Monte Carlo move based on the 
 # given <segid>:<resid>, its current and trial state, and the given pH.
 #
-# The proposal energy is based exlusively the "intrinsic" pKa and the change in
-# the protonation vector. There are two cases: 1) tautomerizations and
-# 2) titrations, the former of which is not a proper pKa as the move does not
-# depend on pH (since no protons are going to or leaving the bath).
+# The proposal energy is based exclusively on the "intrinsic" pKa and the
+# change in the protonation vector. There are two cases: 1) tautomerizations
+# and 2) titrations, the former of which is not a proper pKa as the move does
+# not depend on pH (since no protons are entering or leaving the bath).
 #
 # case 1, n = n':
 #
@@ -509,11 +509,8 @@ proc ::cphSystem::checkResDefs {resDefs} {
             }
         }
         # Build the pairwise parameters for this definition.
-        set tmpList [list] 
-        resDef2Matrix tmpList $resDef $dG
-        dict set resDefs $resname dGPair $tmpList
-        resDef2Matrix tmpList $resDef $pKa
-        dict set resDefs $resname pKaPair $tmpList
+        dict set resDefs $resname dGPair [resDef2Matrix $resDef $dG]
+        dict set resDefs $resname pKaPair [resDef2Matrix $resDef $pKa]
     }
     return $resDefs
 }
@@ -624,7 +621,7 @@ proc ::cphSystem::randomizeState {segresid pH} {
 # pKaiPair           pair pKai for current/trial states 
 # statePatch         patch for the current state
 # hybridPatch        alchemical patch for the trial state
-# alchAtomLists*      lists of alchemical atoms at 0/1
+# alchAtomLists*     lists of alchemical atoms at 0/1
 # alchBonds*^        extraBonds entries
 #
 # * - segresid selection is required
@@ -934,11 +931,10 @@ proc ::cphSystem::cphSystemSet {attr segresid value} {
     if {[string match $attr pKai]} {
         set resname [cphSystem get resname $segresid]
         set resDef [dict get $resDefDict $resname]
-        set tmpList [list]
-        resDef2Matrix tmpList $resDef $value
+        set pKaiMatrix [resDef2Matrix $resDef $value]
         dict set resDict $segresid pKai $value
-        dict set resDict $segresid pKaiPair $tmpList
-        return $tmpList 
+        dict set resDict $segresid pKaiPair $pKaiMatrix 
+        return $pKaiMatrix
     }
 }
 
@@ -949,66 +945,129 @@ proc ::cphSystem::cphSystemSet {attr segresid value} {
 # 
 # This permits the configuration files to have "missing" information when it is
 # not used. The downside is that essentially every case needs to have its own
-# conventions. The general rule is that transitions are ALWAYS from the higher
-# index to lower index. This usually, but not always, implies a decrease in
-# the number of protons (i.e. pKa values are positive).
+# conventions.
+#
+# Arguments:
+# ----------
+# matrix : list
+#   
 #
 # Returns
 # -------
 #  0 - The matrix was successfully updated.
 # -1 - The specific combination of state definitions is not implemented
-#      Ex. A state is unexpectedly missing and leaves a gap in the cycle
+#      Ex. A state is unexpectedly missing and leaves a gap in the cycle or
+#      too many definitions are given
 # -2 - There is an inconsistency in the truncated definition
 #      Ex. The sum of parameters around the cycle is not 0 - THIS MIGHT SIMPLY
 #      IMPLY A NEGATIVE SIGN ERROR!
 #
-proc ::cphSystem::resDef2Matrix {matrix resDef data} {
-    upvar 1 $matrix Matrix
-
+proc ::cphSystem::resDef2Matrix {resDef data} {
+    #   The logic and mathematics here is a bit dreadful. Basically, we have
+    # networks of states based on the number of protonation sites (numSites).
+    # A given network has, at most, maxStates = 2**numSites states, but
+    # generally many fewer than this, because some of the states don't exist
+    # for physical reasons (e.g. doubly protonated carboxylates).
+    #   The problems begin because the residue attributes (dG and pKa) do not
+    # describe states, but rather transitions between pairs of states - there
+    # are formally numStates**2 pairs! Fortunately, attributes between
+    # identical states will always be zero and transitions between pairs of
+    # states in opposite directions just have flipped signs. There are
+    # therefore only numStates*(numStates - 1)/2 pairs of states that need to
+    # be stored (as a flat, off-diagonal matrix, see index2flatindex, note that
+    # this conversion is symmetric!). Lookup is always done with respect to the
+    # full set of states (i.e. the size is computed with maxStates, not
+    # numStates). The row/column indices are computed as a left-right binary
+    # conversion of the occupancy vector to a scalar (see occupancy2Index).
+    #  Just to make things more complicated, many systems have equivalent
+    # sites such that many fewer pairwise values are needed. For example, a
+    # carboxylate formally has two sites and four states, one of which is
+    # neglected. The two sites are also equivalent, so this system has, at max
+    # 2**2*(2**2 - 1)/2 = 6 pairs, but only three are used in practice. Two of
+    # these pairs are the same, so only a single value is specified.
+    #
+    # Long story short: Each case is handled specially and implemented by hand
+    # (YUCK!). Fortunately, it is the state pattern that is implemented, not
+    # the residue name or some overly specific nonsense. If a pattern has been
+    # implemented, then any residue following that pattern works also (e.g.
+    # ACE, ASP, and GLU are all one pattern).
+    #
+    # Final note:
+    #   Because only half of the diagonal elements are stored, the signs are
+    # computed on-the-fly. This assumes that all proper pKa values are positive
+    # - a negative pKa should never be inserted into pKa matrix. For "improper
+    # pKas" (i.e. tautomerizations), the assumption is that the value is from
+    # the higher index to the lower index (this may be negative).
+    #   In the reduced listing all unique transitions from the highest index
+    # should be specified first before going to the next highest index for
+    # which unique transitions remain. In practice, that explanation is
+    # probably pretty useless, so just look at the specific code for the given
+    # case when making a new definition.
+    #
     set states [dict get $resDef states]
     set numSites [llength [dict get $resDef states [lindex $states 0]]]
     set numStates [dict size $states]
     set maxStates [expr {int(pow(2, $numSites))}]
     set numPairs [expr {int($maxStates*($maxStates - 1) / 2)}]
     # Are any protonation counts missing?
-    set stateExists [lrepeat [expr {$numSites+1}] 0]
+    set nprotonsExists [lrepeat [expr {$numSites+1}] 0]
     dict for {state occ} $states {
         set nprotons [expr {lsum($occ)}]
         for {set i 0} {$i <= $numSites} {incr i} {
             if {$i == $nprotons} {
-                lset stateExists $i 1
+                lset nprotonsExists $i 1
             }
         }
     }
 
     set Matrix [lrepeat $numPairs 0.0]
-    if {$numSites == 1} {
-        set uniqueEntries [list 0]
-        lassign $data attr10
-        lset Matrix [index2flatindex 1 0] $attr10
-    } elseif {$numSites == 2} {
-        if {$numStates == 3} {
-            if {![lindex $stateExists 0]} {
-                # state (0,0) is deleted, Ex. HIS
-                lassign $data attr32 attr31
+    set numValues [llength $data]
+    set errorCode 0
+    switch -- $numSites 1 {
+        switch -- $numValues 1 {
+            lset Matrix [index2flatindex 1 0] $data
+        } default {
+            set errorCode -1 
+        }
+    } 2 {
+        switch -- $numStates 3 {
+            if {![lindex $nprotonsExists 0]} {;# state (0,0) is deleted
+                switch -- $numValues 1 {
+                    lassign $data attr32
+                    set attr31 $attr32
+                } 2 {;# Ex. HIS
+                    lassign $data attr32 attr31
+                } default {
+                    set errorCode -1
+                }
                 lset Matrix [index2flatindex 3 2] $attr32
                 lset Matrix [index2flatindex 3 1] $attr31
                 lset Matrix [index2flatindex 2 1] [expr {$attr31 - $attr32}]
-            } elseif {![lindex $stateExists 2]} {
-                # state (1,1) is deleted, Ex. ASP, GLU
-                lassign $data attr20 attr10
+            } elseif {![lindex $nprotonsExists 2]} {;# state (1,1) is deleted
+                switch -- $numValues 1 {;# Ex. carboxylates (ASP, GLU)
+                    lassign $data attr20
+                    set attr10 $attr20
+                } 2 {
+                    lassign $data attr20 attr10
+                } default {
+                    set errorCode -1
+                }
                 lset Matrix [index2flatindex 2 1] [expr {$attr20 - $attr10}]
                 lset Matrix [index2flatindex 2 0] $attr20
                 lset Matrix [index2flatindex 1 0] $attr10
             } else {
                 # Why would state (0,1) or (1,0) be missing?
-                return -1
+                set errorCode -1
             }
-        } else {
-            lassign $data attr32 attr31 attr20 attr10
+        } 4 {
+            switch -- $numValues 4 {
+                lassign $data attr32 attr31 attr20 attr10
+            } default {
+                set errorCode -1
+            }
             set attr30 [expr {$attr31 + $attr10}]
             if {$attr30 != [expr {$attr32 + $attr20}]} {
-                return -2
+                set errorCode -2
             }
             lset Matrix [index2flatindex 3 2] $attr32
             lset Matrix [index2flatindex 3 1] $attr31
@@ -1016,19 +1075,27 @@ proc ::cphSystem::resDef2Matrix {matrix resDef data} {
             lset Matrix [index2flatindex 2 1] [expr {$attr20 - $attr10}]
             lset Matrix [index2flatindex 2 0] $attr20
             lset Matrix [index2flatindex 1 0] $attr10
+        } default {
+            set errorCode -1
         }
-    } elseif {$numSites == 3} {
-        if {$numStates == 4} {
-            if {![lindex $stateExists 0] && ![lindex $stateExists 1]} {
-                # state (0,0,0) and 1 proton states missing, Ex. LYS
-                lassign $data attr76 attr75 attr73
+    } 3 {
+        switch -- $numStates 4 {
+            if {![lindex $nprotonsExists 0] && ![lindex $nprotonsExists 1]} {
+                # state (0,0,0) and 1 proton states missing
+                switch -- $numValues 1 {;# Ex. LYS
+                    lassign $data attr76
+                    set attr75 $attr76
+                    set attr73 $attr76
+                } default {
+                    set errorCode -1
+                }
                 set attr53 [expr {$attr73 - $attr75}]
                 set attr63 [expr {$attr73 - $attr76}]
                 set attr65 [expr {$attr75 - $attr76}]
                 if {$attr53 != [expr {$attr63 - $attr65}]
                     || $attr63 != [expr {$attr53 - $attr65}]
                     || $attr65 != [expr {$attr63 - $attr53}]} {
-                    return -2
+                    set errorCode -2
                 }
                 lset Matrix [index2flatindex 7 6] $attr76
                 lset Matrix [index2flatindex 7 5] $attr75
@@ -1037,12 +1104,62 @@ proc ::cphSystem::resDef2Matrix {matrix resDef data} {
                 lset Matrix [index2flatindex 6 3] $attr63
                 lset Matrix [index2flatindex 5 3] $attr53
             } else {
-                return -1
+                set errorCode -1
             }
-        } else {
-            return -1
+        } 7 {
+            if {![lindex $nprotonsExists 3]} {
+                switch -- $numValues 2 {;# Ex. PHOsphate w/o H3PO4
+                    lassign $data attr64 attr40
+                    set attr62 $attr64
+                    set attr61 $attr64
+                    set attr54 $attr64
+                    set attr52 $attr64
+                    set attr51 $attr64
+                    set attr34 $attr64
+                    set attr32 $attr64
+                    set attr31 $attr64 
+                    set attr20 $attr40
+                    set attr10 $attr40
+
+                    set attr60 [expr {$attr64 + $attr40}]
+                    set attr50 [expr {$attr54 + $attr40}]
+                    set attr30 [expr {$attr32 + $attr20}]
+                    # All other pairs are zero
+
+                    lset Matrix [index2flatindex 6 4] $attr64
+                    lset Matrix [index2flatindex 6 2] $attr62
+                    lset Matrix [index2flatindex 6 1] $attr61
+                    lset Matrix [index2flatindex 5 4] $attr54
+                    lset Matrix [index2flatindex 5 2] $attr52
+                    lset Matrix [index2flatindex 5 1] $attr51
+                    lset Matrix [index2flatindex 3 4] $attr34
+                    lset Matrix [index2flatindex 3 2] $attr32
+                    lset Matrix [index2flatindex 3 1] $attr31
+                    lset Matrix [index2flatindex 4 0] $attr40
+                    lset Matrix [index2flatindex 2 0] $attr20
+                    lset Matrix [index2flatindex 1 0] $attr10
+                    lset Matrix [index2flatindex 6 0] $attr60
+                    lset Matrix [index2flatindex 5 0] $attr50
+                    lset Matrix [index2flatindex 3 0] $attr30
+                } default {
+                    set errorCode -1
+                }
+            } else {
+                set errorCode -1
+            }
+        # TODO: Add H3PO4 with 8 states total 
+        } default {
+            set errorCode -1
         }
+    } default {
+        set errorCode -1
     }
-    return 0
+    switch -- $errorCode -1 {
+        abort "Bad or unimplemented specification of $numValues values for\
+                $numSites site residue with $numStates states"
+    } -2 {
+        abort "Error in thermodynamic cycle"
+    }
+    return $Matrix
 }
 
