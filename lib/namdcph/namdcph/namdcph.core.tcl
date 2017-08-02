@@ -47,6 +47,7 @@ namespace eval ::namdcph {
 proc ::namdcph::cphRun {numsteps {numcycles 1}} {
     # Initialize NAMD and build a constant pH enabled PSF.
     initialize
+    finalize
     if {$::namdcph::numMinSteps > 0} {
         set tmp [firstTimeStep]
         minimize $::namdcph::numMinSteps
@@ -100,10 +101,12 @@ proc ::namdcph::cphRun {numsteps {numcycles 1}} {
 # Test one or more residue definitions.
 #
 proc ::namdcph::testResidue {resnames {verbose 0}} {
+    cphWarnExpt
     pH 7.0
     cphForceConstant 0.0
     # Initialize NAMD and build a constant pH enabled PSF.
     initialize
+    finalize
     $::thermostatTempCmd 0.0
     outputEnergies 1
     alchLambdaFreq 0
@@ -201,6 +204,58 @@ proc ::namdcph::testResidue {resnames {verbose 0}} {
     file delete {*}[glob [getSWBasename].*]
     file delete {*}[glob [getMDBasename].*]
     return 
+}
+
+#
+# FOR ADVANCED USE ONLY!!!
+#
+# ::namdcph::cphAnalyzeForce
+#
+# Test one or more residue definitions.
+#
+proc ::namdcph::cphAnalyzeForce {dcdfilename segresid stateList} {
+    cphWarnExpt
+    pH 7.0
+    lassign $stateList state0 state1
+
+    cphSetResidueState $segresid $state0
+    initialize
+    set nframes 0
+    coorfile open dcd $dcdfilename
+    while {![coorfile read]} {
+        output [format "%s.%d" [getMDBasename] $nframes]
+        incr nframes
+    }
+    coorfile close
+    set initialPSF [structure]
+    set initialPDB [coordinates]
+    finalize
+
+    for {set n 0} {$n < $nframes} {incr n} {
+        # We have to do this so that inputs can be correctly loaded...
+        set basename [format "%s.%d" [getMDBasename] $n]
+        file copy -force $initialPSF "$basename.psf"
+        file copy -force $initialPDB "$basename.pdb"
+        reloadAndReinit $basename false
+        # Assign the correct state and build protons or dummy atoms
+        cphSystem initializeState $segresid $state0
+        cphSystem alchemifypsf $segresid 0.0 0.0
+        cphSystem dealchemifypsf $segresid
+        regenerate angles dihedrals
+        cphSystem update 1 $segresid
+        psfgenWrite [getMDBasename]
+        reloadAndReinit [getMDBasename] false
+        # Now build the alchemical atoms
+        cphSystem set trialState $segresid $state1
+        alchemify $segresid
+        reloadAndReinit [getSWBasename] true
+        firsttimestep $n
+        run 0
+        dealchemify $segresid 
+    }
+    file delete {*}[glob [getMDBasename].*]
+    file delete {*}[glob [getSWBasename].*]
+    return
 }
 
 # =============================================================================
@@ -561,6 +616,28 @@ proc ::namdcph::dealchemify {segresidList} {
 # =============================================================================
 # Constant pH specific I/O
 # =============================================================================
+# ::namdcph::readConfig
+#
+# Read a constant pH config file and return template definitions.
+#
+# Arguments:
+# ----------
+# None
+#
+# Returns:
+# --------
+# templateDefs : dict
+#   A dict conversion of the config file contents from JSON
+#
+proc ::namdcph::readConfig {} {
+    #TODO: permit reading of multiple config files
+    variable ::namdcph::configFilename
+    set ConfigFile [open $configFilename "r"]
+    set templateDefs [json::json2dict [read $ConfigFile]]
+    close $ConfigFile
+    return $templateDefs
+}
+
 # ::namdcph::readRestart
 #
 # Read in a constant pH state from file.
@@ -739,6 +816,11 @@ proc ::namdcph::cphAbort {msg} {
     abort "$::namdcph::TITLE $msg"
 }
 
+proc ::namdcph::cphWarnExpt {} {
+    cphPrint "WARNING! THIS FEATURE IS EXPERIMENTAL!"
+    cphPrint "RESULTS ARE NOT GUARANTEEED - USE AT YOUR OWN RISK"
+}
+
 # =============================================================================
 # Setup Routines
 # =============================================================================
@@ -774,7 +856,6 @@ proc ::namdcph::checkSettings {} {
 #    protonation states
 #
 proc ::namdcph::initialize {} {
-    variable ::namdcph::configFilename
     variable ::namdcph::restartFilename
     variable ::namdcph::stateInfo
     variable ::namdcph::moveInfo
@@ -790,6 +871,8 @@ proc ::namdcph::initialize {} {
     # rebuild the topology to reflect those states.
     #
     cphPrint "initializing constant pH PSF..."
+    cphSystem build [readConfig] $residueAliases $excludeList
+
     if {[string length $restartFilename] > 0} {
         lassign [readRestart $restartFilename] states pKais MCmoves
         lassign [list 0.0 false] temp buildH
@@ -797,10 +880,6 @@ proc ::namdcph::initialize {} {
         lassign [list {} {} [dict create]] states pKais MCmoves
         lassign [list [$::thermostatTempCmd] true] temp buildH
     }
-    set ConfigFile [open $configFilename "r"]
-    set templateDefs [json::json2dict [read $ConfigFile]]
-    close $ConfigFile
-    cphSystem build $templateDefs $residueAliases $excludeList
     # Use the system topology to make assignments from the restart
     if {[llength $states] && [llength $pKais]} { 
         foreach segresid [cphSystem get segresids] state $states pKai $pKais {
@@ -832,6 +911,10 @@ proc ::namdcph::initialize {} {
             cphPrint [format "%-14s : %-s" $moveLabel $data]
         }
     }
+    return
+}
+
+proc ::namdcph::finalize {} {
     # 5) Write to disk and prepare for MD.
     if {[isset extendedSystem]} {
         set inputXSCName [extendedSystem]

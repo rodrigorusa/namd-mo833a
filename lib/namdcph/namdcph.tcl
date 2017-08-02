@@ -20,7 +20,7 @@ namespace eval ::namdcphwrapper {
             cphForceConstant cphMDBasename cphSwitchBasename\
             cphMaxProposalAttempts cphNumMinSteps cphProposalWeight\
             cphNumstepsPerSwitch\
-            testResidue cphExcludeResidue
+            testResidue cphAnalyzeForce cphExcludeResidue
 
     # Old command name for legacy reasons.
     proc runcph {args} {
