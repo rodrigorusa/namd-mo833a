@@ -29,7 +29,9 @@ void GlobalMasterSymmetry::parseMatrix(int id, char fileName []){
   int count = 1;
   string line;
   ifstream matrixFile (fileName);
-  if (matrixFile.is_open()){
+  if (! matrixFile.is_open()){
+    NAMD_err((std::string("Error opening symmetry matrix file ") + fileName).c_str());
+  } else {
     while (!matrixFile.eof()){
       vector <string> tmp;
       for (int i = 0; i < 4; i++){
