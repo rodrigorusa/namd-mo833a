@@ -189,7 +189,7 @@ __global__ void cuda_pme_charges_batched_dev(
       int gtk = ak;  if ( gtk >= K3 ) gtk -= K3;
       gtk += tk;  // padded to increase coalescing (maybe, but reduces re-use)
       float *dest = q_arr[gti * K2 + gtj];  // could load as constant
-      atomicAdd(dest+gtk,val);
+      if ( dest ) atomicAdd(dest+gtk,val);
     }
   } // i_atom
 }
@@ -279,7 +279,7 @@ if ( gti < 0 || gtj < 0 || gtk < 0 || gti >= K1 || gtj >= K2 || gtk >= K3+order-
   printf("%d/%d %d %d %d %d %f %f %f %ld %f %f %f %f\n", aidx, n_atoms, i, gti, gtj, gtk, AI, AJ, AK, dest, AQ, AX, AY, AZ);
 } else
 #endif
-       atomicAdd(dest+gtk,val);
+       if ( dest ) atomicAdd(dest+gtk,val);
     }
   } // i_atom
 }
@@ -365,7 +365,7 @@ __global__ void cuda_pme_forces_dev(
       
       gtk += tk;  // padded to increase coalescing (maybe, but reduces re-use)
       const float * __restrict__ src = q_arr[gti * K2 + gtj];  // could load as constant
-      float pot = src[gtk];
+      float pot = src ? src[gtk] : __int_as_float(0x7fffffff);  // CUDA NaN
       force_x += dx * pot;
       force_y += dy * pot;
       force_z += dz * pot;

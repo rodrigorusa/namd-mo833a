@@ -4040,10 +4040,25 @@ void ComputePme::ungridForces() {
 
 #ifdef NAMD_CUDA
       if ( offload ) {
+	int errfound = 0;
 	for ( int n=numGridAtoms[g], i=0; i<n; ++i ) {
+	  // Neither isnan() nor x != x worked when testing on Cray; this does.
+	  if ( ((int*)f_data_host)[3*i] == 0x7fffffff ) { errfound = 1; }  // CUDA NaN
 	  gridResults[i].x = f_data_host[3*i];
 	  gridResults[i].y = f_data_host[3*i+1];
 	  gridResults[i].z = f_data_host[3*i+2];
+	}
+	if ( errfound ) {
+	  int errcount = 0;
+	  for ( int n=numGridAtoms[g], i=0; i<n; ++i ) {
+	    float f = f_data_host[3*i];
+	    if ( ((int*)f_data_host)[3*i] == 0x7fffffff ) {  // CUDA NaN
+	      ++errcount;
+	      gridResults[i] = 0.;
+	    }
+	  }
+	  iout << iERROR << "Stray PME grid charges detected: "
+		<< errcount << " atoms on pe " << CkMyPe() << "\n" << endi;
 	}
       } else
 #endif // NAMD_CUDA
