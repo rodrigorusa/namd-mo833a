@@ -500,6 +500,9 @@ proc ::namdcph::runSwitch {numsteps segresidList} {
     outputEnergies $numsteps
     dcdFreq 0
     firstTimestep 0
+    if {$::barostatIsSet && [$::barostatCmd]} {
+        $::barostatCmd off
+    }
     # (2) Build the alchemical switch inputs.
     #
     alchemify $segresidList
@@ -524,6 +527,10 @@ proc ::namdcph::runSwitch {numsteps segresidList} {
     outputEnergies $storedOutputEnergies
     dcdFreq $storedDCDFreq
     firstTimestep $storedTimestep
+    if {$::barostatIsSet && ![$::barostatCmd]} {
+        $::barostatCmd on
+    }
+
     if {$accept} {
         cphPrint "Switch accepted!"
         dealchemify $segresidList
@@ -840,9 +847,7 @@ proc ::namdcph::checkSettings {} {
     }
 
     getThermostat
-    if {[getBarostat]} { ; # For now, disable constant pressure.
-        cphAbort "Constant pH does not currently support the use of a barostat."
-    }
+    getBarostat
     return
 }
 
