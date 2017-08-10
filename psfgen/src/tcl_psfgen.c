@@ -1735,8 +1735,11 @@ int tcl_writenamdbin(ClientData data, Tcl_Interp *interp,
     }
   }
   sprintf(msg,"Info: writing namdbin file %s",filename);
-  if ( vel_file ) sprintf(msg,"Info: writing velnamdbin file %s",velfilename);
   newhandle_msg(interp,msg);
+  if ( vel_file ) {
+    sprintf(msg,"Info: writing velnamdbin file %s",velfilename);
+    newhandle_msg(interp,msg);
+  }
   if ( topo_mol_write_namdbin(psf->mol,res_file,vel_file,interp,newhandle_msg) ) {
     Tcl_AppendResult(interp,"ERROR: failed on writing coordinates to namdbin file",NULL);
     fclose(res_file);
