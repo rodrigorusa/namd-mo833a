@@ -147,8 +147,6 @@ proc alchUnpatch {segresid l0atomList l1atomList} {
     set residue [segment residue $segid $resid]
     psfgenPrint "merging alchemical sidechains for $segresid:$residue"
     foreach l0atom $l0atomList l1atom $l1atomList { 
-        psfset coord $segid $resid $l1atom\
-                [segment coordinates $segid $resid $l0atom]
         delatom $segid $resid $l0atom
         psfset beta $segid $resid $l1atom 0.0
         psfset name $segid $resid $l1atom $l0atom
