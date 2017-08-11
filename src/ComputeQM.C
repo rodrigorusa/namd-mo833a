@@ -2354,11 +2354,13 @@ void ComputeQMMgr::storeQMRes(QMGrpResMsg *resMsg) {
 //         iout << " Kcal/mol\n" << endi;
 //     }
     
-    iout << QMETITLE(timeStep);
-    iout << FORMAT(grpID[resMsg->grpIndx]);
-    iout << FORMAT(resMsg->energyOrig);
-    if (resMsg->energyCorr != resMsg->energyOrig) iout << FORMAT(resMsg->energyCorr);
-    iout << "\n\n" << endi;
+    if ( (timeStep % simParams->qmEnergyOutFreq ) == 0 ) {
+        iout << QMETITLE(timeStep);
+        iout << FORMAT(grpID[resMsg->grpIndx]);
+        iout << FORMAT(resMsg->energyOrig);
+        if (resMsg->energyCorr != resMsg->energyOrig) iout << FORMAT(resMsg->energyCorr);
+        iout << "\n\n" << endi;
+    }
     
     totalEnergy += resMsg->energyCorr ;
     
@@ -2735,14 +2737,33 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
         pcPpme = pcP;
     }
     
+    int retVal = 0;
+    struct stat info;
+    
     // For each QM group, create a subdirectory where files will be palced.
     std::string baseDir(msg->baseDir);
-    baseDir.append("/") ;
     std::ostringstream itosConv ;
+    if ( CmiNumPartitions() > 1 ) {
+        baseDir.append("/") ;
+        itosConv << CmiMyPartition() ;
+        baseDir += itosConv.str() ;
+        itosConv.str("");
+        itosConv.clear() ;
+        
+        if (stat(msg->baseDir, &info) != 0 ) {
+            CkPrintf( "Node %d cannot access directory %s\n",
+                      CkMyPe(), baseDir.c_str() );
+            NAMD_die("QM calculation could not be ran. Check your qmBaseDir!");
+        }
+        else if (! (stat(baseDir.c_str(), &info) == 0 && S_ISDIR(info.st_mode)) ) {
+            DebugM(4,"Creating directory " << baseDir.c_str() << std::endl);
+            retVal = mkdir(baseDir.c_str(), S_IRWXU);
+        }
+        
+    }
+    baseDir.append("/") ;
     itosConv << msg->peIter ;
     baseDir += itosConv.str() ;
-    
-    struct stat info;
     
     if (stat(msg->baseDir, &info) != 0 ) {
         CkPrintf( "Node %d cannot access directory %s\n",
@@ -2751,7 +2772,7 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
     }
     else if (! (stat(baseDir.c_str(), &info) == 0 && S_ISDIR(info.st_mode)) ) {
         DebugM(4,"Creating directory " << baseDir.c_str() << std::endl);
-        int retVal = mkdir(baseDir.c_str(), S_IRWXU);
+        retVal = mkdir(baseDir.c_str(), S_IRWXU);
     }
     
     #ifdef DEBUG_QM
