@@ -124,39 +124,56 @@ inline void fep_vdw_forceandenergies (BigReal A, BigReal B, BigReal r2,
     // separation-shifted vdW force and energy
     const BigReal U1 = A*r6_1*r6_1 - B*r6_1; // NB: unscaled, shorthand only!
     const BigReal U2 = A*r6_2*r6_2 - B*r6_2;
-    *alch_vdw_energy = myVdwLambda*U1;
-    *alch_vdw_energy_2 = myVdwLambda2*U2;
-    *alch_vdw_force = myVdwLambda*switchmul*(12.*U1 + 6.*B*r6_1)*r2_1;
-
+    *alch_vdw_energy = myVdwLambda*switchmul*U1;
+    *alch_vdw_energy_2 = myVdwLambda2*switchmul*U2;
+    *alch_vdw_force = (myVdwLambda*(switchmul*(12.*U1 + 6.*B*r6_1)*r2_1 \
+                                    + switchmul2*U1));
     // BKR - separation-shifted vdW force switching and potential shifting
-    if(!vdwForceSwitching){ // add on chain rule for switch function
-      *alch_vdw_energy *= switchmul;
-      *alch_vdw_energy_2 *= switchmul;
-      *alch_vdw_force += myVdwLambda*switchmul2*U1;
-    }else{ // add potential shifts term
-      const BigReal switchdist6 = switchdist2*switchdist2*switchdist2;
+    if(vdwForceSwitching){ // add potential shifts term
       const BigReal cutoff6 = cutoff2*cutoff2*cutoff2;
-      const BigReal switchdist3 = switchdist2*sqrt(switchdist2);
       const BigReal cutoff3 = cutoff2*sqrt(cutoff2);
+
+      const BigReal shifted_switchdist2 = switchdist2 + myVdwShift;
+      const BigReal shifted_switchdist = sqrt(shifted_switchdist2);
+      const BigReal shifted_switchdist6 = \
+          shifted_switchdist2*shifted_switchdist2*shifted_switchdist2;
+      const BigReal shifted_switchdist3 = shifted_switchdist2*shifted_switchdist;
+     
+      const BigReal shifted_switchdist2_2 = switchdist2 + myVdwShift2;
+      const BigReal shifted_switchdist_2 = sqrt(shifted_switchdist2_2);
+      const BigReal shifted_switchdist6_2 = \
+          shifted_switchdist2_2*shifted_switchdist2_2*shifted_switchdist2_2;
+      const BigReal shifted_switchdist3_2 = shifted_switchdist2_2*shifted_switchdist_2;
+
+      const BigReal v_vdwa = -A / (cutoff6*shifted_switchdist6);
+      const BigReal v_vdwb = -B / (cutoff3*shifted_switchdist3);
+      const BigReal dU = v_vdwa - v_vdwb; //deltaV2 from Steinbach & Brooks
+ 
+      const BigReal v_vdwa2 = -A / (cutoff6*shifted_switchdist6_2);
+      const BigReal v_vdwb2 = -B / (cutoff3*shifted_switchdist3_2);
+      const BigReal dU2 = v_vdwa2 - v_vdwb2; //deltaV2 from Steinbach & Brooks
+
       if(r2 > switchdist2) {
-	const BigReal k_vdwa = A*cutoff6 / (cutoff6 - switchdist6);
-	const BigReal k_vdwb = -B*cutoff3 / (cutoff3 - switchdist3);
-	const BigReal tmpa_1 = r6_1 - (1./cutoff6);
-	const BigReal r_1 = sqrt(r2_1);
-	const BigReal tmpb_1 = r2_1*r_1 - (1./cutoff3);
-	const BigReal U1h = k_vdwa*tmpa_1*tmpa_1 + k_vdwb*tmpb_1*tmpb_1;
-	const BigReal tmpa_2 = r6_2 - (1./cutoff6);
-	const BigReal r_2 = sqrt(r2_2);
-	const BigReal tmpb_2 = r2_2*r_2 - (1./cutoff3);
-	const BigReal U2h = k_vdwa*tmpa_2*tmpa_2 + k_vdwb*tmpb_2*tmpb_2;
-	*alch_vdw_energy = myVdwLambda*U1h;
-	*alch_vdw_energy_2 = myVdwLambda2*U2h;
+	const BigReal k_vdwa = A*cutoff6 / (cutoff6 - shifted_switchdist6);
+	const BigReal k_vdwb = B*cutoff3 / (cutoff3 - shifted_switchdist3);
+        const BigReal r_1 = sqrt(r2_1);
+        const BigReal tmpa = r6_1 - (1./cutoff6);
+        const BigReal tmpb = r2_1*r_1 - (1./cutoff3);
+
+        const BigReal k_vdwa2 = A*cutoff6 / (cutoff6 - shifted_switchdist6_2);
+        const BigReal k_vdwb2 = B*cutoff3 / (cutoff3 - shifted_switchdist3_2);
+        const BigReal r_2 = sqrt(r2_2);
+        const BigReal tmpa2 = r6_2 - (1./cutoff6);
+        const BigReal tmpb2 = r2_2*r_2 - (1./cutoff3);
+
+        *alch_vdw_energy = myVdwLambda*(k_vdwa*tmpa*tmpa - k_vdwb*tmpb*tmpb);
+        *alch_vdw_energy_2 = myVdwLambda2*(k_vdwa2*tmpa2*tmpa2 \
+                                           - k_vdwb2*tmpb2*tmpb2);
+        *alch_vdw_force = (myVdwLambda*r2_1*(12.*k_vdwa*tmpa*r6_1
+                                             - 6.*k_vdwb*tmpb*r2_1*r_1));
       }else{
-        const BigReal v_vdwa = -A / (switchdist6*cutoff6);
-        const BigReal v_vdwb = B / (switchdist3*cutoff3);
-        const BigReal dU = v_vdwa + v_vdwb; //deltaV2 from Steinbach & Brooks
 	*alch_vdw_energy += myVdwLambda*dU;
-	*alch_vdw_energy_2 += myVdwLambda2*dU;
+	*alch_vdw_energy_2 += myVdwLambda2*dU2;
       }
     }
   }
