@@ -430,6 +430,9 @@ buildTileListsBBKernel(const int numTileLists,
       float shy = offsetXYZ.x*lata.y + offsetXYZ.y*latb.y + offsetXYZ.z*latc.y;
       float shz = offsetXYZ.x*lata.z + offsetXYZ.y*latb.z + offsetXYZ.z*latc.z;
 
+      // DH - set zeroShift flag if magnitude of shift vector is zero
+      bool zeroShift = ! (shx*shx + shy*shy + shz*shz > 0);
+
       // Load patches
       patch1 = patches[patchInd.x];
       patch2 = patches[patchInd.y];
@@ -437,7 +440,9 @@ buildTileListsBBKernel(const int numTileLists,
       numTiles2 = (patch2.numAtoms-1)/WARPSIZE+1;
       int tileStart1 = patch1.atomStart/WARPSIZE;
       int tileStart2 = patch2.atomStart/WARPSIZE;
-      bool self = (tileStart1 == tileStart2);
+
+      // DH - self requires that zeroShift is also set
+      bool self = zeroShift && (tileStart1 == tileStart2);
 
       // Load i-atom data (and shift coordinates)
       BoundingBox boundingBoxI = boundingBoxes[i + tileStart1];

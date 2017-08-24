@@ -219,6 +219,9 @@ nonbondedForceKernel(const int start, const int numTileLists,
       float shy = tmp.offsetXYZ.x*lata.y + tmp.offsetXYZ.y*latb.y + tmp.offsetXYZ.z*latc.y;
       float shz = tmp.offsetXYZ.x*lata.z + tmp.offsetXYZ.y*latb.z + tmp.offsetXYZ.z*latc.z;
 
+      // DH - set zeroShift flag if magnitude of shift vector is zero
+      bool zeroShift = ! (shx*shx + shy*shy + shz*shz > 0);
+
       int iatomSize, iatomFreeSize, jatomSize, jatomFreeSize;
       if (doPairlist) {
         PatchPairRecord PPStmp = patchPairs[itileList];
@@ -359,7 +362,8 @@ nonbondedForceKernel(const int start, const int numTileLists,
           }
         }
 
-        const bool self = (iatomStart == jatomStart);
+        // DH - self requires that zeroShift is also set
+        const bool self = zeroShift && (iatomStart == jatomStart);
         const int modval = (self) ? 2*WARPSIZE-1 : WARPSIZE-1;
 
         float3 jforce;
