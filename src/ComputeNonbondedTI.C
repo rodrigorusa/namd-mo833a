@@ -19,8 +19,8 @@
 inline void ti_vdw_force_energy_dUdl (BigReal A, BigReal B, BigReal r2, 
   BigReal myVdwShift, BigReal switchdist2, BigReal cutoff2, 
   BigReal myVdwLambda, BigReal alchVdwShiftCoeff, BigReal switchfactor, 
-  Bool vdwForceSwitching, BigReal* alch_vdw_energy, BigReal* alch_vdw_force,
-  BigReal* alch_vdw_dUdl) {
+  Bool vdwForceSwitching, Bool LJcorrection, BigReal* alch_vdw_energy,
+  BigReal* alch_vdw_force, BigReal* alch_vdw_dUdl) {
   //myVdwShift already multplied by relevant (1-vdwLambda)
   const BigReal r2_1 = 1./(r2 + myVdwShift);
   const BigReal r6_1 = r2_1*r2_1*r2_1;
@@ -61,7 +61,8 @@ inline void ti_vdw_force_energy_dUdl (BigReal A, BigReal B, BigReal r2,
       const BigReal tmpa = r6_1 - (1./cutoff6);
       const BigReal r_1 = sqrt(r2_1);
       const BigReal tmpb = r2_1*r_1 - (1./cutoff3);
-      const BigReal Uh = k_vdwa*tmpa*tmpa - k_vdwb*tmpb*tmpb; //"harmonic" U
+      const BigReal Uh = (k_vdwa*tmpa*tmpa - k_vdwb*tmpb*tmpb \
+                          - (LJcorrection ? dU : 0.));
       *alch_vdw_energy = myVdwLambda*Uh;
       *alch_vdw_force = (myVdwLambda*r2_1*(12.*k_vdwa*tmpa*r6_1
                                            - 6.*k_vdwb*tmpb*r2_1*r_1));
@@ -69,8 +70,10 @@ inline void ti_vdw_force_energy_dUdl (BigReal A, BigReal B, BigReal r2,
                         *(6.*k_vdwa*tmpa*r6_1                   \
                           - 3.*k_vdwb*tmpb*r2_1*r_1));
     }else{
-      *alch_vdw_energy += myVdwLambda*dU;
-      *alch_vdw_dUdl += dU;
+      if(!LJcorrection) {
+        *alch_vdw_energy += myVdwLambda*dU;
+        *alch_vdw_dUdl += dU;
+      }
     }
   }
 }

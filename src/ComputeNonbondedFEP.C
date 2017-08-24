@@ -21,8 +21,9 @@ inline void fep_vdw_forceandenergies (BigReal A, BigReal B, BigReal r2,
   BigReal cutoff2, BigReal myVdwLambda, BigReal myVdwLambda2, 
   Bool Fep_WCA_repuOn, Bool Fep_WCA_dispOn, bool Fep_Wham, BigReal WCA_rcut1, 
   BigReal WCA_rcut2, BigReal WCA_rcut3, BigReal switchfactor, 
-  Bool vdwForceSwitching, BigReal* alch_vdw_energy, BigReal* alch_vdw_force, 
-  BigReal* alch_vdw_energy_2, BigReal* alch_vdw_energy_2_Left) {
+  Bool vdwForceSwitching, Bool LJcorrection, BigReal* alch_vdw_energy,
+  BigReal* alch_vdw_force, BigReal* alch_vdw_energy_2,
+  BigReal* alch_vdw_energy_2_Left) {
   // switching function (this is correct whether switching is active or not)
   const BigReal switchmul = (r2 > switchdist2 ? switchfactor*(cutoff2 - r2) \
 			     *(cutoff2 - r2)				\
@@ -166,14 +167,18 @@ inline void fep_vdw_forceandenergies (BigReal A, BigReal B, BigReal r2,
         const BigReal tmpa2 = r6_2 - (1./cutoff6);
         const BigReal tmpb2 = r2_2*r_2 - (1./cutoff3);
 
-        *alch_vdw_energy = myVdwLambda*(k_vdwa*tmpa*tmpa - k_vdwb*tmpb*tmpb);
-        *alch_vdw_energy_2 = myVdwLambda2*(k_vdwa2*tmpa2*tmpa2 \
-                                           - k_vdwb2*tmpb2*tmpb2);
+        *alch_vdw_energy = (myVdwLambda*(k_vdwa*tmpa*tmpa - k_vdwb*tmpb*tmpb
+                                         - (LJcorrection ? dU : 0.)));
+        *alch_vdw_energy_2 = (myVdwLambda2*(k_vdwa2*tmpa2*tmpa2 \
+                                            - k_vdwb2*tmpb2*tmpb2
+                                            - (LJcorrection ? dU2 : 0.)));
         *alch_vdw_force = (myVdwLambda*r2_1*(12.*k_vdwa*tmpa*r6_1
                                              - 6.*k_vdwb*tmpb*r2_1*r_1));
       }else{
-	*alch_vdw_energy += myVdwLambda*dU;
-	*alch_vdw_energy_2 += myVdwLambda2*dU2;
+        if(!LJcorrection) {
+	  *alch_vdw_energy += myVdwLambda*dU;
+	  *alch_vdw_energy_2 += myVdwLambda2*dU2;
+        }
       }
     }
   }

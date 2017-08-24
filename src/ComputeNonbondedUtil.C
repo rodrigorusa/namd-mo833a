@@ -126,6 +126,7 @@ BigReal   ComputeNonbondedUtil::alchDispLambda;
 BigReal   ComputeNonbondedUtil::alchElecLambda;
 BigReal   ComputeNonbondedUtil::alchVdwShiftCoeff;
 Bool      ComputeNonbondedUtil::vdwForceSwitching;
+Bool      ComputeNonbondedUtil::LJcorrection;
 Bool      ComputeNonbondedUtil::alchDecouple;
 //fepe
 Bool      ComputeNonbondedUtil::lesOn;
@@ -305,6 +306,7 @@ void ComputeNonbondedUtil::select(void)
   Bool tabulatedEnergies = simParams->tabulatedEnergies;
   alchVdwShiftCoeff = simParams->alchVdwShiftCoeff;
   vdwForceSwitching = simParams->vdwForceSwitching;
+  LJcorrection = simParams->LJcorrection;
   WCA_rcut1 = simParams->alchFepWCArcut1;
   WCA_rcut2 = simParams->alchFepWCArcut2;
   WCA_rcut3 = simParams->alchFepWCArcut3;
@@ -869,14 +871,14 @@ void ComputeNonbondedUtil::select(void)
     // from Steinbach & Brooks, JCC 15, pgs 667-683, 1994, eqns 10-13
     if ( r2 > switchOn2 ) {
       BigReal tmpa = r_6 - cutoff_6;
-      vdwa_energy = k_vdwa * tmpa * tmpa;
+      vdwa_energy = k_vdwa * tmpa * tmpa - (LJcorrection ? v_vdwa : 0.0);
       BigReal tmpb = r_1 * r_2 - cutoff_3;
-      vdwb_energy = k_vdwb * tmpb * tmpb;
+      vdwb_energy = k_vdwb * tmpb * tmpb - (LJcorrection ? v_vdwb : 0.0);
       vdwa_gradient = -6.0 * k_vdwa * tmpa * r_2 * r_6;
       vdwb_gradient = -3.0 * k_vdwb * tmpb * r_2 * r_2 * r_1;
     } else {
-      vdwa_energy = r_12 + v_vdwa;
-      vdwb_energy = r_6 + v_vdwb;
+      vdwa_energy = r_12 + (LJcorrection ? 0.0 : v_vdwa);
+      vdwb_energy = r_6 + (LJcorrection ? 0.0 : v_vdwb);
       vdwa_gradient = -6.0 * r_2 * r_12;
       vdwb_gradient = -3.0 * r_2 * r_6;
     }

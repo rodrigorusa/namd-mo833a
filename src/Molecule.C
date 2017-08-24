@@ -9687,10 +9687,18 @@ void Molecule::compute_LJcorrection() {
       if ( alchFlagi == 1 || alchFlagi == -1 ) alch_counter++;
       if ( alch_counter == (numFepInitial + numFepFinal) ) break;
     }
-    LJAvgA1 = sumOfAs1 / count1;
-    LJAvgB1 = sumOfBs1 / count1;
-    LJAvgA2 = sumOfAs2 / count2;
-    LJAvgB2 = sumOfBs2 / count2;
+    if ( count1 ) { // Avoid divide by zero for empty groups.
+      LJAvgA1 = sumOfAs1 / count1;
+      LJAvgB1 = sumOfBs1 / count1;
+    } else { // Avoid trailing decimals due to finite precision.
+      LJAvgA1 = LJAvgB1 = 0.0;
+    }
+    if ( count2 ) {
+      LJAvgA2 = sumOfAs2 / count2;
+      LJAvgB2 = sumOfBs2 / count2;
+    } else {
+      LJAvgA2 = LJAvgB2 = 0.0;
+    }
     if ( ! CkMyPe() ) {
       iout << iINFO << "LONG-RANGE LJ: APPLYING ANALYTICAL CORRECTIONS TO "
            << "ENERGY AND PRESSURE\n" << endi;
@@ -9731,13 +9739,13 @@ void Molecule::compute_LJcorrection() {
   BigReal rcut3 = rcut*rcut2;
   BigReal rcut4 = rcut2*rcut2;
   BigReal rcut5 = rcut2*rcut3;
-  BigReal rcut6 = rcut3*rcut3;
   BigReal rcut9 = rcut5*rcut4;
   BigReal rswitch = simParams->switchingDist;
   BigReal rswitch2 = rswitch*rswitch;
   BigReal rswitch3 = rswitch*rswitch2;
   BigReal rswitch4 = rswitch2*rswitch2;
   BigReal rswitch5 = rswitch2*rswitch3;
+  BigReal rswitch6 = rswitch3*rswitch3;
 
   /* Here we tabulate the integrals over the untruncated region. This assumes:
 
@@ -9759,34 +9767,33 @@ void Molecule::compute_LJcorrection() {
   BigReal int_U_gofr_A, int_rF_gofr_A, int_U_gofr_B, int_rF_gofr_B;
   if (simParams->switchingActive) {
     if (!simParams->vdwForceSwitching) {
+      BigReal rsum3 = (rcut + rswitch)*(rcut + rswitch)*(rcut + rswitch);
       int_U_gofr_A = int_rF_gofr_A = (16*PI*(3*rcut4 + 9*rcut3*rswitch
                                       + 11*rcut2*rswitch2 + 9*rcut*rswitch3
                                       + 3*rswitch4)
-                                      / (315*rcut5*rswitch5*(rcut + rswitch)
-                                         *(rcut + rswitch)*(rcut + rswitch)));
-      int_U_gofr_B = int_rF_gofr_B = (-16*PI / (3*(rcut + rswitch)
-                                                *(rcut + rswitch)
-                                                *(rcut + rswitch)));
+                                      / (315*rcut5*rswitch5*rsum3));
+      int_U_gofr_B = int_rF_gofr_B = -16*PI / (3*rsum3);
     }
     else {
-      /* BKR - This only includes the volume dependent portion of the energy
-         correction. In order to fully correct to a true Lennard-Jones
-         potential one also needs a "core" correction to account for the shift
-         inside rswitch; this is a _global_ potential energy shift, regardless
-         of volume. Neglecting this correction is equivalent to stating that
-         the number of atoms in the whole system is much greater than the
-         number within rswitch of any given atom.  Interestingly, this
-         approximation gets better as rswitch shrinks whereas the tail
-         correction gets worse. The extra term has _zero_ affect on the virial
-         since the forces are unchanged.
+      /* BKR - This assumes a definition of the vdwForceSwitching potential
+       that differs from the original by Steinbach and Brooks. Here the
+       potential shift is _subtracted_ from the switching region instead of
+       being _added_ to the region inside switchdist (that would require a
+       short-range correction with no obviously good approximation). The new
+       potential is discontinuous at the cutoff, since it is rigorously zero
+       beyond that point but finite and negative inside it. Nonetheless, the
+       force is continuous, so this is ok.
+
+       NB: Because the difference is just a constant, the virial correction is
+       the same, regardless which definition is chosen.
       */
-      BigReal lnr = log(rswitch/rcut);
+      BigReal lnr = log(rcut/rswitch);
       int_rF_gofr_A = 16*PI / (9*rswitch3*rcut3*(rcut3 + rswitch3));
-      int_rF_gofr_B = 4*PI*lnr / (rcut3 - rswitch3);
-      int_U_gofr_A = (2*PI*(5*rcut3 - 3*rswitch3)
-                      / (9*rswitch3*rcut6*(rcut3 + rswitch3)));
-      int_U_gofr_B = (-2*PI*(rswitch3 - rcut3 - 6*rcut3*lnr)
-                      / (3*rcut3*(rcut3 - rswitch3)));
+      int_rF_gofr_B = -4*PI*lnr / (rcut3 - rswitch3);
+      int_U_gofr_A = (2*PI*(5*rswitch3 - 3*rcut3)
+                      / (9*rcut3*rswitch6*(rcut3 + rswitch3)));
+      int_U_gofr_B = (-2*PI*(rswitch3 - rcut3 + 6*rswitch3*lnr)
+                      / (3*rswitch3*(rcut3 - rswitch3)));
     }
   }
   else {
