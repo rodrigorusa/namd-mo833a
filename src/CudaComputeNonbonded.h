@@ -27,20 +27,21 @@ public:
     int patchInd[2];
     Vector offset;
   };
-	struct PatchRecord {
-		PatchRecord(PatchID patchID) : patchID(patchID) {
-			patch = NULL;
+
+  struct PatchRecord {
+    PatchRecord(PatchID patchID) : patchID(patchID) {
+      patch = NULL;
       compAtom = NULL;
       results = NULL;
-			positionBox = NULL;
-			forceBox = NULL;
-    	intRadBox = NULL;
-    	psiSumBox = NULL;
-    	bornRadBox = NULL;
-    	dEdaSumBox = NULL;
-    	dHdrPrefixBox = NULL;
-		}
-		PatchID patchID;
+      positionBox = NULL;
+      forceBox = NULL;
+      intRadBox = NULL;
+      psiSumBox = NULL;
+      bornRadBox = NULL;
+      dEdaSumBox = NULL;
+      dHdrPrefixBox = NULL;
+    }
+    PatchID patchID;
     Patch *patch;
     int numAtoms;
     int numFreeAtoms;
@@ -68,26 +69,27 @@ public:
     Real   *bornRad;
     GBReal *dEdaSum;
     Real   *dHdrPrefix;
-  	bool operator < (const PatchRecord& pr) const {
-    	return (patchID < pr.patchID);
-  	}
-  	bool operator == (const PatchRecord& pr) const {
-    	return (patchID == pr.patchID);
-  	}
-	};
+    bool operator < (const PatchRecord& pr) const {
+      return (patchID < pr.patchID);
+    }
+    bool operator == (const PatchRecord& pr) const {
+      return (patchID == pr.patchID);
+    }
+  };
+
 private:
   // This variable is set in atomUpdate() by any Pe
   bool atomsChangedIn;
   // This variable is set in doWork() by masterPe
-	bool atomsChanged;
+  bool atomsChanged;
 
   bool computesChanged;
 
   const int deviceID;
-	cudaStream_t stream;
+  cudaStream_t stream;
 
   // PME and VdW CUDA kernels
-	CudaComputeNonbondedKernel nonbondedKernel;
+  CudaComputeNonbondedKernel nonbondedKernel;
 
   // GBIS kernel
   CudaComputeGBISKernel GBISKernel;
@@ -95,10 +97,10 @@ private:
   // Tile list CUDA kernels
   CudaTileListKernel tileListKernel;
 
-	// Exclusions
-	int2 *exclusionsByAtom;
+  // Exclusions
+  int2 *exclusionsByAtom;
 
-	// VdW-types
+  // VdW-types
   // Pinned host memory
   int* vdwTypes;
   int vdwTypesSize;
@@ -119,8 +121,8 @@ private:
 
   // Atom and charge storage
   // Pinned host memory
-	CudaAtom* atoms;
-	int atomsSize;
+  CudaAtom* atoms;
+  int atomsSize;
 
   // Force storage
   float4* h_forces;
@@ -177,7 +179,7 @@ private:
   bool doSkip;
 
   // Device-wide patch and compute records, and the list of patches
-	std::vector<ComputeRecord> computes;
+  std::vector<ComputeRecord> computes;
   std::vector<PatchRecord> patches;
 
   // CUDA versions of patches
@@ -209,8 +211,8 @@ private:
   static inline void copyAtomsLoop(int first, int last, void *result, int paraNum, void *param);
   void copyAtomsSubset(int first, int last);
 
-	void addPatch(PatchID pid);
-	void addCompute(ComputeID cid, PatchID pid1, PatchID pid2, Vector offset);
+  void addPatch(PatchID pid);
+  void addCompute(ComputeID cid, PatchID pid1, PatchID pid2, Vector offset);
   void updatePatches();
   int calcNumTileLists();
   void getMaxMovementTolerance(float& maxAtomMovement, float& maxPatchTolerance);
@@ -252,15 +254,15 @@ private:
   // void writeXYZ(const char* filename);
 
 public:
-	CudaComputeNonbonded(ComputeID c, int deviceID, CudaNonbondedTables& cudaNonbondedTables, bool doStreaming);
-	~CudaComputeNonbonded();
-	void registerComputeSelf(ComputeID cid, PatchID pid);
-	void registerComputePair(ComputeID cid, PatchID* pid, int* trans);
+  CudaComputeNonbonded(ComputeID c, int deviceID, CudaNonbondedTables& cudaNonbondedTables, bool doStreaming);
+  ~CudaComputeNonbonded();
+  void registerComputeSelf(ComputeID cid, PatchID pid);
+  void registerComputePair(ComputeID cid, PatchID* pid, int* trans);
   void assignPatches(ComputeMgr* computeMgrIn);
-	virtual void initialize();
-	virtual void atomUpdate();
-	virtual int noWork();
-	virtual void doWork();
+  virtual void initialize();
+  virtual void atomUpdate();
+  virtual int noWork();
+  virtual void doWork();
   void launchWork();
   void finishReductions();
   void unregisterBoxesOnPe();
