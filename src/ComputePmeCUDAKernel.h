@@ -1,7 +1,7 @@
 #ifdef NAMD_CUDA
 
 #ifndef __CUDACC__
-#undef __align__(X)
+#undef __align__
 #define __align__(X)
 #endif
 
