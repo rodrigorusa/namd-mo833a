@@ -374,7 +374,6 @@ int colvarscript::proc_colvar(colvar *cv, int objc, unsigned char *const objv[])
 
 int colvarscript::proc_bias(colvarbias *b, int objc, unsigned char *const objv[]) {
 
-  std::string const key(obj_to_str(objv[0]));
   std::string const subcmd(obj_to_str(objv[2]));
 
   if (subcmd == "energy") {
@@ -472,7 +471,7 @@ int colvarscript::proc_features(colvardeps *obj,
   }
 
   if ((subcmd == "get") || (subcmd == "set")) {
-    std::vector<colvardeps::feature *> &features = obj->features();
+    std::vector<colvardeps::feature *> const &features = obj->features();
     std::string const req_feature(obj_to_str(objv[3]));
     colvardeps::feature *f = NULL;
     int fid = 0;

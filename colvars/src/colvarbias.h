@@ -175,9 +175,19 @@ public:
   static std::vector<feature *> cvb_features;
 
   /// \brief Implementation of the feature list accessor for colvarbias
-  virtual std::vector<feature *> &features()
+  virtual const std::vector<feature *> &features()
   {
     return cvb_features;
+  }
+  virtual std::vector<feature *> &modify_features()
+  {
+    return cvb_features;
+  }
+  static void delete_features() {
+    for (size_t i=0; i < cvb_features.size(); i++) {
+      delete cvb_features[i];
+    }
+    cvb_features.clear();
   }
 
 protected:
