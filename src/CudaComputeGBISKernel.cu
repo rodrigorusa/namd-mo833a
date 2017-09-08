@@ -17,7 +17,14 @@ extern __thread DeviceCUDA *deviceCUDA;
 
 __device__ __forceinline__
 void shuffleNext(float& w) {
+  w = WARP_SHUFFLE(WARP_FULL_MASK, w, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+#if 0
+#if CUDA_VERSION >= 9000
+  w = __shfl_sync(0xffffffff, w, (threadIdx.x+1) & (WARPSIZE-1));
+#else
   w = __shfl(w, (threadIdx.x+1) & (WARPSIZE-1));
+#endif
+#endif
 }
 
 // Generic
@@ -48,8 +55,17 @@ template <> struct GBISInput<1> {
   __device__ __forceinline__ void initQi(const GBISParam<1> param, const float q) {}
   __device__ __forceinline__ void initQj(const float q) {}
   __device__ __forceinline__ void shuffleNext() {
+    qj       = WARP_SHUFFLE(WARP_FULL_MASK, qj,       (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+    intRad0j = WARP_SHUFFLE(WARP_FULL_MASK, intRad0j, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+#if 0
+#if CUDA_VERSION >= 9000
+    qj       = __shfl_sync(0xffffffff, qj,       (threadIdx.x+1) & (WARPSIZE-1));
+    intRad0j = __shfl_sync(0xffffffff, intRad0j, (threadIdx.x+1) & (WARPSIZE-1));    
+#else
     qj       = __shfl(qj,       (threadIdx.x+1) & (WARPSIZE-1));
     intRad0j = __shfl(intRad0j, (threadIdx.x+1) & (WARPSIZE-1));    
+#endif
+#endif
   }
 };
 
@@ -57,7 +73,14 @@ template <> struct GBISResults<1> {
   float psiSum;
   __device__ __forceinline__ void init() {psiSum = 0.0f;}
   __device__ __forceinline__ void shuffleNext() {
+    psiSum = WARP_SHUFFLE(WARP_FULL_MASK, psiSum, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+#if 0
+#if CUDA_VERSION >= 9000
+    psiSum = __shfl_sync(0xffffffff, psiSum, (threadIdx.x+1) & (WARPSIZE-1));
+#else
     psiSum = __shfl(psiSum, (threadIdx.x+1) & (WARPSIZE-1));
+#endif
+#endif
   }
 };
 
@@ -114,8 +137,17 @@ template <> struct GBISInput<2> {
     qj = q;
   }
   __device__ __forceinline__ void shuffleNext() {
+    qj       = WARP_SHUFFLE(WARP_FULL_MASK, qj,       (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+    bornRadJ = WARP_SHUFFLE(WARP_FULL_MASK, bornRadJ, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+#if 0
+#if CUDA_VERSION >= 9000
+    qj       = __shfl_sync(0xffffffff, qj,       (threadIdx.x+1) & (WARPSIZE-1));
+    bornRadJ = __shfl_sync(0xffffffff, bornRadJ, (threadIdx.x+1) & (WARPSIZE-1));    
+#else
     qj       = __shfl(qj,       (threadIdx.x+1) & (WARPSIZE-1));
     bornRadJ = __shfl(bornRadJ, (threadIdx.x+1) & (WARPSIZE-1));    
+#endif
+#endif
   }
 };
 
@@ -124,10 +156,23 @@ template <> struct GBISResults<2> {
   float dEdaSum;
   __device__ __forceinline__ void init() {force.x = 0.0f; force.y = 0.0f; force.z = 0.0f; dEdaSum = 0.0f;}
   __device__ __forceinline__ void shuffleNext() {
+    force.x = WARP_SHUFFLE(WARP_FULL_MASK, force.x, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+    force.y = WARP_SHUFFLE(WARP_FULL_MASK, force.y, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+    force.z = WARP_SHUFFLE(WARP_FULL_MASK, force.z, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+    dEdaSum = WARP_SHUFFLE(WARP_FULL_MASK, dEdaSum, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+#if 0
+#if CUDA_VERSION >= 9000
+    force.x = __shfl_sync(0xffffffff, force.x, (threadIdx.x+1) & (WARPSIZE-1));
+    force.y = __shfl_sync(0xffffffff, force.y, (threadIdx.x+1) & (WARPSIZE-1));
+    force.z = __shfl_sync(0xffffffff, force.z, (threadIdx.x+1) & (WARPSIZE-1));
+    dEdaSum = __shfl_sync(0xffffffff, dEdaSum, (threadIdx.x+1) & (WARPSIZE-1));
+#else
     force.x = __shfl(force.x, (threadIdx.x+1) & (WARPSIZE-1));
     force.y = __shfl(force.y, (threadIdx.x+1) & (WARPSIZE-1));
     force.z = __shfl(force.z, (threadIdx.x+1) & (WARPSIZE-1));
     dEdaSum = __shfl(dEdaSum, (threadIdx.x+1) & (WARPSIZE-1));
+#endif
+#endif
   }
 };
 
@@ -242,9 +287,20 @@ template <> struct GBISInput<3> {
   __device__ __forceinline__ void initQi(const GBISParam<3> param, const float q) {}
   __device__ __forceinline__ void initQj(const float q) {}
   __device__ __forceinline__ void shuffleNext() {
+    intRadSJ    = WARP_SHUFFLE(WARP_FULL_MASK, intRadSJ,    (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+    dHdrPrefixJ = WARP_SHUFFLE(WARP_FULL_MASK, dHdrPrefixJ, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+    intRadJ0    = WARP_SHUFFLE(WARP_FULL_MASK, intRadJ0,    (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+#if 0
+#if CUDA_VERSION >= 9000
+    intRadSJ    = __shfl_sync(0xffffffff, intRadSJ,    (threadIdx.x+1) & (WARPSIZE-1));
+    dHdrPrefixJ = __shfl_sync(0xffffffff, dHdrPrefixJ, (threadIdx.x+1) & (WARPSIZE-1));
+    intRadJ0    = __shfl_sync(0xffffffff, intRadJ0,    (threadIdx.x+1) & (WARPSIZE-1));
+#else
     intRadSJ    = __shfl(intRadSJ,    (threadIdx.x+1) & (WARPSIZE-1));
     dHdrPrefixJ = __shfl(dHdrPrefixJ, (threadIdx.x+1) & (WARPSIZE-1));
     intRadJ0    = __shfl(intRadJ0,    (threadIdx.x+1) & (WARPSIZE-1));
+#endif
+#endif
   }
 };
 
@@ -252,9 +308,20 @@ template <> struct GBISResults<3> {
   float3 force;
   __device__ __forceinline__ void init() {force.x = 0.0f; force.y = 0.0f; force.z = 0.0f;}
   __device__ __forceinline__ void shuffleNext() {
+    force.x = WARP_SHUFFLE(WARP_FULL_MASK, force.x, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+    force.y = WARP_SHUFFLE(WARP_FULL_MASK, force.y, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+    force.z = WARP_SHUFFLE(WARP_FULL_MASK, force.z, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
+#if 0
+#if CUDA_VERSION >= 9000
+    force.x = __shfl_sync(0xffffffff, force.x, (threadIdx.x+1) & (WARPSIZE-1));
+    force.y = __shfl_sync(0xffffffff, force.y, (threadIdx.x+1) & (WARPSIZE-1));
+    force.z = __shfl_sync(0xffffffff, force.z, (threadIdx.x+1) & (WARPSIZE-1));
+#else
     force.x = __shfl(force.x, (threadIdx.x+1) & (WARPSIZE-1));
     force.y = __shfl(force.y, (threadIdx.x+1) & (WARPSIZE-1));
     force.z = __shfl(force.z, (threadIdx.x+1) & (WARPSIZE-1));
+#endif
+#endif
   }
 };
 
@@ -377,9 +444,20 @@ GBIS_Kernel(const int numTileLists,
       for (;t < WARPSIZE;t++) {
         int j = (t + wid) & modval;
 
+        float dx = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.x, j, WARPSIZE) - xyzq_i.x;
+        float dy = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.y, j, WARPSIZE) - xyzq_i.y;
+        float dz = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.z, j, WARPSIZE) - xyzq_i.z;
+#if 0
+#if CUDA_VERSION >= 9000
+        float dx = __shfl_sync(0xffffffff, xyzq_j.x,j) - xyzq_i.x;
+        float dy = __shfl_sync(0xffffffff, xyzq_j.y,j) - xyzq_i.y;
+        float dz = __shfl_sync(0xffffffff, xyzq_j.z,j) - xyzq_i.z;
+#else
         float dx = __shfl(xyzq_j.x,j) - xyzq_i.x;
         float dy = __shfl(xyzq_j.y,j) - xyzq_i.y;
         float dz = __shfl(xyzq_j.z,j) - xyzq_i.z;
+#endif
+#endif
 
         float r2 = dx*dx + dy*dy + dz*dz;
 

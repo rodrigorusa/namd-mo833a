@@ -106,7 +106,8 @@ __global__ void localSort(const int n, const int begin_bit, const int num_bit,
       keys[i] = key[0];
       vals[i] = val[0];
     }
-    __syncthreads();
+    BLOCK_SYNC;
+    //__syncthreads();
   }
 
 }
@@ -339,7 +340,8 @@ __global__ void calcTileListPosKernel(const int numComputes,
       tilePos[k] = shTilePos0 + tilePosVal;
     }
 
-    __syncthreads();
+    BLOCK_SYNC;
+    //__syncthreads();
     // Store block end position
     if (threadIdx.x == nthread-1) {
       shTilePos0 += tilePosVal + numTiles1;
@@ -598,7 +600,14 @@ repackTileListsKernel(const int numTileLists, const int begin_bit, const int* __
         if (jtile) tileJatomStartDst[jtile0+jtilePos] = __ldg(&tileJatomStartSrc[t]);
 
         if (tileExclsSrc != NULL) {
+          unsigned int b = WARP_BALLOT(WARP_FULL_MASK, jtile);
+#if 0
+#if CUDA_VERSION >= 9000
+          unsigned int b = __ballot_sync(0xffffffff, jtile);
+#else
           unsigned int b = __ballot(jtile);
+#endif
+#endif
           while (b != 0) {
             // k = index of thread that has data
             int k = __ffs(b) - 1;
@@ -608,7 +617,14 @@ repackTileListsKernel(const int numTileLists, const int begin_bit, const int* __
             jtile0++;
           }
         } else {
+          jtile0 += __popc(WARP_BALLOT(WARP_FULL_MASK, jtile));
+#if 0
+#if CUDA_VERSION >= 9000
+          jtile0 += __popc(__ballot_sync(0xffffffff, jtile));
+#else
           jtile0 += __popc(__ballot(jtile));
+#endif
+#endif
         }
       }
     }
@@ -648,9 +664,11 @@ void sortTileListsKernel(const int numTileListsSrc, const int numTileListsDst,
   valT values[SORTTILELISTSKERNEL_ITEMS_PER_THREAD];
 
   BlockLoadU(tempStorage.loadU).Load(tileListDepthSrc, keys, numTileListsSrc, oobKey);
-  __syncthreads();
+  BLOCK_SYNC;
+  //__syncthreads();
   BlockLoad(tempStorage.load).Load(tileListOrderSrc, values, numTileListsSrc);
-  __syncthreads();
+  BLOCK_SYNC;
+  //__syncthreads();
 
   if (ascend)
     BlockRadixSort(tempStorage.sort).SortBlockedToStriped(keys, values, begin_bit, end_bit);

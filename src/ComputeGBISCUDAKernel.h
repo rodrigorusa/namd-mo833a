@@ -142,11 +142,18 @@ __global__ static void GBIS_P1_Kernel (
       int t = diag_tile ? 1 : 0;
 #ifdef KEPLER_SHUFFLE
       if (diag_tile) {
+        xj = WARP_SHUFFLE(WARP_FULL_MASK, xj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        yj = WARP_SHUFFLE(WARP_FULL_MASK, yj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        zj = WARP_SHUFFLE(WARP_FULL_MASK, zj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        chargej = WARP_SHUFFLE(WARP_FULL_MASK, chargej, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        intRad0j_val = WARP_SHUFFLE(WARP_FULL_MASK, intRad0j_val, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+#if 0
         xj = __shfl(xj, (threadIdx.x+1) & (WARPSIZE-1) );
         yj = __shfl(yj, (threadIdx.x+1) & (WARPSIZE-1) );
         zj = __shfl(zj, (threadIdx.x+1) & (WARPSIZE-1) );
         chargej = __shfl(chargej, (threadIdx.x+1) & (WARPSIZE-1) );
         intRad0j_val = __shfl(intRad0j_val, (threadIdx.x+1) & (WARPSIZE-1) );
+#endif
       }
 #endif
 
@@ -182,11 +189,18 @@ __global__ static void GBIS_P1_Kernel (
           } // cutoff
         } // if (j < nloopj)
 #ifdef KEPLER_SHUFFLE        
+        xj = WARP_SHUFFLE(WARP_FULL_MASK, xj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        yj = WARP_SHUFFLE(WARP_FULL_MASK, yj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        zj = WARP_SHUFFLE(WARP_FULL_MASK, zj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        chargej = WARP_SHUFFLE(WARP_FULL_MASK, chargej, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        intRad0j_val = WARP_SHUFFLE(WARP_FULL_MASK, intRad0j_val, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+#if 0
         xj = __shfl(xj, (threadIdx.x+1) & (WARPSIZE-1) );
         yj = __shfl(yj, (threadIdx.x+1) & (WARPSIZE-1) );
         zj = __shfl(zj, (threadIdx.x+1) & (WARPSIZE-1) );
         chargej = __shfl(chargej, (threadIdx.x+1) & (WARPSIZE-1) );
         intRad0j_val = __shfl(intRad0j_val, (threadIdx.x+1) & (WARPSIZE-1) );
+#endif
 #endif
       } // for t
 
@@ -500,11 +514,18 @@ __global__ static void GBIS_P2_Kernel (
           } //same atom or within cutoff
         } // if (j < nloopj)
 #ifdef KEPLER_SHUFFLE
+        xj = WARP_SHUFFLE(WARP_FULL_MASK, xj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        yj = WARP_SHUFFLE(WARP_FULL_MASK, yj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        zj = WARP_SHUFFLE(WARP_FULL_MASK, zj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        chargej = WARP_SHUFFLE(WARP_FULL_MASK, chargej, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        bornRadJ = WARP_SHUFFLE(WARP_FULL_MASK, bornRadJ, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+#if 0
         xj = __shfl(xj, (threadIdx.x+1) & (WARPSIZE-1) );
         yj = __shfl(yj, (threadIdx.x+1) & (WARPSIZE-1) );
         zj = __shfl(zj, (threadIdx.x+1) & (WARPSIZE-1) );
         chargej = __shfl(chargej, (threadIdx.x+1) & (WARPSIZE-1) );
         bornRadJ = __shfl(bornRadJ, (threadIdx.x+1) & (WARPSIZE-1) );
+#endif
 #endif
       } // for t
       if ( blockj + threadIdx.x < sh_patch_pair.patch2_size) {
@@ -749,12 +770,20 @@ __global__ static void GBIS_P3_Kernel (
       const int modval = diag_tile ? 2*WARPSIZE : WARPSIZE;
 #ifdef KEPLER_SHUFFLE
       if (diag_tile) {
+        xj = WARP_SHUFFLE(WARP_FULL_MASK, xj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        yj = WARP_SHUFFLE(WARP_FULL_MASK, yj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        zj = WARP_SHUFFLE(WARP_FULL_MASK, zj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        intRadSJ = WARP_SHUFFLE(WARP_FULL_MASK, intRadSJ, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        dHdrPrefixJ = WARP_SHUFFLE(WARP_FULL_MASK, dHdrPrefixJ, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        intRadJ0 = WARP_SHUFFLE(WARP_FULL_MASK, intRadJ0, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+#if 0
         xj = __shfl(xj, (threadIdx.x+1) & (WARPSIZE-1) );
         yj = __shfl(yj, (threadIdx.x+1) & (WARPSIZE-1) );
         zj = __shfl(zj, (threadIdx.x+1) & (WARPSIZE-1) );
         intRadSJ = __shfl(intRadSJ, (threadIdx.x+1) & (WARPSIZE-1) );
         dHdrPrefixJ = __shfl(dHdrPrefixJ, (threadIdx.x+1) & (WARPSIZE-1) );
         intRadJ0 = __shfl(intRadJ0, (threadIdx.x+1) & (WARPSIZE-1) );
+#endif
       }
 #endif
       int t = diag_tile ? 1 : 0;
@@ -798,12 +827,20 @@ __global__ static void GBIS_P3_Kernel (
           } // cutoff
         } // if (j < nloopj...)
 #ifdef KEPLER_SHUFFLE
+        xj = WARP_SHUFFLE(WARP_FULL_MASK, xj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        yj = WARP_SHUFFLE(WARP_FULL_MASK, yj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        zj = WARP_SHUFFLE(WARP_FULL_MASK, zj, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        intRadSJ = WARP_SHUFFLE(WARP_FULL_MASK, intRadSJ, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        dHdrPrefixJ = WARP_SHUFFLE(WARP_FULL_MASK, dHdrPrefixJ, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+        intRadJ0 = WARP_SHUFFLE(WARP_FULL_MASK, intRadJ0, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+#if 0
         xj = __shfl(xj, (threadIdx.x+1) & (WARPSIZE-1) );
         yj = __shfl(yj, (threadIdx.x+1) & (WARPSIZE-1) );
         zj = __shfl(zj, (threadIdx.x+1) & (WARPSIZE-1) );
         intRadSJ = __shfl(intRadSJ, (threadIdx.x+1) & (WARPSIZE-1) );
         dHdrPrefixJ = __shfl(dHdrPrefixJ, (threadIdx.x+1) & (WARPSIZE-1) );
         intRadJ0 = __shfl(intRadJ0, (threadIdx.x+1) & (WARPSIZE-1) );
+#endif
 #endif
       } // for t
       if ( blockj + threadIdx.x < sh_patch_pair.patch2_size) {

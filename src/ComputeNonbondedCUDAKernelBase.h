@@ -59,11 +59,18 @@ __device__ __forceinline__ static void NAME(shfl_reduction)(
 		float *smem
 		)
 {
+  *reg += WARP_SHUFFLE_XOR(WARP_FULL_MASK, *reg, 16, 32);
+  *reg += WARP_SHUFFLE_XOR(WARP_FULL_MASK, *reg, 8, 32);
+  *reg += WARP_SHUFFLE_XOR(WARP_FULL_MASK, *reg, 4, 32);
+  *reg += WARP_SHUFFLE_XOR(WARP_FULL_MASK, *reg, 2, 32);
+  *reg += WARP_SHUFFLE_XOR(WARP_FULL_MASK, *reg, 1, 32);
+#if 0
   *reg += __shfl_xor(*reg, 16, 32);
   *reg += __shfl_xor(*reg, 8, 32);
   *reg += __shfl_xor(*reg, 4, 32);
   *reg += __shfl_xor(*reg, 2, 32);
   *reg += __shfl_xor(*reg, 1, 32);
+#endif
 
   if ( threadIdx.x % 32 == 0 ) {
       atomicAdd(smem,*reg);
@@ -97,9 +104,14 @@ void NAME(reduceVariables)(volatile T* sh_buf, T* dst, T val1, T val2, T val3) {
   cuda_static_assert(sh_buf_size >= NUM_WARP*n*sizeof(T));
   // Reduce within warp
   for (int i=WARPSIZE/2;i >= 1;i/=2) {
+    if (n >= 1) val1 += WARP_SHUFFLE_XOR(WARP_FULL_MASK, val1, i, WARPSIZE);
+    if (n >= 2) val2 += WARP_SHUFFLE_XOR(WARP_FULL_MASK, val2, i, WARPSIZE);
+    if (n >= 3) val3 += WARP_SHUFFLE_XOR(WARP_FULL_MASK, val3, i, WARPSIZE);
+#if 0
     if (n >= 1) val1 += __shfl_xor(val1, i);
     if (n >= 2) val2 += __shfl_xor(val2, i);
     if (n >= 3) val3 += __shfl_xor(val3, i);
+#endif
   }
   if (threadIdx.x == 0) {
     if (n >= 1) sh_buf[threadIdx.y*n + 0] = val1;
@@ -386,6 +398,14 @@ NAME(dev_nonbonded)
       if (diag_tile) {
 	USEPAIRLIST(excl >>= 1;);
 #ifdef KEPLER_SHUFFLE
+	jpq.charge = WARP_SHUFFLE(WARP_FULL_MASK, jpq.charge, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+	USEPAIRLIST(jap_vdw_type = WARP_SHUFFLE(WARP_FULL_MASK, jap_vdw_type, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE ););
+	GENPAIRLIST(jap.vdw_type     = WARP_SHUFFLE(WARP_FULL_MASK, jap.vdw_type, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+		    jap.index        = WARP_SHUFFLE(WARP_FULL_MASK, jap.index, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+		    jap.excl_maxdiff = WARP_SHUFFLE(WARP_FULL_MASK, jap.excl_maxdiff, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+		    jap.excl_index   = WARP_SHUFFLE(WARP_FULL_MASK, jap.excl_index, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+		    );
+#if 0
 	jpq.charge = __shfl(jpq.charge, (threadIdx.x+1) & (WARPSIZE-1) );
 	USEPAIRLIST(jap_vdw_type = __shfl(jap_vdw_type, (threadIdx.x+1) & (WARPSIZE-1) ););
 	GENPAIRLIST(jap.vdw_type     = __shfl(jap.vdw_type, (threadIdx.x+1) & (WARPSIZE-1) );
@@ -394,17 +414,26 @@ NAME(dev_nonbonded)
 		    jap.excl_index   = __shfl(jap.excl_index, (threadIdx.x+1) & (WARPSIZE-1) );
 		    );
 #endif
+#endif
       }
 
       for (; t < WARPSIZE; ++t) {
+      	USEPAIRLIST(if (WARP_ANY(WARP_FULL_MASK, excl & 1)))
+#if 0
       	USEPAIRLIST(if (__any(excl & 1)))
+#endif
       	{
 	GENPAIRLIST(excl >>= 1;);
 	int j = (t + threadIdx.x) & modval;
 #ifdef KEPLER_SHUFFLE
+	float tmpx = WARP_SHUFFLE(WARP_FULL_MASK, jpq.position.x, j, WARPSIZE) - ipq.position.x;
+	float tmpy = WARP_SHUFFLE(WARP_FULL_MASK, jpq.position.y, j, WARPSIZE) - ipq.position.y;
+	float tmpz = WARP_SHUFFLE(WARP_FULL_MASK, jpq.position.z, j, WARPSIZE) - ipq.position.z;
+#if 0
 	float tmpx = __shfl(jpq.position.x,j) - ipq.position.x;
 	float tmpy = __shfl(jpq.position.y,j) - ipq.position.y;
 	float tmpz = __shfl(jpq.position.z,j) - ipq.position.z;
+#endif
 	GENPAIRLIST(
 		    int j_vdw_type     = jap.vdw_type;
 		    int j_index        = jap.index;
@@ -518,6 +547,14 @@ NAME(dev_nonbonded)
 }
 	USEPAIRLIST(excl >>= 1;);
 #ifdef KEPLER_SHUFFLE
+	jpq.charge = WARP_SHUFFLE(WARP_FULL_MASK, jpq.charge, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+	USEPAIRLIST(jap_vdw_type = WARP_SHUFFLE(WARP_FULL_MASK, jap_vdw_type, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE ););
+	GENPAIRLIST(jap.vdw_type     = WARP_SHUFFLE(WARP_FULL_MASK, jap.vdw_type, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+		    jap.index        = WARP_SHUFFLE(WARP_FULL_MASK, jap.index, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+		    jap.excl_maxdiff = WARP_SHUFFLE(WARP_FULL_MASK, jap.excl_maxdiff, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+		    jap.excl_index   = WARP_SHUFFLE(WARP_FULL_MASK, jap.excl_index, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE );
+		    );
+#if 0
 	jpq.charge = __shfl(jpq.charge, (threadIdx.x+1) & (WARPSIZE-1) );
 	USEPAIRLIST(jap_vdw_type = __shfl(jap_vdw_type, (threadIdx.x+1) & (WARPSIZE-1) ););
 	GENPAIRLIST(jap.vdw_type     = __shfl(jap.vdw_type, (threadIdx.x+1) & (WARPSIZE-1) );
@@ -525,7 +562,17 @@ NAME(dev_nonbonded)
 		    jap.excl_maxdiff = __shfl(jap.excl_maxdiff, (threadIdx.x+1) & (WARPSIZE-1) );
 		    jap.excl_index   = __shfl(jap.excl_index, (threadIdx.x+1) & (WARPSIZE-1) );
 		    );
+#endif
 #ifdef REG_JFORCE
+	jforce.x = WARP_SHUFFLE(WARP_FULL_MASK, jforce.x, (threadIdx.x+1)&(WARPSIZE-1), WARPSIZE);
+	jforce.y = WARP_SHUFFLE(WARP_FULL_MASK, jforce.y, (threadIdx.x+1)&(WARPSIZE-1), WARPSIZE);
+	jforce.z = WARP_SHUFFLE(WARP_FULL_MASK, jforce.z, (threadIdx.x+1)&(WARPSIZE-1), WARPSIZE);
+	SLOW(
+	     jforce_slow.x = WARP_SHUFFLE(WARP_FULL_MASK, jforce_slow.x, (threadIdx.x+1)&(WARPSIZE-1), WARPSIZE);
+	     jforce_slow.y = WARP_SHUFFLE(WARP_FULL_MASK, jforce_slow.y, (threadIdx.x+1)&(WARPSIZE-1), WARPSIZE);
+	     jforce_slow.z = WARP_SHUFFLE(WARP_FULL_MASK, jforce_slow.z, (threadIdx.x+1)&(WARPSIZE-1), WARPSIZE);
+	     );
+#if 0
 	jforce.x = __shfl(jforce.x, (threadIdx.x+1)&(WARPSIZE-1));
 	jforce.y = __shfl(jforce.y, (threadIdx.x+1)&(WARPSIZE-1));
 	jforce.z = __shfl(jforce.z, (threadIdx.x+1)&(WARPSIZE-1));
@@ -536,10 +583,14 @@ NAME(dev_nonbonded)
 	     );
 #endif
 #endif
+#endif
       } // t
 
       // Write j-forces
+      GENPAIRLIST(if (WARP_ANY(WARP_FULL_MASK, excl != 0))) {
+#if 0
       GENPAIRLIST(if (__any(excl != 0))) {
+#endif
 	if ( blockj + threadIdx.x < sh_patch_pair.patch2_size ) {
 	  int jforce_pos = sh_patch_pair.patch2_start + blockj + threadIdx.x;
 #ifdef REG_JFORCE
@@ -586,6 +637,15 @@ NAME(dev_nonbonded)
     // Accumulate total forces for virial (warp synchronous)
 #ifdef KEPLER_SHUFFLE
     for (int i=WARPSIZE/2;i >= 1;i/=2) {
+      iforce.x += WARP_SHUFFLE_XOR(WARP_FULL_MASK, iforce.x, i, WARPSIZE);
+      iforce.y += WARP_SHUFFLE_XOR(WARP_FULL_MASK, iforce.y, i, WARPSIZE);
+      iforce.z += WARP_SHUFFLE_XOR(WARP_FULL_MASK, iforce.z, i, WARPSIZE);
+      SLOW(
+	   iforce_slow.x += WARP_SHUFFLE_XOR(WARP_FULL_MASK, iforce_slow.x, i, WARPSIZE);
+	   iforce_slow.y += WARP_SHUFFLE_XOR(WARP_FULL_MASK, iforce_slow.y, i, WARPSIZE);
+	   iforce_slow.z += WARP_SHUFFLE_XOR(WARP_FULL_MASK, iforce_slow.z, i, WARPSIZE);
+	   );
+#if 0
       iforce.x += __shfl_xor(iforce.x, i);
       iforce.y += __shfl_xor(iforce.y, i);
       iforce.z += __shfl_xor(iforce.z, i);
@@ -594,6 +654,7 @@ NAME(dev_nonbonded)
 	   iforce_slow.y += __shfl_xor(iforce_slow.y, i);
 	   iforce_slow.z += __shfl_xor(iforce_slow.z, i);
 	   );
+#endif
     }
     if (threadIdx.x == 0) {
       sh_iforcesum[threadIdx.y].x += iforce.x;
@@ -860,6 +921,27 @@ static void NAME(finish_forces_virials)(const int start, const int size, const i
 #ifdef KEPLER_SHUFFLE
   // Reduce within warps
   for (int i=WARPSIZE/2;i >= 1;i/=2) {
+    vxx += WARP_SHUFFLE_XOR(WARP_FULL_MASK, vxx, i, WARPSIZE);
+    vxy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, vxy, i, WARPSIZE);
+    vxz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, vxz, i, WARPSIZE);
+    vyx += WARP_SHUFFLE_XOR(WARP_FULL_MASK, vyx, i, WARPSIZE);
+    vyy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, vyy, i, WARPSIZE);
+    vyz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, vyz, i, WARPSIZE);
+    vzx += WARP_SHUFFLE_XOR(WARP_FULL_MASK, vzx, i, WARPSIZE);
+    vzy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, vzy, i, WARPSIZE);
+    vzz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, vzz, i, WARPSIZE);
+    SLOW(
+	 slow_vxx += WARP_SHUFFLE_XOR(WARP_FULL_MASK, slow_vxx, i, WARPSIZE);
+	 slow_vxy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, slow_vxy, i, WARPSIZE);
+	 slow_vxz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, slow_vxz, i, WARPSIZE);
+	 slow_vyx += WARP_SHUFFLE_XOR(WARP_FULL_MASK, slow_vyx, i, WARPSIZE);
+	 slow_vyy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, slow_vyy, i, WARPSIZE);
+	 slow_vyz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, slow_vyz, i, WARPSIZE);
+	 slow_vzx += WARP_SHUFFLE_XOR(WARP_FULL_MASK, slow_vzx, i, WARPSIZE);
+	 slow_vzy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, slow_vzy, i, WARPSIZE);
+	 slow_vzz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, slow_vzz, i, WARPSIZE);
+	 )
+#if 0
     vxx += __shfl_xor(vxx, i);
     vxy += __shfl_xor(vxy, i);
     vxz += __shfl_xor(vxz, i);
@@ -880,6 +962,7 @@ static void NAME(finish_forces_virials)(const int start, const int size, const i
 	 slow_vzy += __shfl_xor(slow_vzy, i);
 	 slow_vzz += __shfl_xor(slow_vzz, i);
 	 )
+#endif
   }
   // Reduce between warps
   // Requires NUM_WARP*(SLOW(9)+9)*sizeof(float) amount of shared memory

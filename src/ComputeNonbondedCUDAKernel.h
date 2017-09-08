@@ -5,7 +5,7 @@ typedef float GBReal;
 void cuda_errcheck(const char *msg);
 
 #ifndef __CUDACC__
-#undef __align__(X)
+#undef __align__
 #define __align__(X)
 #endif
 
