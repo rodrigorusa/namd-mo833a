@@ -7,9 +7,9 @@ FFT=$(FFTINCL) $(FFTFLAGS)
 
 loaded_modules := $(subst :, ,$(LOADEDMODULES))
 
-module := $(filter fftw/3%,$(loaded_modules))
+module := $(filter cray-fftw/3% fftw/3%,$(loaded_modules))
 ifeq (,$(module))
-  $(error module fftw/3 is not loaded)
+  $(error module cray-fftw/3 or fftw/3 is not loaded)
 else
   $(info found module $(module))
 endif
