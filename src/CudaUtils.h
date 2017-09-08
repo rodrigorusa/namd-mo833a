@@ -8,6 +8,43 @@
 
 #define WARPSIZE 32
 
+#define WARP_FULL_MASK 0xffffffff
+
+#if (__CUDACC_VER_MAJOR__ >= 9)
+#define NAMD_USE_COOPERATIVE_GROUPS
+#endif
+
+#ifdef NAMD_USE_COOPERATIVE_GROUPS
+  #define WARP_SHUFFLE_XOR(MASK, VAR, LANE, SIZE) \
+    __shfl_xor_sync(MASK, VAR, LANE, SIZE)
+  #define WARP_SHUFFLE_UP(MASK, VAR, DELTA, SIZE) \
+    __shfl_up_sync(MASK, VAR, DELTA, SIZE)
+  #define WARP_SHUFFLE_DOWN(MASK, VAR, DELTA, SIZE) \
+    __shfl_down_sync(MASK, VAR, DELTA, SIZE)
+  #define WARP_SHUFFLE(MASK, VAR, LANE, SIZE) \
+    __shfl_sync(MASK, VAR, LANE, SIZE)
+  #define WARP_ALL(MASK, P)     __all_sync(MASK, P)
+  #define WARP_ANY(MASK, P)     __any_sync(MASK, P)
+  #define WARP_BALLOT(MASK, P)  __ballot_sync(MASK, P)
+  #define WARP_SYNC(MASK)       __syncwarp(MASK)
+  #define BLOCK_SYNC            __barrier_sync(0)
+#else
+  #define WARP_SHUFFLE_XOR(MASK, VAR, LANE, SIZE) \
+    __shfl_xor(VAR, LANE, SIZE)
+  #define WARP_SHUFFLE_UP(MASK, VAR, DELTA, SIZE) \
+    __shfl_up(VAR, DELTA, SIZE)
+  #define WARP_SHUFFLE_DOWN(MASK, VAR, DELTA, SIZE) \
+    __shfl_down(VAR, DELTA, SIZE)
+  #define WARP_SHUFFLE(MASK, VAR, LANE, SIZE) \
+    __shfl(VAR, LANE, SIZE)
+  #define WARP_ALL(MASK, P)     __all(P)
+  #define WARP_ANY(MASK, P)     __any(P)
+  #define WARP_BALLOT(MASK, P)  __ballot(P)
+  #define WARP_SYNC(MASK)
+  #define BLOCK_SYNC            __syncthreads()
+#endif
+
+
 /*
 // Define float3 + float3 operation
 __host__ __device__ inline float3 operator+(const float3 a, const float3 b) {
