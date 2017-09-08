@@ -481,8 +481,8 @@ buildTileListsBBKernel(const int numTileLists,
       numJtiles = itileListPos + itileListLen;
       jtileStart = atomicAdd(&tileListStat->numJtiles, numJtiles);
     }
-    numJtiles  = cub::ShuffleIndex(numJtiles,  WARPSIZE-1);
-    jtileStart = cub::ShuffleIndex(jtileStart, WARPSIZE-1);
+    numJtiles  = cub::ShuffleIndex(numJtiles,  WARPSIZE-1, WARPSIZE, 0xffffffff);
+    jtileStart = cub::ShuffleIndex(jtileStart, WARPSIZE-1, WARPSIZE, 0xffffffff);
     if (jtileStart + numJtiles > tileJatomStartSize) {
       // tileJatomStart out of memory, exit 
       if (wid == 0) tileListStat->tilesSizeExceeded = true;
@@ -490,7 +490,7 @@ buildTileListsBBKernel(const int numTileLists,
     }
 
     int jStart = itileListPos;
-    int jEnd   = cub::ShuffleDown(itileListPos, 1);
+    int jEnd   = cub::ShuffleDown(itileListPos, 1, WARPSIZE-1, 0xffffffff);
     if (wid == WARPSIZE-1) jEnd = numJtiles;
 
     if (itileListLen > 0) {
@@ -629,10 +629,10 @@ void sortTileListsKernel(const int numTileListsSrc, const int numTileListsDst,
   keyT* __restrict__ tileListDepthSrc, keyT* __restrict__ tileListDepthDst,
   valT* __restrict__ tileListOrderSrc, valT* __restrict__ tileListOrderDst) {
 
-  typedef cub::BlockLoad<keyT*, SORTTILELISTSKERNEL_NUM_THREAD,
+  typedef cub::BlockLoad<keyT, SORTTILELISTSKERNEL_NUM_THREAD,
   SORTTILELISTSKERNEL_ITEMS_PER_THREAD, cub::BLOCK_LOAD_WARP_TRANSPOSE> BlockLoadU;
 
-  typedef cub::BlockLoad<valT*, SORTTILELISTSKERNEL_NUM_THREAD,
+  typedef cub::BlockLoad<valT, SORTTILELISTSKERNEL_NUM_THREAD,
   SORTTILELISTSKERNEL_ITEMS_PER_THREAD, cub::BLOCK_LOAD_WARP_TRANSPOSE> BlockLoad;
 
   typedef cub::BlockRadixSort<keyT, SORTTILELISTSKERNEL_NUM_THREAD,
