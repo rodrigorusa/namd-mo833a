@@ -142,7 +142,7 @@ __global__ void scalar_sum_kernel(const int nfft1, const int nfft2, const int nf
       t += blockDim.x;
     }
   }
-  __syncthreads();
+  BLOCK_SYNC;
 
   double energy = 0.0;
   double virial0 = 0.0;
@@ -243,8 +243,8 @@ __global__ void scalar_sum_kernel(const int nfft1, const int nfft2, const int nf
           WARP_SHUFFLE(WARP_FULL_MASK, __double2loint(virial5), tid+d, WARPSIZE));
     }
     // Reduce between warps
-    // NOTE: this __syncthreads() is needed because we're using a single shared memory buffer
-    __syncthreads();
+    // NOTE: this BLOCK_SYNC is needed because we're using a single shared memory buffer
+    BLOCK_SYNC;
     if (tid == 0) {
       sh_ev[base].energy = energy;
       sh_ev[base].virial[0] = virial0;
@@ -254,7 +254,7 @@ __global__ void scalar_sum_kernel(const int nfft1, const int nfft2, const int nf
       sh_ev[base].virial[4] = virial4;
       sh_ev[base].virial[5] = virial5;
     }
-    __syncthreads();
+    BLOCK_SYNC;
     if (base == 0) {
       energy = (tid < blockDim.x/warpSize) ? sh_ev[tid].energy : 0.0;
       virial0 = (tid < blockDim.x/warpSize) ? sh_ev[tid].virial[0] : 0.0;
@@ -471,7 +471,7 @@ spread_charge_kernel(const float4 *xyzq, const int ncoord,
 
   }
 
-  __syncthreads();
+  BLOCK_SYNC;
 
   // Grid point location, values of (ix0, iy0, iz0) are in range 0..order-1
   // NOTE: Only tid=0...order*order*order-1 do any computation
@@ -636,7 +636,7 @@ __global__ void gather_force(const float4 *xyzq, const int ncoord,
     for (int i=0;i < order;i++) shmem[threadIdx.x].dthetaz[i] = dtheta_tmp[i].z;
 
   }
-  __syncthreads();
+  BLOCK_SYNC;
 
   // We divide the order x order x order cube into 8 sub-cubes.
   // These sub-cubes are taken care by a single thread
@@ -739,7 +739,7 @@ __global__ void gather_force(const float4 *xyzq, const int ncoord,
   }
 
   // Write forces
-  __syncthreads();
+  BLOCK_SYNC;
   if (pos < pos_end && threadIdx.y == 0) {
     float f1 = shmem[threadIdx.x].f1;
     float f2 = shmem[threadIdx.x].f2;
@@ -777,7 +777,7 @@ void transpose_xyz_yzx_device(
     if ((x_in < nx) && (y_in + j < ny) && (z_in < nz))
       tile[threadIdx.y + j][threadIdx.x] = data_in[x_in + (y_in + j + z_in*ysize_in)*xsize_in];
 
-  __syncthreads();
+  BLOCK_SYNC;
 
   // Write (y,x) tile into data_out
   const int z_out = z_in;
@@ -824,7 +824,7 @@ __global__ void transpose_xyz_yzx_kernel(
     if ((x < nx) && (y + j < ny) && (z < nz))
       tile[threadIdx.y + j][threadIdx.x] = data_in[x + (y + j + z*ysize_in)*xsize_in];
 
-  __syncthreads();
+  BLOCK_SYNC;
 
   // Write (y,x) tile into data_out
   x = blockIdx.x * TILEDIM + threadIdx.y;
@@ -901,7 +901,7 @@ void transpose_xyz_yzx_dev(
     if ((x < nx) && (y + j < ny) && (z < nz))
       tile[threadIdx.y + j][threadIdx.x] = data_in[x + (y + j + z*ysize_in)*xsize_in];
 
-  __syncthreads();
+  BLOCK_SYNC;
 
   // Write (y,x) tile into data_out
   x = blockIdx.x * TILEDIM + threadIdx.y;
@@ -955,7 +955,7 @@ void transpose_xyz_zxy_device(
     if ((x_in < nx) && (y_in < ny) && (z_in + k < nz))
       tile[threadIdx.y + k][threadIdx.x] = data_in[x_in + (y_in + (z_in + k)*ysize_in)*xsize_in];
 
-  __syncthreads();
+  BLOCK_SYNC;
 
   // Write (z,x) tile into data_out
   const int y_out = y_in;

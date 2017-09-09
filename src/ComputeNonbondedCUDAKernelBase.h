@@ -106,7 +106,7 @@ void NAME(reduceVariables)(volatile T* sh_buf, T* dst, T val1, T val2, T val3) {
     if (n >= 2) sh_buf[threadIdx.y*n + 1] = val2;
     if (n >= 3) sh_buf[threadIdx.y*n + 2] = val3;
   }
-  __syncthreads();
+  BLOCK_SYNC;
   if (threadIdx.x < n && threadIdx.y == 0) {
     T finalval = (T)0;
 #pragma unroll
@@ -133,7 +133,7 @@ void NAME(reduceVariables)(volatile T* sh_buf, T* dst, T val1, T val2, T val3) {
     if (n >= 2) sh_bufy[threadIdx.x*n + 1] += val2t;
     if (n >= 3) sh_bufy[threadIdx.x*n + 2] += val3t;
   }
-  __syncthreads();
+  BLOCK_SYNC;
   if (threadIdx.x < n && threadIdx.y == 0) {
     T finalval = (T)0;
 #pragma unroll
@@ -217,7 +217,7 @@ NAME(dev_nonbonded)
       dst[t] = src[t];
     }
     // Need to sync here to make sure sh_patch_pair is ready
-    __syncthreads();
+    BLOCK_SYNC;
 
     // Initialize pairlist index to impossible value
     USEPAIRLIST(if (threadIdx.x == 0) sh_plist_ind[threadIdx.y] = -1;);
@@ -244,7 +244,7 @@ NAME(dev_nonbonded)
       sh_patch_pair.offset.z = offz;
     }
 
-    __syncthreads();
+    BLOCK_SYNC;
   }
 
   // Compute pointers to shared memory to avoid point computation later on
@@ -660,7 +660,7 @@ NAME(dev_nonbonded)
 #define SH_BUF_SIZE NUM_WARP*WARPSIZE*3*sizeof(float)
     volatile float* sh_buf = (float *)&sh_jforce_2d[0][0];
   	// Sync here to make sure we can write into shared memory (sh_jforce_2d)
-   	__syncthreads();
+   	BLOCK_SYNC;
 #endif
 
 #if ENERGY(1+)0
@@ -668,12 +668,12 @@ NAME(dev_nonbonded)
 #endif
 
 #if GENPAIRLIST(1+)0
-   	ENERGY(__syncthreads());
+   	ENERGY(BLOCK_SYNC);
     NAME(reduceVariables)<int, 1, SH_BUF_SIZE>((int *)sh_buf, (int *)&tmpvirials[sh_patch_pair.patch1_ind*16 + 12], nexcluded, 0, 0);
 #endif
 
   // Virials
-  __syncthreads();
+  BLOCK_SYNC;
   if (threadIdx.x < SLOW(3+)3 && threadIdx.y == 0) {
     float* sh_virials = (float *)sh_iforcesum + (threadIdx.x % 3) + (threadIdx.x/3)*3*NUM_WARP;
     float iforcesum = 0.0f;
@@ -696,7 +696,7 @@ NAME(dev_nonbonded)
 
   // Make sure forces are up-to-date in device global memory
   __threadfence();
-  __syncthreads();
+  BLOCK_SYNC;
 
   // Mark patch pair (patch1_ind, patch2_ind) as "done"
   int patch1_ind = sh_patch_pair.patch1_ind;
@@ -719,7 +719,7 @@ NAME(dev_nonbonded)
     }
   }
   // sync threads so that patch1_done and patch2_done are visible to all threads
-  __syncthreads();
+  BLOCK_SYNC;
 
   if (sh_patch_pair.patch_done[0]) {
 
@@ -766,7 +766,7 @@ NAME(dev_nonbonded)
 #else
     __threadfence_system();
 #endif
-    __syncthreads();
+    BLOCK_SYNC;
     // Add patch into "force_ready_queue"
     if (threadIdx.x == 0 && threadIdx.y == 0) {
     	if (sh_patch_pair.patch_done[0]) {
@@ -905,7 +905,7 @@ static void NAME(finish_forces_virials)(const int start, const int size, const i
 	 sh_buf[threadIdx.y*(SLOW(9)+9) + 17] = slow_vzz;
 	 )
   }
-  __syncthreads();
+  BLOCK_SYNC;
   // Write final virials into global memory
   if (threadIdx.x < SLOW(9+)9 && threadIdx.y == 0) {
     float v = 0.0f;
@@ -949,7 +949,7 @@ static void NAME(finish_forces_virials)(const int start, const int size, const i
 	 float slow_v2 = (pos < NUM_WARP*WARPSIZE) ? sh_slow_v2[pos] : 0.0f;
 	 float slow_v3 = (pos < NUM_WARP*WARPSIZE) ? sh_slow_v3[pos] : 0.0f;
 	 )
-    __syncthreads();
+    BLOCK_SYNC;
     sh_v1[t] += v1;
     sh_v2[t] += v2;
     sh_v3[t] += v3;
@@ -958,7 +958,7 @@ static void NAME(finish_forces_virials)(const int start, const int size, const i
 	 sh_slow_v2[t] += slow_v2;
 	 sh_slow_v3[t] += slow_v3;
 	 )
-    __syncthreads();
+    BLOCK_SYNC;
   }
   if (threadIdx.x == 0 && threadIdx.y == 0) {
     sh_vcc[0] = sh_v1[0];
@@ -989,7 +989,7 @@ static void NAME(finish_forces_virials)(const int start, const int size, const i
 	 float slow_v2 = (pos < NUM_WARP*WARPSIZE) ? sh_slow_v2[pos] : 0.0f;
 	 float slow_v3 = (pos < NUM_WARP*WARPSIZE) ? sh_slow_v3[pos] : 0.0f;
 	 )
-    __syncthreads();
+    BLOCK_SYNC;
     sh_v1[t] += v1;
     sh_v2[t] += v2;
     sh_v3[t] += v3;
@@ -998,7 +998,7 @@ static void NAME(finish_forces_virials)(const int start, const int size, const i
 	 sh_slow_v2[t] += slow_v2;
 	 sh_slow_v3[t] += slow_v3;
 	 )
-    __syncthreads();
+    BLOCK_SYNC;
   }
   if (threadIdx.x == 0 && threadIdx.y == 0) {
     sh_vcc[3] = sh_v1[0];
@@ -1029,7 +1029,7 @@ static void NAME(finish_forces_virials)(const int start, const int size, const i
 	 float slow_v2 = (pos < NUM_WARP*WARPSIZE) ? sh_slow_v2[pos] : 0.0f;
 	 float slow_v3 = (pos < NUM_WARP*WARPSIZE) ? sh_slow_v3[pos] : 0.0f;
 	 )
-    __syncthreads();
+    BLOCK_SYNC;
     sh_v1[t] += v1;
     sh_v2[t] += v2;
     sh_v3[t] += v3;
@@ -1038,7 +1038,7 @@ static void NAME(finish_forces_virials)(const int start, const int size, const i
 	 sh_slow_v2[t] += slow_v2;
 	 sh_slow_v3[t] += slow_v3;
 	 )
-    __syncthreads();
+    BLOCK_SYNC;
   }
   if (threadIdx.x == 0 && threadIdx.y == 0) {
     sh_vcc[6] = sh_v1[0];

@@ -1,5 +1,5 @@
-
 #include "ComputePmeCUDAKernel.h"
+#include "CudaUtils.h"
 
 void NAMD_die(const char *);
 
@@ -95,7 +95,7 @@ void cuda_init_bspline_coeffs(float **c, float **dc, int order) {
   if ( threadIdx.x < order*order ) { \
     bspline_coeffs.a1d[threadIdx.x] = coeffs[threadIdx.x]; \
   } \
-  __syncthreads();
+  BLOCK_SYNC;
 
 // simplify warp-synchronous operations
 #define WARP (threadIdx.x>>5)

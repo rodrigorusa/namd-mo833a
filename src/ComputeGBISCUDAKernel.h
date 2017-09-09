@@ -52,7 +52,7 @@ __global__ static void GBIS_P1_Kernel (
       int* dst = (int *)&sh_patch_pair;
       dst[t] = src[t];
     }
-    __syncthreads();
+    BLOCK_SYNC;
 
     // convert scaled offset with current lattice and write into shared memory
     if (t == 0) {
@@ -69,7 +69,7 @@ __global__ static void GBIS_P1_Kernel (
       sh_patch_pair.offset.y = offy;
       sh_patch_pair.offset.z = offz;
     }
-    __syncthreads();
+    BLOCK_SYNC;
   }
 
   //iterate over chunks of atoms within Patch 1
@@ -208,7 +208,7 @@ __global__ static void GBIS_P1_Kernel (
   { // start of force sum
     // make sure psiSums are visible in global memory
     __threadfence();
-    __syncthreads();
+    BLOCK_SYNC;
 
     // Mark patch pair (patch1_ind, patch2_ind) as "done"
     int patch1_ind = sh_patch_pair.patch1_ind;
@@ -228,7 +228,7 @@ __global__ static void GBIS_P1_Kernel (
       }
     }
     // sync threads so that patch1_done and patch2_done are visible to all threads
-    __syncthreads();
+    BLOCK_SYNC;
 
     if (sh_patch_pair.patch_done[0]) {
       const int start = sh_patch_pair.patch1_start;
@@ -310,7 +310,7 @@ __global__ static void GBIS_P2_Kernel (
       int* dst = (int *)&sh_patch_pair;
       dst[t] = src[t];
     }
-    __syncthreads();
+    BLOCK_SYNC;
 
     // convert scaled offset with current lattice and write into shared memory
     if (t == 0) {
@@ -327,7 +327,7 @@ __global__ static void GBIS_P2_Kernel (
       sh_patch_pair.offset.y = offy;
       sh_patch_pair.offset.z = offz;
     }
-    __syncthreads();
+    BLOCK_SYNC;
   }
 
   float energyT = 0.f; // total energy for this thread; to be reduced
@@ -539,7 +539,7 @@ __global__ static void GBIS_P2_Kernel (
       float val = (pos < WARPSIZE) ? sh_energy[pos] : 0.0f;
       sh_energy[threadIdx.x] += val;
     }
-    __syncthreads();
+    BLOCK_SYNC;
     // Reduce among warps
     if (threadIdx.x == 0 && threadIdx.y == 0) {
       float tot_energy = 0.0f;
@@ -555,7 +555,7 @@ __global__ static void GBIS_P2_Kernel (
   { // start of reduction
     // make sure tmp_forces and tmp_dEdaSum are visible in global memory
     __threadfence();
-    __syncthreads();
+    BLOCK_SYNC;
 
     // Mark patch pair (patch1_ind, patch2_ind) as "done"
     int patch1_ind = sh_patch_pair.patch1_ind;
@@ -575,7 +575,7 @@ __global__ static void GBIS_P2_Kernel (
       }
     }
     // sync threads so that patch1_done and patch2_done are visible to all threads
-    __syncthreads();
+    BLOCK_SYNC;
 
     if (sh_patch_pair.patch_done[0]) {
       const int start = sh_patch_pair.patch1_start;
@@ -653,7 +653,7 @@ __global__ static void GBIS_P3_Kernel (
       int* dst = (int *)&sh_patch_pair;
       dst[t] = src[t];
     }
-    __syncthreads();
+    BLOCK_SYNC;
 
     // convert scaled offset with current lattice and write into shared memory
     if (t == 0) {
@@ -670,7 +670,7 @@ __global__ static void GBIS_P3_Kernel (
       sh_patch_pair.offset.y = offy;
       sh_patch_pair.offset.z = offz;
     }
-    __syncthreads();
+    BLOCK_SYNC;
   }
 
   //iterate over chunks of atoms within Patch 1
@@ -826,7 +826,7 @@ __global__ static void GBIS_P3_Kernel (
   { // start of force sum
     // make sure forces are visible in global memory
     __threadfence();
-    __syncthreads();
+    BLOCK_SYNC;
 
     // Mark patch pair (patch1_ind, patch2_ind) as "done"
     int patch1_ind = sh_patch_pair.patch1_ind;
@@ -846,7 +846,7 @@ __global__ static void GBIS_P3_Kernel (
       }
     }
     // sync threads so that patch1_done and patch2_done are visible to all threads
-    __syncthreads();
+    BLOCK_SYNC;
 
     if (sh_patch_pair.patch_done[0]) {
       const int start = sh_patch_pair.patch1_start;

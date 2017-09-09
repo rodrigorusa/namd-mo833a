@@ -714,15 +714,15 @@ __global__ void reduceNonbondedVirialKernel(const bool doSlow,
 
     typedef cub::BlockReduce<float, REDUCENONBONDEDVIRIALKERNEL_NUM_WARP*WARPSIZE> BlockReduce;
     __shared__ typename BlockReduce::TempStorage tempStorage;
-    volatile float vxx = BlockReduce(tempStorage).Sum(vxxt); __syncthreads();
-    volatile float vxy = BlockReduce(tempStorage).Sum(vxyt); __syncthreads();
-    volatile float vxz = BlockReduce(tempStorage).Sum(vxzt); __syncthreads();
-    volatile float vyx = BlockReduce(tempStorage).Sum(vyxt); __syncthreads();
-    volatile float vyy = BlockReduce(tempStorage).Sum(vyyt); __syncthreads();
-    volatile float vyz = BlockReduce(tempStorage).Sum(vyzt); __syncthreads();
-    volatile float vzx = BlockReduce(tempStorage).Sum(vzxt); __syncthreads();
-    volatile float vzy = BlockReduce(tempStorage).Sum(vzyt); __syncthreads();
-    volatile float vzz = BlockReduce(tempStorage).Sum(vzzt); __syncthreads();
+    volatile float vxx = BlockReduce(tempStorage).Sum(vxxt); BLOCK_SYNC;
+    volatile float vxy = BlockReduce(tempStorage).Sum(vxyt); BLOCK_SYNC;
+    volatile float vxz = BlockReduce(tempStorage).Sum(vxzt); BLOCK_SYNC;
+    volatile float vyx = BlockReduce(tempStorage).Sum(vyxt); BLOCK_SYNC;
+    volatile float vyy = BlockReduce(tempStorage).Sum(vyyt); BLOCK_SYNC;
+    volatile float vyz = BlockReduce(tempStorage).Sum(vyzt); BLOCK_SYNC;
+    volatile float vzx = BlockReduce(tempStorage).Sum(vzxt); BLOCK_SYNC;
+    volatile float vzy = BlockReduce(tempStorage).Sum(vzyt); BLOCK_SYNC;
+    volatile float vzz = BlockReduce(tempStorage).Sum(vzzt); BLOCK_SYNC;
     if (threadIdx.x == 0) {
       atomicAdd(&virialEnergy->virial[0], (double)vxx);
       atomicAdd(&virialEnergy->virial[1], (double)vxy);
@@ -755,15 +755,15 @@ __global__ void reduceNonbondedVirialKernel(const bool doSlow,
       // atomicAdd(&virialEnergy->virialSlow[6], (double)vzxSlow);
       // atomicAdd(&virialEnergy->virialSlow[7], (double)vzySlow);
       // atomicAdd(&virialEnergy->virialSlow[8], (double)vzzSlow);
-      volatile float vxxSlow = BlockReduce(tempStorage).Sum(vxxSlowt); __syncthreads();
-      volatile float vxySlow = BlockReduce(tempStorage).Sum(vxySlowt); __syncthreads();
-      volatile float vxzSlow = BlockReduce(tempStorage).Sum(vxzSlowt); __syncthreads();
-      volatile float vyxSlow = BlockReduce(tempStorage).Sum(vyxSlowt); __syncthreads();
-      volatile float vyySlow = BlockReduce(tempStorage).Sum(vyySlowt); __syncthreads();
-      volatile float vyzSlow = BlockReduce(tempStorage).Sum(vyzSlowt); __syncthreads();
-      volatile float vzxSlow = BlockReduce(tempStorage).Sum(vzxSlowt); __syncthreads();
-      volatile float vzySlow = BlockReduce(tempStorage).Sum(vzySlowt); __syncthreads();
-      volatile float vzzSlow = BlockReduce(tempStorage).Sum(vzzSlowt); __syncthreads();
+      volatile float vxxSlow = BlockReduce(tempStorage).Sum(vxxSlowt); BLOCK_SYNC;
+      volatile float vxySlow = BlockReduce(tempStorage).Sum(vxySlowt); BLOCK_SYNC;
+      volatile float vxzSlow = BlockReduce(tempStorage).Sum(vxzSlowt); BLOCK_SYNC;
+      volatile float vyxSlow = BlockReduce(tempStorage).Sum(vyxSlowt); BLOCK_SYNC;
+      volatile float vyySlow = BlockReduce(tempStorage).Sum(vyySlowt); BLOCK_SYNC;
+      volatile float vyzSlow = BlockReduce(tempStorage).Sum(vyzSlowt); BLOCK_SYNC;
+      volatile float vzxSlow = BlockReduce(tempStorage).Sum(vzxSlowt); BLOCK_SYNC;
+      volatile float vzySlow = BlockReduce(tempStorage).Sum(vzySlowt); BLOCK_SYNC;
+      volatile float vzzSlow = BlockReduce(tempStorage).Sum(vzzSlowt); BLOCK_SYNC;
       if (threadIdx.x == 0) {
         atomicAdd(&virialEnergy->virialSlow[0], (double)vxxSlow);
         atomicAdd(&virialEnergy->virialSlow[1], (double)vxySlow);
@@ -827,15 +827,15 @@ __global__ void reduceVirialEnergyKernel(
       float vzxt = ve.forcez*ve.shx;
       float vzyt = ve.forcez*ve.shy;
       float vzzt = ve.forcez*ve.shz;
-      volatile float vxx = BlockReduce(tempStorage).Sum(vxxt); __syncthreads();
-      volatile float vxy = BlockReduce(tempStorage).Sum(vxyt); __syncthreads();
-      volatile float vxz = BlockReduce(tempStorage).Sum(vxzt); __syncthreads();
-      volatile float vyx = BlockReduce(tempStorage).Sum(vyxt); __syncthreads();
-      volatile float vyy = BlockReduce(tempStorage).Sum(vyyt); __syncthreads();
-      volatile float vyz = BlockReduce(tempStorage).Sum(vyzt); __syncthreads();
-      volatile float vzx = BlockReduce(tempStorage).Sum(vzxt); __syncthreads();
-      volatile float vzy = BlockReduce(tempStorage).Sum(vzyt); __syncthreads();
-      volatile float vzz = BlockReduce(tempStorage).Sum(vzzt); __syncthreads();
+      volatile float vxx = BlockReduce(tempStorage).Sum(vxxt); BLOCK_SYNC;
+      volatile float vxy = BlockReduce(tempStorage).Sum(vxyt); BLOCK_SYNC;
+      volatile float vxz = BlockReduce(tempStorage).Sum(vxzt); BLOCK_SYNC;
+      volatile float vyx = BlockReduce(tempStorage).Sum(vyxt); BLOCK_SYNC;
+      volatile float vyy = BlockReduce(tempStorage).Sum(vyyt); BLOCK_SYNC;
+      volatile float vyz = BlockReduce(tempStorage).Sum(vyzt); BLOCK_SYNC;
+      volatile float vzx = BlockReduce(tempStorage).Sum(vzxt); BLOCK_SYNC;
+      volatile float vzy = BlockReduce(tempStorage).Sum(vzyt); BLOCK_SYNC;
+      volatile float vzz = BlockReduce(tempStorage).Sum(vzzt); BLOCK_SYNC;
       if (threadIdx.x == 0) {
         atomicAdd(&virialEnergy->virial[0], (double)vxx);
         atomicAdd(&virialEnergy->virial[1], (double)vxy);
@@ -860,15 +860,15 @@ __global__ void reduceVirialEnergyKernel(
         float vzxt = ve.forceSlowz*ve.shx;
         float vzyt = ve.forceSlowz*ve.shy;
         float vzzt = ve.forceSlowz*ve.shz;
-        volatile float vxx = BlockReduce(tempStorage).Sum(vxxt); __syncthreads();
-        volatile float vxy = BlockReduce(tempStorage).Sum(vxyt); __syncthreads();
-        volatile float vxz = BlockReduce(tempStorage).Sum(vxzt); __syncthreads();
-        volatile float vyx = BlockReduce(tempStorage).Sum(vyxt); __syncthreads();
-        volatile float vyy = BlockReduce(tempStorage).Sum(vyyt); __syncthreads();
-        volatile float vyz = BlockReduce(tempStorage).Sum(vyzt); __syncthreads();
-        volatile float vzx = BlockReduce(tempStorage).Sum(vzxt); __syncthreads();
-        volatile float vzy = BlockReduce(tempStorage).Sum(vzyt); __syncthreads();
-        volatile float vzz = BlockReduce(tempStorage).Sum(vzzt); __syncthreads();
+        volatile float vxx = BlockReduce(tempStorage).Sum(vxxt); BLOCK_SYNC;
+        volatile float vxy = BlockReduce(tempStorage).Sum(vxyt); BLOCK_SYNC;
+        volatile float vxz = BlockReduce(tempStorage).Sum(vxzt); BLOCK_SYNC;
+        volatile float vyx = BlockReduce(tempStorage).Sum(vyxt); BLOCK_SYNC;
+        volatile float vyy = BlockReduce(tempStorage).Sum(vyyt); BLOCK_SYNC;
+        volatile float vyz = BlockReduce(tempStorage).Sum(vyzt); BLOCK_SYNC;
+        volatile float vzx = BlockReduce(tempStorage).Sum(vzxt); BLOCK_SYNC;
+        volatile float vzy = BlockReduce(tempStorage).Sum(vzyt); BLOCK_SYNC;
+        volatile float vzz = BlockReduce(tempStorage).Sum(vzzt); BLOCK_SYNC;
         if (threadIdx.x == 0) {
           atomicAdd(&virialEnergy->virialSlow[0], (double)vxx);
           atomicAdd(&virialEnergy->virialSlow[1], (double)vxy);
@@ -886,18 +886,18 @@ __global__ void reduceVirialEnergyKernel(
     if (doEnergy) {
       typedef cub::BlockReduce<double, REDUCEVIRIALENERGYKERNEL_NUM_WARP*WARPSIZE> BlockReduce;
       __shared__ typename BlockReduce::TempStorage tempStorage;
-      volatile double energyVdw  = BlockReduce(tempStorage).Sum(ve.energyVdw); __syncthreads();
-      volatile double energyElec = BlockReduce(tempStorage).Sum(ve.energyElec); __syncthreads();
+      volatile double energyVdw  = BlockReduce(tempStorage).Sum(ve.energyVdw); BLOCK_SYNC;
+      volatile double energyElec = BlockReduce(tempStorage).Sum(ve.energyElec); BLOCK_SYNC;
       if (threadIdx.x == 0) {
           atomicAdd(&virialEnergy->energyVdw, (double)energyVdw);
           atomicAdd(&virialEnergy->energyElec, (double)energyElec);
       }
       if (doSlow) {
-        volatile double energySlow = BlockReduce(tempStorage).Sum(ve.energySlow); __syncthreads();
+        volatile double energySlow = BlockReduce(tempStorage).Sum(ve.energySlow); BLOCK_SYNC;
         if (threadIdx.x == 0) atomicAdd(&virialEnergy->energySlow, (double)energySlow);
       }
       // if (doGBIS) {
-      //   double energyGBIS = BlockReduce(tempStorage).Sum(ve.energyGBIS); __syncthreads();
+      //   double energyGBIS = BlockReduce(tempStorage).Sum(ve.energyGBIS); BLOCK_SYNC;
       //   if (threadIdx.x == 0) atomicAdd(&virialEnergy->energyGBIS, (double)energyGBIS);
       // }
     }
@@ -921,7 +921,7 @@ __global__ void reduceGBISEnergyKernel(const int numTileLists,
 
     typedef cub::BlockReduce<double, REDUCEVIRIALENERGYKERNEL_NUM_WARP*WARPSIZE> BlockReduce;
     __shared__ typename BlockReduce::TempStorage tempStorage;
-    volatile double energyGBIS = BlockReduce(tempStorage).Sum(energyGBISt); __syncthreads();
+    volatile double energyGBIS = BlockReduce(tempStorage).Sum(energyGBISt); BLOCK_SYNC;
     if (threadIdx.x == 0) atomicAdd(&virialEnergy->energyGBIS, (double)energyGBIS);
   }
 
