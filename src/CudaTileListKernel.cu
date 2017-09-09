@@ -107,7 +107,6 @@ __global__ void localSort(const int n, const int begin_bit, const int num_bit,
       vals[i] = val[0];
     }
     BLOCK_SYNC;
-    //__syncthreads();
   }
 
 }
@@ -341,7 +340,6 @@ __global__ void calcTileListPosKernel(const int numComputes,
     }
 
     BLOCK_SYNC;
-    //__syncthreads();
     // Store block end position
     if (threadIdx.x == nthread-1) {
       shTilePos0 += tilePosVal + numTiles1;
@@ -601,13 +599,6 @@ repackTileListsKernel(const int numTileLists, const int begin_bit, const int* __
 
         if (tileExclsSrc != NULL) {
           unsigned int b = WARP_BALLOT(WARP_FULL_MASK, jtile);
-#if 0
-#if CUDA_VERSION >= 9000
-          unsigned int b = __ballot_sync(0xffffffff, jtile);
-#else
-          unsigned int b = __ballot(jtile);
-#endif
-#endif
           while (b != 0) {
             // k = index of thread that has data
             int k = __ffs(b) - 1;
@@ -618,13 +609,6 @@ repackTileListsKernel(const int numTileLists, const int begin_bit, const int* __
           }
         } else {
           jtile0 += __popc(WARP_BALLOT(WARP_FULL_MASK, jtile));
-#if 0
-#if CUDA_VERSION >= 9000
-          jtile0 += __popc(__ballot_sync(0xffffffff, jtile));
-#else
-          jtile0 += __popc(__ballot(jtile));
-#endif
-#endif
         }
       }
     }
@@ -665,10 +649,8 @@ void sortTileListsKernel(const int numTileListsSrc, const int numTileListsDst,
 
   BlockLoadU(tempStorage.loadU).Load(tileListDepthSrc, keys, numTileListsSrc, oobKey);
   BLOCK_SYNC;
-  //__syncthreads();
   BlockLoad(tempStorage.load).Load(tileListOrderSrc, values, numTileListsSrc);
   BLOCK_SYNC;
-  //__syncthreads();
 
   if (ascend)
     BlockRadixSort(tempStorage.sort).SortBlockedToStriped(keys, values, begin_bit, end_bit);

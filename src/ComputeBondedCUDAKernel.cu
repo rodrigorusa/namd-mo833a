@@ -1216,32 +1216,18 @@ __global__ void bondedForcesKernel(
 #pragma unroll
     for (int i=16;i >= 1;i/=2) {
       energy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, energy, i, 32);
-#if 0
-#if CUDA_VERSION >= 9000
-      energy += __shfl_xor_sync(0xffffffff, energy, i, 32);
-#else
-      energy += __shfl_xor(energy, i, 32);
-#endif
-#endif
     }
     int laneID = (threadIdx.x & (WARPSIZE - 1));
     int warpID = threadIdx.x / WARPSIZE;
     if (laneID == 0) {
       shEnergy[warpID] = energy;
     }
-    __syncthreads();
+    BLOCK_SYNC;
     if (warpID == 0) {
       energy = (laneID < BONDEDFORCESKERNEL_NUM_WARP) ? shEnergy[laneID] : 0.0;
 #pragma unroll
       for (int i=16;i >= 1;i/=2) {
         energy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, energy, i, 32);
-#if 0
-#if CUDA_VERSION >= 9000
-        energy += __shfl_xor_sync(0xffffffff, energy, i, 32);
-#else
-        energy += __shfl_xor(energy, i, 32);
-#endif
-#endif
       }
       if (laneID == 0) {
         atomicAdd(&energies_virials[energyIndex], energy);
@@ -1263,29 +1249,6 @@ __global__ void bondedForcesKernel(
       virial.zx += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virial.zx, i, 32);
       virial.zy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virial.zy, i, 32);
       virial.zz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virial.zz, i, 32);
-#if 0
-#if CUDA_VERSION >= 9000
-      virial.xx += __shfl_xor_sync(0xffffffff, virial.xx, i, 32);
-      virial.xy += __shfl_xor_sync(0xffffffff, virial.xy, i, 32);
-      virial.xz += __shfl_xor_sync(0xffffffff, virial.xz, i, 32);
-      virial.yx += __shfl_xor_sync(0xffffffff, virial.yx, i, 32);
-      virial.yy += __shfl_xor_sync(0xffffffff, virial.yy, i, 32);
-      virial.yz += __shfl_xor_sync(0xffffffff, virial.yz, i, 32);
-      virial.zx += __shfl_xor_sync(0xffffffff, virial.zx, i, 32);
-      virial.zy += __shfl_xor_sync(0xffffffff, virial.zy, i, 32);
-      virial.zz += __shfl_xor_sync(0xffffffff, virial.zz, i, 32);
-#else
-      virial.xx += __shfl_xor(virial.xx, i, 32);
-      virial.xy += __shfl_xor(virial.xy, i, 32);
-      virial.xz += __shfl_xor(virial.xz, i, 32);
-      virial.yx += __shfl_xor(virial.yx, i, 32);
-      virial.yy += __shfl_xor(virial.yy, i, 32);
-      virial.yz += __shfl_xor(virial.yz, i, 32);
-      virial.zx += __shfl_xor(virial.zx, i, 32);
-      virial.zy += __shfl_xor(virial.zy, i, 32);
-      virial.zz += __shfl_xor(virial.zz, i, 32);
-#endif
-#endif
     }
     __shared__ ComputeBondedCUDAKernel::BondedVirial<double> shVirial[BONDEDFORCESKERNEL_NUM_WARP];
     int laneID = (threadIdx.x & (WARPSIZE - 1));
@@ -1294,7 +1257,6 @@ __global__ void bondedForcesKernel(
       shVirial[warpID] = virial;
     }
     BLOCK_SYNC;
-    //__syncthreads();
 
     if (warpID == 0) {
       virial.xx = 0.0;
@@ -1318,29 +1280,6 @@ __global__ void bondedForcesKernel(
         virial.zx += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virial.zx, i, 32);
         virial.zy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virial.zy, i, 32);
         virial.zz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virial.zz, i, 32);
-#if 0
-#if CUDA_VERSION >= 9000
-        virial.xx += __shfl_xor_sync(0xffffffff, virial.xx, i, 32);
-        virial.xy += __shfl_xor_sync(0xffffffff, virial.xy, i, 32);
-        virial.xz += __shfl_xor_sync(0xffffffff, virial.xz, i, 32);
-        virial.yx += __shfl_xor_sync(0xffffffff, virial.yx, i, 32);
-        virial.yy += __shfl_xor_sync(0xffffffff, virial.yy, i, 32);
-        virial.yz += __shfl_xor_sync(0xffffffff, virial.yz, i, 32);
-        virial.zx += __shfl_xor_sync(0xffffffff, virial.zx, i, 32);
-        virial.zy += __shfl_xor_sync(0xffffffff, virial.zy, i, 32);
-        virial.zz += __shfl_xor_sync(0xffffffff, virial.zz, i, 32);
-#else
-        virial.xx += __shfl_xor(virial.xx, i, 32);
-        virial.xy += __shfl_xor(virial.xy, i, 32);
-        virial.xz += __shfl_xor(virial.xz, i, 32);
-        virial.yx += __shfl_xor(virial.yx, i, 32);
-        virial.yy += __shfl_xor(virial.yy, i, 32);
-        virial.yz += __shfl_xor(virial.yz, i, 32);
-        virial.zx += __shfl_xor(virial.zx, i, 32);
-        virial.zy += __shfl_xor(virial.zy, i, 32);
-        virial.zz += __shfl_xor(virial.zz, i, 32);
-#endif
-#endif
       }   
 
       if (laneID == 0) {
@@ -1460,21 +1399,6 @@ __global__ void modifiedExclusionForcesKernel(
         energyNbond += WARP_SHUFFLE_XOR(WARP_FULL_MASK, energyNbond, i, 32);
         energySlow  += WARP_SHUFFLE_XOR(WARP_FULL_MASK, energySlow, i, 32);
       }
-#if 0
-#if CUDA_VERSION >= 9000
-      energyVdw   += __shfl_xor_sync(0xffffffff, energyVdw, i, 32);
-      if (doElect) {
-        energyNbond += __shfl_xor_sync(0xffffffff, energyNbond, i, 32);
-        energySlow  += __shfl_xor_sync(0xffffffff, energySlow, i, 32);
-      }
-#else
-      energyVdw   += __shfl_xor(energyVdw, i, 32);
-      if (doElect) {
-        energyNbond += __shfl_xor(energyNbond, i, 32);
-        energySlow  += __shfl_xor(energySlow, i, 32);
-      }
-#endif
-#endif
     }
     int laneID = (threadIdx.x & (WARPSIZE - 1));
     int warpID = threadIdx.x / WARPSIZE;
@@ -1485,7 +1409,7 @@ __global__ void modifiedExclusionForcesKernel(
         shEnergySlow[warpID]  = energySlow;
       }
     }
-    __syncthreads();
+    BLOCK_SYNC;
     if (warpID == 0) {
       energyVdw   = (laneID < BONDEDFORCESKERNEL_NUM_WARP) ? shEnergyVdw[laneID] : 0.0;
       if (doElect) {
@@ -1499,22 +1423,7 @@ __global__ void modifiedExclusionForcesKernel(
           energyNbond += WARP_SHUFFLE_XOR(WARP_FULL_MASK, energyNbond, i, 32);
           energySlow  += WARP_SHUFFLE_XOR(WARP_FULL_MASK, energySlow, i, 32);
         }
-#if 0
-#if CUDA_VERSION >= 9000
-        energyVdw   += __shfl_xor_sync(0xffffffff, energyVdw, i, 32);
-        if (doElect) {
-          energyNbond += __shfl_xor_sync(0xffffffff, energyNbond, i, 32);
-          energySlow  += __shfl_xor_sync(0xffffffff, energySlow, i, 32);
-        }
-#else
-        energyVdw   += __shfl_xor(energyVdw, i, 32);
-        if (doElect) {
-          energyNbond += __shfl_xor(energyNbond, i, 32);
-          energySlow  += __shfl_xor(energySlow, i, 32);
-        }
-#endif
-#endif
-     }
+      }
       if (laneID == 0) {
         atomicAdd(&energies_virials[ComputeBondedCUDAKernel::energyIndex_LJ],         energyVdw);
         if (doElect) {
@@ -1550,51 +1459,6 @@ __global__ void modifiedExclusionForcesKernel(
         virialSlow.zy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virialSlow.zy, i, 32);
         virialSlow.zz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virialSlow.zz, i, 32);
       }
-#if 0
-#if CUDA_VERSION >= 9000
-      virialNbond.xx += __shfl_xor_sync(0xffffffff, virialNbond.xx, i, 32);
-      virialNbond.xy += __shfl_xor_sync(0xffffffff, virialNbond.xy, i, 32);
-      virialNbond.xz += __shfl_xor_sync(0xffffffff, virialNbond.xz, i, 32);
-      virialNbond.yx += __shfl_xor_sync(0xffffffff, virialNbond.yx, i, 32);
-      virialNbond.yy += __shfl_xor_sync(0xffffffff, virialNbond.yy, i, 32);
-      virialNbond.yz += __shfl_xor_sync(0xffffffff, virialNbond.yz, i, 32);
-      virialNbond.zx += __shfl_xor_sync(0xffffffff, virialNbond.zx, i, 32);
-      virialNbond.zy += __shfl_xor_sync(0xffffffff, virialNbond.zy, i, 32);
-      virialNbond.zz += __shfl_xor_sync(0xffffffff, virialNbond.zz, i, 32);
-      if (doElect && doSlow) {
-        virialSlow.xx += __shfl_xor_sync(0xffffffff, virialSlow.xx, i, 32);
-        virialSlow.xy += __shfl_xor_sync(0xffffffff, virialSlow.xy, i, 32);
-        virialSlow.xz += __shfl_xor_sync(0xffffffff, virialSlow.xz, i, 32);
-        virialSlow.yx += __shfl_xor_sync(0xffffffff, virialSlow.yx, i, 32);
-        virialSlow.yy += __shfl_xor_sync(0xffffffff, virialSlow.yy, i, 32);
-        virialSlow.yz += __shfl_xor_sync(0xffffffff, virialSlow.yz, i, 32);
-        virialSlow.zx += __shfl_xor_sync(0xffffffff, virialSlow.zx, i, 32);
-        virialSlow.zy += __shfl_xor_sync(0xffffffff, virialSlow.zy, i, 32);
-        virialSlow.zz += __shfl_xor_sync(0xffffffff, virialSlow.zz, i, 32);
-      }
-#else
-      virialNbond.xx += __shfl_xor(virialNbond.xx, i, 32);
-      virialNbond.xy += __shfl_xor(virialNbond.xy, i, 32);
-      virialNbond.xz += __shfl_xor(virialNbond.xz, i, 32);
-      virialNbond.yx += __shfl_xor(virialNbond.yx, i, 32);
-      virialNbond.yy += __shfl_xor(virialNbond.yy, i, 32);
-      virialNbond.yz += __shfl_xor(virialNbond.yz, i, 32);
-      virialNbond.zx += __shfl_xor(virialNbond.zx, i, 32);
-      virialNbond.zy += __shfl_xor(virialNbond.zy, i, 32);
-      virialNbond.zz += __shfl_xor(virialNbond.zz, i, 32);
-      if (doElect && doSlow) {
-        virialSlow.xx += __shfl_xor(virialSlow.xx, i, 32);
-        virialSlow.xy += __shfl_xor(virialSlow.xy, i, 32);
-        virialSlow.xz += __shfl_xor(virialSlow.xz, i, 32);
-        virialSlow.yx += __shfl_xor(virialSlow.yx, i, 32);
-        virialSlow.yy += __shfl_xor(virialSlow.yy, i, 32);
-        virialSlow.yz += __shfl_xor(virialSlow.yz, i, 32);
-        virialSlow.zx += __shfl_xor(virialSlow.zx, i, 32);
-        virialSlow.zy += __shfl_xor(virialSlow.zy, i, 32);
-        virialSlow.zz += __shfl_xor(virialSlow.zz, i, 32);
-      }
-#endif
-#endif
     }
     __shared__ ComputeBondedCUDAKernel::BondedVirial<double> shVirialNbond[BONDEDFORCESKERNEL_NUM_WARP];
     __shared__ ComputeBondedCUDAKernel::BondedVirial<double> shVirialSlow[(doElect) ? BONDEDFORCESKERNEL_NUM_WARP : 1];
@@ -1604,7 +1468,7 @@ __global__ void modifiedExclusionForcesKernel(
       shVirialNbond[warpID] = virialNbond;
       shVirialSlow[warpID] = virialSlow;
     }
-    __syncthreads();
+    BLOCK_SYNC;
 
     virialNbond.xx = 0.0;
     virialNbond.xy = 0.0;
@@ -1654,51 +1518,6 @@ __global__ void modifiedExclusionForcesKernel(
           virialSlow.zy += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virialSlow.zy, i, 32);
           virialSlow.zz += WARP_SHUFFLE_XOR(WARP_FULL_MASK, virialSlow.zz, i, 32);
         }
-#if 0
-#if CUDA_VERSION >= 9000
-        virialNbond.xx += __shfl_xor_sync(0xffffffff, virialNbond.xx, i, 32);
-        virialNbond.xy += __shfl_xor_sync(0xffffffff, virialNbond.xy, i, 32);
-        virialNbond.xz += __shfl_xor_sync(0xffffffff, virialNbond.xz, i, 32);
-        virialNbond.yx += __shfl_xor_sync(0xffffffff, virialNbond.yx, i, 32);
-        virialNbond.yy += __shfl_xor_sync(0xffffffff, virialNbond.yy, i, 32);
-        virialNbond.yz += __shfl_xor_sync(0xffffffff, virialNbond.yz, i, 32);
-        virialNbond.zx += __shfl_xor_sync(0xffffffff, virialNbond.zx, i, 32);
-        virialNbond.zy += __shfl_xor_sync(0xffffffff, virialNbond.zy, i, 32);
-        virialNbond.zz += __shfl_xor_sync(0xffffffff, virialNbond.zz, i, 32);
-        if (doElect && doSlow) {
-          virialSlow.xx += __shfl_xor_sync(0xffffffff, virialSlow.xx, i, 32);
-          virialSlow.xy += __shfl_xor_sync(0xffffffff, virialSlow.xy, i, 32);
-          virialSlow.xz += __shfl_xor_sync(0xffffffff, virialSlow.xz, i, 32);
-          virialSlow.yx += __shfl_xor_sync(0xffffffff, virialSlow.yx, i, 32);
-          virialSlow.yy += __shfl_xor_sync(0xffffffff, virialSlow.yy, i, 32);
-          virialSlow.yz += __shfl_xor_sync(0xffffffff, virialSlow.yz, i, 32);
-          virialSlow.zx += __shfl_xor_sync(0xffffffff, virialSlow.zx, i, 32);
-          virialSlow.zy += __shfl_xor_sync(0xffffffff, virialSlow.zy, i, 32);
-          virialSlow.zz += __shfl_xor_sync(0xffffffff, virialSlow.zz, i, 32);
-        }
-#else
-        virialNbond.xx += __shfl_xor(virialNbond.xx, i, 32);
-        virialNbond.xy += __shfl_xor(virialNbond.xy, i, 32);
-        virialNbond.xz += __shfl_xor(virialNbond.xz, i, 32);
-        virialNbond.yx += __shfl_xor(virialNbond.yx, i, 32);
-        virialNbond.yy += __shfl_xor(virialNbond.yy, i, 32);
-        virialNbond.yz += __shfl_xor(virialNbond.yz, i, 32);
-        virialNbond.zx += __shfl_xor(virialNbond.zx, i, 32);
-        virialNbond.zy += __shfl_xor(virialNbond.zy, i, 32);
-        virialNbond.zz += __shfl_xor(virialNbond.zz, i, 32);
-        if (doElect && doSlow) {
-          virialSlow.xx += __shfl_xor(virialSlow.xx, i, 32);
-          virialSlow.xy += __shfl_xor(virialSlow.xy, i, 32);
-          virialSlow.xz += __shfl_xor(virialSlow.xz, i, 32);
-          virialSlow.yx += __shfl_xor(virialSlow.yx, i, 32);
-          virialSlow.yy += __shfl_xor(virialSlow.yy, i, 32);
-          virialSlow.yz += __shfl_xor(virialSlow.yz, i, 32);
-          virialSlow.zx += __shfl_xor(virialSlow.zx, i, 32);
-          virialSlow.zy += __shfl_xor(virialSlow.zy, i, 32);
-          virialSlow.zz += __shfl_xor(virialSlow.zz, i, 32);
-        }
-#endif
-#endif
       }
 
       if (laneID == 0)

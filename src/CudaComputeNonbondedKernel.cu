@@ -110,25 +110,6 @@ void shuffleNext(float& xyzq_j_w, int& vdwtypej, int& jatomIndex, int& jexclMaxd
     jexclIndex   = WARP_SHUFFLE(WARP_FULL_MASK, jexclIndex, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
     jexclMaxdiff = WARP_SHUFFLE(WARP_FULL_MASK, jexclMaxdiff, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
   }
-#if 0
-#if CUDA_VERSION >= 9000
-  xyzq_j_w = __shfl_sync(0xffffffff, xyzq_j_w, (threadIdx.x+1) & (WARPSIZE-1));
-  vdwtypej = __shfl_sync(0xffffffff, vdwtypej, (threadIdx.x+1) & (WARPSIZE-1));
-  if (doPairlist) {
-    jatomIndex   = __shfl_sync(0xffffffff, jatomIndex, (threadIdx.x+1) & (WARPSIZE-1));    
-    jexclIndex   = __shfl_sync(0xffffffff, jexclIndex, (threadIdx.x+1) & (WARPSIZE-1) );
-    jexclMaxdiff = __shfl_sync(0xffffffff, jexclMaxdiff, (threadIdx.x+1) & (WARPSIZE-1) );
-  }
-#else
-  xyzq_j_w = __shfl(xyzq_j_w, (threadIdx.x+1) & (WARPSIZE-1));
-  vdwtypej = __shfl(vdwtypej, (threadIdx.x+1) & (WARPSIZE-1));
-  if (doPairlist) {
-    jatomIndex   = __shfl(jatomIndex, (threadIdx.x+1) & (WARPSIZE-1));    
-    jexclIndex   = __shfl(jexclIndex, (threadIdx.x+1) & (WARPSIZE-1) );
-    jexclMaxdiff = __shfl(jexclMaxdiff, (threadIdx.x+1) & (WARPSIZE-1) );
-  }
-#endif
-#endif
 }
 
 template<bool doPairlist>
@@ -139,21 +120,6 @@ void shuffleNext(float& xyzq_j_w, int& vdwtypej, int& jatomIndex) {
   if (doPairlist) {
     jatomIndex   = WARP_SHUFFLE(WARP_FULL_MASK, jatomIndex, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);    
   }
-#if 0
-#if CUDA_VERSION >= 9000
-  xyzq_j_w = __shfl_sync(0xffffffff, xyzq_j_w, (threadIdx.x+1) & (WARPSIZE-1));
-  vdwtypej = __shfl_sync(0xffffffff, vdwtypej, (threadIdx.x+1) & (WARPSIZE-1));
-  if (doPairlist) {
-    jatomIndex   = __shfl_sync(0xffffffff, jatomIndex, (threadIdx.x+1) & (WARPSIZE-1));    
-  }
-#else
-  xyzq_j_w = __shfl(xyzq_j_w, (threadIdx.x+1) & (WARPSIZE-1));
-  vdwtypej = __shfl(vdwtypej, (threadIdx.x+1) & (WARPSIZE-1));
-  if (doPairlist) {
-    jatomIndex   = __shfl(jatomIndex, (threadIdx.x+1) & (WARPSIZE-1));    
-  }
-#endif
-#endif
 }
 
 template<bool doSlow>
@@ -167,27 +133,6 @@ void shuffleNext(float3& jforce, float3& jforceSlow) {
     jforceSlow.y = WARP_SHUFFLE(WARP_FULL_MASK, jforceSlow.y, (threadIdx.x+1)&(WARPSIZE-1), WARPSIZE);
     jforceSlow.z = WARP_SHUFFLE(WARP_FULL_MASK, jforceSlow.z, (threadIdx.x+1)&(WARPSIZE-1), WARPSIZE);
   }
-#if 0
-#if CUDA_VERSION >= 9000
-  jforce.x = __shfl_sync(0xffffffff, jforce.x, (threadIdx.x+1)&(WARPSIZE-1));
-  jforce.y = __shfl_sync(0xffffffff, jforce.y, (threadIdx.x+1)&(WARPSIZE-1));
-  jforce.z = __shfl_sync(0xffffffff, jforce.z, (threadIdx.x+1)&(WARPSIZE-1));
-  if (doSlow) {
-    jforceSlow.x = __shfl_sync(0xffffffff, jforceSlow.x, (threadIdx.x+1)&(WARPSIZE-1));
-    jforceSlow.y = __shfl_sync(0xffffffff, jforceSlow.y, (threadIdx.x+1)&(WARPSIZE-1));
-    jforceSlow.z = __shfl_sync(0xffffffff, jforceSlow.z, (threadIdx.x+1)&(WARPSIZE-1));
-  }
-#else
-  jforce.x = __shfl(jforce.x, (threadIdx.x+1)&(WARPSIZE-1));
-  jforce.y = __shfl(jforce.y, (threadIdx.x+1)&(WARPSIZE-1));
-  jforce.z = __shfl(jforce.z, (threadIdx.x+1)&(WARPSIZE-1));
-  if (doSlow) {
-    jforceSlow.x = __shfl(jforceSlow.x, (threadIdx.x+1)&(WARPSIZE-1));
-    jforceSlow.y = __shfl(jforceSlow.y, (threadIdx.x+1)&(WARPSIZE-1));
-    jforceSlow.z = __shfl(jforceSlow.z, (threadIdx.x+1)&(WARPSIZE-1));
-  }
-#endif
-#endif
 }
 
 //#define USE_NEW_EXCL_METHOD
@@ -394,13 +339,6 @@ nonbondedForceKernel(const int start, const int numTileLists,
         if (doPairlist) {
           float r2bb = distsq(boundingBoxI, xyzq_j);
           if (WARP_ALL(WARP_FULL_MASK, r2bb > plcutoff2)) continue;
-#if 0
-#if CUDA_VERSION >= 9000
-          if (__all_sync(0xffffffff, r2bb > plcutoff2)) continue;
-#else
-          if (__all(r2bb > plcutoff2)) continue;
-#endif
-#endif
         }
         unsigned int excl = (doPairlist) ? 0 : tileExcls[jtile].excl[wid];
         int vdwtypej = vdwTypes[jatomStart + wid];
@@ -459,17 +397,6 @@ nonbondedForceKernel(const int start, const int numTileLists,
             float dx = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.x, j, WARPSIZE) - xyzq_i.x;
             float dy = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.y, j, WARPSIZE) - xyzq_i.y;
             float dz = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.z, j, WARPSIZE) - xyzq_i.z;
-#if 0
-#if CUDA_VERSION >= 9000
-            float dx = __shfl_sync(0xffffffff, xyzq_j.x,j) - xyzq_i.x;
-            float dy = __shfl_sync(0xffffffff, xyzq_j.y,j) - xyzq_i.y;
-            float dz = __shfl_sync(0xffffffff, xyzq_j.z,j) - xyzq_i.z;
-#else
-            float dx = __shfl(xyzq_j.x,j) - xyzq_i.x;
-            float dy = __shfl(xyzq_j.y,j) - xyzq_i.y;
-            float dz = __shfl(xyzq_j.z,j) - xyzq_i.z;
-#endif
-#endif
 
             float r2 = dx*dx + dy*dy + dz*dz;
 
@@ -489,17 +416,6 @@ nonbondedForceKernel(const int start, const int numTileLists,
             float dx = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.x, j, WARPSIZE) - xyzq_i.x;
             float dy = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.y, j, WARPSIZE) - xyzq_i.y;
             float dz = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.z, j, WARPSIZE) - xyzq_i.z;
-#if 0
-#if CUDA_VERSION >= 9000
-            float dx = __shfl_sync(0xffffffff, xyzq_j.x,j) - xyzq_i.x;
-            float dy = __shfl_sync(0xffffffff, xyzq_j.y,j) - xyzq_i.y;
-            float dz = __shfl_sync(0xffffffff, xyzq_j.z,j) - xyzq_i.z;
-#else
-            float dx = __shfl(xyzq_j.x,j) - xyzq_i.x;
-            float dy = __shfl(xyzq_j.y,j) - xyzq_i.y;
-            float dz = __shfl(xyzq_j.z,j) - xyzq_i.z;
-#endif
-#endif
 
             float r2 = dx*dx + dy*dy + dz*dz;
 
@@ -543,17 +459,6 @@ nonbondedForceKernel(const int start, const int numTileLists,
             xyzq_j.x = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.x, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
             xyzq_j.y = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.y, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
             xyzq_j.z = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.z, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
-#if 0
-#if CUDA_VERSION >= 9000
-            xyzq_j.x = __shfl_sync(0xffffffff, xyzq_j.x, (threadIdx.x+1) & (WARPSIZE-1));
-            xyzq_j.y = __shfl_sync(0xffffffff, xyzq_j.y, (threadIdx.x+1) & (WARPSIZE-1));
-            xyzq_j.z = __shfl_sync(0xffffffff, xyzq_j.z, (threadIdx.x+1) & (WARPSIZE-1));
-#else
-            xyzq_j.x = __shfl(xyzq_j.x, (threadIdx.x+1) & (WARPSIZE-1));
-            xyzq_j.y = __shfl(xyzq_j.y, (threadIdx.x+1) & (WARPSIZE-1));
-            xyzq_j.z = __shfl(xyzq_j.z, (threadIdx.x+1) & (WARPSIZE-1));
-#endif
-#endif
             shuffleNext<doPairlist>(xyzq_j.w, vdwtypej, jatomIndex);
           }
           for (;t < WARPSIZE;t++) {
@@ -576,17 +481,6 @@ nonbondedForceKernel(const int start, const int numTileLists,
             xyzq_j.x = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.x, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
             xyzq_j.y = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.y, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
             xyzq_j.z = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.z, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
-#if 0
-#if CUDA_VERSION >= 9000
-            xyzq_j.x = __shfl_sync(0xffffffff, xyzq_j.x, (threadIdx.x+1) & (WARPSIZE-1));
-            xyzq_j.y = __shfl_sync(0xffffffff, xyzq_j.y, (threadIdx.x+1) & (WARPSIZE-1));
-            xyzq_j.z = __shfl_sync(0xffffffff, xyzq_j.z, (threadIdx.x+1) & (WARPSIZE-1));
-#else
-            xyzq_j.x = __shfl(xyzq_j.x, (threadIdx.x+1) & (WARPSIZE-1));
-            xyzq_j.y = __shfl(xyzq_j.y, (threadIdx.x+1) & (WARPSIZE-1));
-            xyzq_j.z = __shfl(xyzq_j.z, (threadIdx.x+1) & (WARPSIZE-1));
-#endif
-#endif
             shuffleNext<doPairlist>(xyzq_j.w, vdwtypej, jatomIndex);
             shuffleNext<doSlow>(jforce, jforceSlow);
           } // t
@@ -598,15 +492,6 @@ nonbondedForceKernel(const int start, const int numTileLists,
         // Write exclusions
         if (doPairlist && WARP_ANY(WARP_FULL_MASK, nexcluded & 1)) {
           int anyexcl = (65536 | WARP_ANY(WARP_FULL_MASK, excl));
-#if 0
-#if CUDA_VERSION >= 9000
-        if (doPairlist && __any_sync(0xffffffff, nexcluded & 1)) {
-          int anyexcl = (65536 | __any_sync(0xffffffff, excl));
-#else
-        if (doPairlist && __any(nexcluded & 1)) {
-          int anyexcl = (65536 | __any(excl));
-#endif
-#endif
           // Mark this jtile as non-empty:
           //  VdW:      1 if tile has atom pairs within pairlist cutoff and some these atoms interact
           //  GBIS: 65536 if tile has atom pairs within pairlist cutoff but not necessary interacting (i.e. these atoms are fixed or excluded)
@@ -699,17 +584,6 @@ nonbondedForceKernel(const int start, const int numTileLists,
         energyVdw += WARP_SHUFFLE_XOR(WARP_FULL_MASK, energyVdw, i, 32);
         energyElec += WARP_SHUFFLE_XOR(WARP_FULL_MASK, energyElec, i, 32);
         if (doSlow) energySlow += WARP_SHUFFLE_XOR(WARP_FULL_MASK, energySlow, i, 32);
-#if 0
-#if CUDA_VERSION >= 9000
-        energyVdw += __shfl_xor_sync(0xffffffff, energyVdw, i, 32);
-        energyElec += __shfl_xor_sync(0xffffffff, energyElec, i, 32);
-        if (doSlow) energySlow += __shfl_xor_sync(0xffffffff, energySlow, i, 32);
-#else
-        energyVdw += __shfl_xor(energyVdw, i, 32);
-        energyElec += __shfl_xor(energyElec, i, 32);
-        if (doSlow) energySlow += __shfl_xor(energySlow, i, 32);
-#endif
-#endif
       }
 
       if (threadIdx.x % WARPSIZE == 0) {
@@ -737,15 +611,6 @@ nonbondedForceKernel(const int start, const int numTileLists,
 
       patchDone[0] = WARP_ANY(WARP_FULL_MASK, patchDone[0]);
       patchDone[1] = WARP_ANY(WARP_FULL_MASK, patchDone[1]);
-#if 0
-#if CUDA_VERSION >= 9000
-      patchDone[0] = __any_sync(0xffffffff, patchDone[0]);
-      patchDone[1] = __any_sync(0xffffffff, patchDone[1]);
-#else
-      patchDone[0] = __any(patchDone[0]);
-      patchDone[1] = __any(patchDone[1]);
-#endif
-#endif
 
       if (patchDone[0]) {
         // Patch 1 is done, write onto host-mapped memory
