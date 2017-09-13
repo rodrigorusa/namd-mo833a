@@ -151,6 +151,7 @@ __global__ void cuda_pme_charges_batched_dev(
     }
   }
   for ( int i_atom=0; i_atom < atoms_this_warp; ++i_atom ) {
+    WARP_SYNC(WARP_FULL_MASK);  // done writing atoms, reading bspline_factors (FX,FY,FZ)
     float aq=AQ;
     int ai=(int)AI;
     int aj=(int)AJ;
@@ -164,6 +165,7 @@ __global__ void cuda_pme_charges_batched_dev(
       }
       bspline_factors[WARP][THREAD/order][THREAD % order] = f;
     }
+    WARP_SYNC(WARP_FULL_MASK);  // done writing bspline_factors
     for ( int i=THREAD; i < order*order; i+=32 ) {
       int ti = i/order;
       int tj = i%order;
@@ -216,6 +218,7 @@ __global__ void cuda_pme_charges_dev(
     }
   }
   for ( int i_atom=0; i_atom < atoms_this_warp; ++i_atom ) {
+    WARP_SYNC(WARP_FULL_MASK);  // done writing atoms, reading bspline_factors (FX,FY,FZ)
     float aq=AQ;
     int ai=(int)AI;
     int aj=(int)AJ;
@@ -239,6 +242,7 @@ if ( THREAD == 0 && (
       }
       bspline_factors[WARP][THREAD/order][THREAD % order] = f;
     }
+    WARP_SYNC(WARP_FULL_MASK);  // done writing bspline_factors
     for ( int i=THREAD; i < order*order; i+=32 ) {
       int ti = i/order;
       int tj = i%order;
@@ -316,6 +320,7 @@ __global__ void cuda_pme_forces_dev(
     if ( THREAD < atoms_this_warp*7 ) {
       atoms[WARP].a1d[THREAD] = afn_s[0][aidx*7+THREAD];
     }
+    WARP_SYNC(WARP_FULL_MASK);  // done writing atoms
   }
   for ( int i_atom=0; i_atom < atoms_this_warp; ++i_atom ) {
     float aq=AQ;
@@ -334,7 +339,8 @@ __global__ void cuda_pme_forces_dev(
       }
       bspline_2factors[WARP][THREAD/order][THREAD % order] = make_float2(f,df);
     }
-    __threadfence_block();
+    __threadfence_block();  // bspline_2factors not declared volatile
+    WARP_SYNC(WARP_FULL_MASK);  // done writing bspline_2factors (FX2,FY2,FZ2)
     float force_x = 0.f;
     float force_y = 0.f;
     float force_z = 0.f;
@@ -373,21 +379,25 @@ __global__ void cuda_pme_forces_dev(
     force_reduction[WARP].a2d[THREAD][0] = force_x;
     force_reduction[WARP].a2d[THREAD][1] = force_y;
     force_reduction[WARP].a2d[THREAD][2] = force_z;
+    WARP_SYNC(WARP_FULL_MASK);  // done writing force_reduction
     if ( THREAD < 24 ) {
       force_reduction[WARP].a1d[THREAD] += force_reduction[WARP].a1d[THREAD + 24]
                                          + force_reduction[WARP].a1d[THREAD + 48]
                                          + force_reduction[WARP].a1d[THREAD + 72];
     }
+    WARP_SYNC(WARP_FULL_MASK);  // done writing force_reduction
     if ( THREAD < 6 ) {
       force_reduction[WARP].a1d[THREAD] += force_reduction[WARP].a1d[THREAD + 6]
                                          + force_reduction[WARP].a1d[THREAD + 12]
                                          + force_reduction[WARP].a1d[THREAD + 18];
     }
+    WARP_SYNC(WARP_FULL_MASK);  // done writing force_reduction
     if ( THREAD < 3 ) {
       force_output[WARP].a2d[i_atom][THREAD] = force_reduction[WARP].a1d[THREAD]
                                              + force_reduction[WARP].a1d[THREAD + 3];
     }
   } // i_atom
+  WARP_SYNC(WARP_FULL_MASK);  // done writing force_output
   if ( THREAD < atoms_this_warp*3 ) {
     int aidx = blockIdx.x * atoms_per_block + WARP * atoms_per_warp;
     afn_s[1][aidx*3+THREAD] = force_output[WARP].a1d[THREAD];
