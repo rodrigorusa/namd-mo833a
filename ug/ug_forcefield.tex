@@ -1135,61 +1135,53 @@ keep waters rigid rather than the slower SHAKE algorithm.
 }
 \end{itemize}
 
-\subsubsection{Harmonic restraint parameters}
+\subsubsection{Position restraint parameters}
 
-The following describes the parameters for the 
-harmonic restraints feature of \NAMD.
-%Actually, this feature 
-%should be referred to as harmonic restraints rather than 
-%constraints, but
-For historical reasons the terminology of 
-``harmonic constraints'' has been carried over from X-PLOR.  
-This feature allows a harmonic restraining force to be applied 
-to any set of atoms in the simulation.
+The following describes the parameters for the position restraints feature of \NAMD.
+For historical reasons the term ``constraints'' has been carried over from X-PLOR.
+This feature allows a restraining potential to each atom of an arbitrary set during the simulation.
 
 \begin{itemize}
 
 \item
-\NAMDCONFWDEF{constraints}{are constraints active?}{{\tt on} or {\tt off}}{{\tt off}}
-{Specifies whether or not harmonic constraints are active.  If it 
-is set to {\tt off}, then no harmonic constraints are computed.  
-If it is set to {\tt on}, then 
-harmonic constraints are calculated using the values specified 
-by the parameters {\tt consref}, {\tt conskfile}, {\tt conskcol}, 
-and {\tt consexp}.}
+\NAMDCONFWDEF{constraints}{are position restraints active?}{{\tt on} or {\tt off}}{{\tt off}}
+{Specifies whether or not position restraints are active.
+If it is set to {\tt off}, then no position restraints are computed.
+If it is set to {\tt on}, the potential $k\times(\mathbf{x} - \mathbf{x}_0)^p$ is applied to each atom.
+Per-atom values for $k$ can be defined by either {\tt conskfile} or {\tt conskcol}, for $\mathbf{x}_0$ by {\tt consref}, and for $p$ by {\tt consexp}.
+}
 
 \item
-\NAMDCONFWDEF{consexp}{exponent for harmonic constraint energy function}{positive, even integer}{2}
-{Exponent to be use in the harmonic constraint energy function.  
+\NAMDCONFWDEF{consexp}{exponent for position restraint energy function}{positive, even integer}{2}
+{Exponent to be use in the position restraint energy function.
 This value must be a positive integer, and only even values really make 
 sense.  This parameter is used only if {\tt constraints} is set to 
 {\tt on}.}
 
 \item
-\NAMDCONF{consref}{PDB file containing constraint reference positions}{UNIX file name}
-{PDB file to use for reference positions for harmonic constraints.  
-Each atom that has an active constraint will be constrained about 
-the position specified in this file.}
+\NAMDCONF{consref}{PDB file containing restraint reference positions}{UNIX file name}
+{PDB file to use for reference positions for position restraints.
+Each atom that has a positive force constant will be restrained about the position specified in this file.}
 
 \item
 \NAMDCONF{conskfile}{PDB file containing force constant values}{UNIX filename}
 {PDB file to use for force constants for 
-harmonic constraints.}
+position restraints.}
 
 \item
 \NAMDCONF{conskcol}{column of PDB file containing force constant}{{\tt X}, {\tt Y}, {\tt Z}, {\tt O}, or {\tt B}}
-{Column of the PDB file to use for the harmonic constraint force constant.
+{Column of the PDB file to use for the position restraint force constant.
 This parameter may specify any of the floating point fields of the PDB file, 
-either X, Y, Z, occupancy, or beta-coupling (temperature-coupling).  
+either X, Y, Z, occupancy, or beta-coupling (temperature-coupling).
 Regardless of which column is used, a value of 0 indicates that the atom 
-should not be constrained.  
+qshould not be restrained.
 Otherwise, the value specified is used as the force constant for 
 that atom's restraining potential.}
 
 \item
-\NAMDCONFWDEF{constraintScaling}{scaling factor for harmonic constraint energy function}{positive}{1.0}
-{The harmonic constraint energy function is multiplied by this parameter,
-making it possible to gradually turn off constraints during equilibration.
+\NAMDCONFWDEF{constraintScaling}{scaling factor for position restraint energy function}{positive}{1.0}
+{The position restraint energy function is multiplied by this parameter,
+making it possible to gradually turn off restraints during equilibration.
 This parameter is used only if {\tt constraints} is set to 
 {\tt on}.}
 
