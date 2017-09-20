@@ -667,6 +667,11 @@ __global__ void gather_force(const float4 *xyzq, const int ncoord,
 
   int base = tid/8;
   const int base_end = pos_end - blockIdx.x*blockDim.x;
+
+  // Make sure to mask out any threads that are not running the loop.
+  // This will happen if the number of atoms is not a multiple of 32.
+  int warp_mask = WARP_BALLOT(WARP_FULL_MASK, (base < base_end) );
+
   while (base < base_end) {
 
     float f1 = 0.0f;
@@ -717,17 +722,17 @@ __global__ void gather_force(const float4 *xyzq, const int ncoord,
     // Reduce
     const int i = threadIdx.x & 7;
 
-    f1 += WARP_SHUFFLE(WARP_FULL_MASK, f1, i+4, 8);
-    f2 += WARP_SHUFFLE(WARP_FULL_MASK, f2, i+4, 8);
-    f3 += WARP_SHUFFLE(WARP_FULL_MASK, f3, i+4, 8);
+    f1 += WARP_SHUFFLE(warp_mask, f1, i+4, 8);
+    f2 += WARP_SHUFFLE(warp_mask, f2, i+4, 8);
+    f3 += WARP_SHUFFLE(warp_mask, f3, i+4, 8);
 
-    f1 += WARP_SHUFFLE(WARP_FULL_MASK, f1, i+2, 8);
-    f2 += WARP_SHUFFLE(WARP_FULL_MASK, f2, i+2, 8);
-    f3 += WARP_SHUFFLE(WARP_FULL_MASK, f3, i+2, 8);
+    f1 += WARP_SHUFFLE(warp_mask, f1, i+2, 8);
+    f2 += WARP_SHUFFLE(warp_mask, f2, i+2, 8);
+    f3 += WARP_SHUFFLE(warp_mask, f3, i+2, 8);
 
-    f1 += WARP_SHUFFLE(WARP_FULL_MASK, f1, i+1, 8);
-    f2 += WARP_SHUFFLE(WARP_FULL_MASK, f2, i+1, 8);
-    f3 += WARP_SHUFFLE(WARP_FULL_MASK, f3, i+1, 8);
+    f1 += WARP_SHUFFLE(warp_mask, f1, i+1, 8);
+    f2 += WARP_SHUFFLE(warp_mask, f2, i+1, 8);
+    f3 += WARP_SHUFFLE(warp_mask, f3, i+1, 8);
 
     if (i == 0) {
       shmem[base].f1 = f1;
@@ -736,6 +741,7 @@ __global__ void gather_force(const float4 *xyzq, const int ncoord,
     }
 
     base += 8;
+    warp_mask = WARP_BALLOT(warp_mask, (base < base_end) );
   }
 
   // Write forces
