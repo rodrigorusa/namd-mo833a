@@ -880,6 +880,7 @@ void ComputePmeMgr::initialize(CkQdMsg *msg) {
     int dev;
     cudaGetDevice(&dev);
     cuda_errcheck("in cudaGetDevice");
+    if ( dev != deviceCUDA->getDeviceID() ) NAMD_bug("ComputePmeMgr::initialize dev != deviceCUDA->getDeviceID()");
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, dev);
     cuda_errcheck("in cudaGetDeviceProperties");
@@ -2531,6 +2532,7 @@ void ComputePmeMgr::ungridCalc(void) {
 #ifdef NAMD_CUDA
  if ( offload ) {
   //CmiLock(cuda_lock);
+  cudaSetDevice(deviceCUDA->getDeviceID());
 
   if ( this == masterPmeMgr ) {
     double before = CmiWallTimer();
@@ -2844,6 +2846,7 @@ void ComputePmeMgr::initialize_computes() {
 #ifdef NAMD_CUDA
  }
  if ( offload ) {
+ cudaSetDevice(deviceCUDA->getDeviceID());
  if ( cudaFirst ) {
 
   int f_alloc_count = 0;
@@ -3128,6 +3131,10 @@ void ComputePme::doWork()
 
 #ifdef TRACE_COMPUTE_OBJECTS
     double traceObjStartTime = CmiWallTimer();
+#endif
+
+#ifdef NAMD_CUDA
+  if ( offload ) cudaSetDevice(deviceCUDA->getDeviceID());
 #endif
 
   // allocate storage
