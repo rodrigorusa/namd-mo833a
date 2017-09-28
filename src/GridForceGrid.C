@@ -900,6 +900,7 @@ void GridforceFullMainGrid::compute_b(float *b, int *inds, Vector gapscale) cons
 
 GridforceFullSubGrid::GridforceFullSubGrid(GridforceFullBaseGrid *parent_in) {
     parent = parent_in;
+    poten_fp = parent->poten_fp;
     generation = parent->generation + 1;
     GridforceFullBaseGrid *tmp = parent;
     while (tmp->generation > 0) {
