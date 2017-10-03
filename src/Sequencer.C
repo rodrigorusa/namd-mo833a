@@ -789,9 +789,8 @@ void Sequencer::correctMomentum(int step, BigReal drifttime) {
 
 if ( simParams->zeroMomentumAlt ) {
   for ( int i = 0; i < numAtoms; ++i ) {
-    BigReal rmass = (a[i].mass > 0. ? 1. / a[i].mass : 0.);
-    a[i].velocity += dv * rmass;
-    a[i].position += dx * rmass;
+    a[i].velocity += dv * a[i].recipMass;
+    a[i].position += dx * a[i].recipMass;
   }
 } else {
   for ( int i = 0; i < numAtoms; ++i ) {
@@ -1095,7 +1094,8 @@ void Sequencer::langevinVelocities(BigReal dt_fs)
 
       BigReal f1 = exp( -dt_gamma );
       BigReal f2 = sqrt( ( 1. - f1*f1 ) * kbT * 
-                         ( a[i].partition ? tempFactor : 1.0 ) / a[i].mass );
+                         ( a[i].partition ? tempFactor : 1.0 ) * 
+                         a[i].recipMass );
       a[i].velocity *= f1;
       a[i].velocity += f2 * random->gaussian_vector();
     }
@@ -1236,7 +1236,7 @@ void Sequencer::langevinVelocitiesBBK2(BigReal dt_fs)
 
           a[i].velocity += random->gaussian_vector() *
             sqrt( 2 * dt_gamma * kbT *
-                ( a[i].partition ? tempFactor : 1.0 ) / a[i].mass );
+                ( a[i].partition ? tempFactor : 1.0 ) * a[i].recipMass );
           a[i].velocity /= ( 1. + 0.5 * dt_gamma );
         }
 
@@ -1251,7 +1251,7 @@ void Sequencer::langevinVelocitiesBBK2(BigReal dt_fs)
 
         a[i].velocity += random->gaussian_vector() *
           sqrt( 2 * dt_gamma * kbT *
-              ( a[i].partition ? tempFactor : 1.0 ) / a[i].mass );
+              ( a[i].partition ? tempFactor : 1.0 ) * a[i].recipMass );
         a[i].velocity /= ( 1. + 0.5 * dt_gamma );
       }
 
@@ -1494,9 +1494,10 @@ void Sequencer::reassignVelocities(BigReal timestep, int step)
 
     for ( int i = 0; i < numAtoms; ++i )
     {
-      a[i].velocity = ( ( simParams->fixedAtomsOn && a[i].atomFixed && a[i].mass > 0.) ? Vector(0,0,0) :
-        sqrt( kbT * ( a[i].partition ? tempFactor : 1.0 ) / a[i].mass )
-          * random->gaussian_vector() );
+      a[i].velocity = ( ( simParams->fixedAtomsOn && 
+            a[i].atomFixed && a[i].mass > 0.) ? Vector(0,0,0) :
+          sqrt(kbT * (a[i].partition ? tempFactor : 1.0) * a[i].recipMass) * 
+          random->gaussian_vector() );
     }
   } else {
     NAMD_bug("Sequencer::reassignVelocities called improperly!");
@@ -1515,9 +1516,10 @@ void Sequencer::reinitVelocities(void)
 
   for ( int i = 0; i < numAtoms; ++i )
   {
-    a[i].velocity = ( ( (simParams->fixedAtomsOn && a[i].atomFixed) || a[i].mass <= 0.) ? Vector(0,0,0) :
-      sqrt( kbT * ( a[i].partition ? tempFactor : 1.0 ) / a[i].mass )
-        * random->gaussian_vector() );
+    a[i].velocity = ( ( (simParams->fixedAtomsOn && a[i].atomFixed) || 
+          a[i].mass <= 0.) ? Vector(0,0,0) :
+        sqrt(kbT * (a[i].partition ? tempFactor : 1.0) * a[i].recipMass) * 
+        random->gaussian_vector() );
     if ( simParams->drudeOn && i+1 < numAtoms && a[i+1].mass < 1.0 && a[i+1].mass >= 0.001 ) {
       a[i+1].velocity = a[i].velocity;  // zero is good enough
       ++i;

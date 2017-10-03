@@ -4872,6 +4872,8 @@ void Molecule::load_one_inputatom(int aid, OutputAtomRecord *one, InputAtom *fAt
          
   fAtom->charge = atomChargePool[one->sSet.chargeIdx];
   fAtom->mass = atomMassPool[one->sSet.massIdx];
+  // Using double precision division for reciprocal mass.
+  fAtom->recipMass = ( fAtom->mass > 0 ? (1. / fAtom->mass) : 0 );
   fAtom->sigId = one->iSet.atomSigIdx;
   fAtom->exclId = one->iSet.exclSigIdx;
   fAtom->vdwType = one->sSet.vdw_type;

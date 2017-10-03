@@ -831,6 +831,8 @@ CkPrintf("patch %d (%d %d %d) has %d atoms\n",
       }
 
       a[j].mass = molecule->atommass(aid);
+      // Using double precision division for reciprocal mass.
+      a[j].recipMass = ( a[j].mass > 0 ? (1. / a[j].mass) : 0 );
       a[j].charge = molecule->atomcharge(aid);
 
 //Modifications for alchemical fep

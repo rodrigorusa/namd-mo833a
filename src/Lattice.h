@@ -12,9 +12,10 @@
 #include <math.h>
 #include "Tensor.h"
 
-#ifdef POWERPC_TANINT
-extern "builtin" double __tanint(double); //IEEE round
-#define latticenearbyint(x)  __tanint(x)
+#ifdef ARCH_POWERPC
+#include <builtins.h>
+#include <tgmath.h>
+#define latticenearbyint(x)  (round(x))
 #else
 #define latticenearbyint(x)  floor((x)+0.5)
 #endif

@@ -138,7 +138,7 @@ template <class Elem> class UniqueSetRaw {
   public:
 
     // Various Constructors
-    inline UniqueSetRaw(int size=0);
+    inline UniqueSetRaw(int size=101);
 
     // Hopefully, this is never used
     UniqueSetRaw(const UniqueSetRaw<Elem> &us) { copy(us); }

@@ -1,5 +1,5 @@
 
-CUDADIR=/usr/local/cuda-7.5
+CUDADIR=/usr/local/cuda/
 CUDAINCL=-I$(CUDADIR)/include
 CUBDIR=.rootdir/cub
 CUBINCL=-I$(CUBDIR)

@@ -98,6 +98,11 @@ struct CompAtomExt {
 struct FullAtom : CompAtom, CompAtomExt{
   Velocity velocity;
   Position fixedPosition;
+  double recipMass;
+  /**< The reciprocal mass is set to 1/mass or to 0 for massless particles.
+   * Calculating this apriori allows us to remove the divide instruction 
+   * from the integration loops and the Langevin velocity updates. 
+   */
   Mass mass;
   union{
       Real langevinParam;

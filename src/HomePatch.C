@@ -68,6 +68,70 @@ int average(CompAtom *qtilde,const HGArrayVector &q,BigReal *lambda,const int n,
 
 void mollify(CompAtom *qtilde,const HGArrayVector &q0,const BigReal *lambda, HGArrayVector &force,const int n, const int m, const HGArrayBigReal &imass,const HGArrayInt &ial,const HGArrayInt &ibl,const HGArrayVector &refab);
 
+#define MASS_EPSILON  (1.0e-35)  //a very small floating point number
+
+void _addForceToMomentum ( FullAtom       * __restrict atom_arr,
+			   const Force    * __restrict force_arr,
+			   const BigReal    dt,
+			   int              numAtoms ) __attribute__((__noinline__));
+
+void _addForceToMomentum3 ( FullAtom       * __restrict atom_arr,
+			    const Force    * __restrict force_arr1,
+			    const Force    * __restrict force_arr2,
+			    const Force    * __restrict force_arr3,
+			    const BigReal    dt1,
+			    const BigReal    dt2,
+			    const BigReal    dt3,
+			    int              numAtoms ) __attribute__((__noinline__));
+
+void _addVelocityToPosition ( FullAtom       * __restrict atom_arr,
+			      const BigReal    dt,
+			      int              numAtoms ) __attribute__((__noinline__));
+
+void _addForceToMomentum ( FullAtom       * __restrict atom_arr,
+			   const Force    * __restrict force_arr,
+			   const BigReal    dt,
+			   int              numAtoms ) 
+{
+  for ( int i = 0; i < numAtoms; ++i ) {
+    BigReal dt_mass = dt * atom_arr[i].recipMass;  // dt/mass
+    atom_arr[i].velocity.x += force_arr[i].x * dt_mass;
+    atom_arr[i].velocity.y += force_arr[i].y * dt_mass;
+    atom_arr[i].velocity.z += force_arr[i].z * dt_mass;
+  }
+}
+
+void _addForceToMomentum3 ( FullAtom       * __restrict atom_arr,
+			    const Force    * __restrict force_arr1,
+			    const Force    * __restrict force_arr2,
+			    const Force    * __restrict force_arr3,
+			    const BigReal    dt1,
+			    const BigReal    dt2,
+			    const BigReal    dt3,
+			    int              numAtoms ) 
+{
+  for ( int i = 0; i < numAtoms; ++i ) {
+    BigReal rmass = atom_arr[i].recipMass;  // 1/mass
+    atom_arr[i].velocity.x += (force_arr1[i].x*dt1 
+        + force_arr2[i].x*dt2 + force_arr3[i].x*dt3) * rmass;
+    atom_arr[i].velocity.y += (force_arr1[i].y*dt1 
+        + force_arr2[i].y*dt2 + force_arr3[i].y*dt3) * rmass;
+    atom_arr[i].velocity.z += (force_arr1[i].z*dt1 
+        + force_arr2[i].z*dt2 + force_arr3[i].z*dt3) * rmass;
+  }
+}
+
+void _addVelocityToPosition ( FullAtom       * __restrict atom_arr,
+			      const BigReal    dt,
+			      int              numAtoms ) 
+{
+  for ( int i = 0; i < numAtoms; ++i ) {
+    atom_arr[i].position.x  +=  atom_arr[i].velocity.x * dt;
+    atom_arr[i].position.y  +=  atom_arr[i].velocity.y * dt;
+    atom_arr[i].position.z  +=  atom_arr[i].velocity.z * dt;
+  }
+}
+
 
 // DMK - Atom Separation (water vs. non-water)
 #if NAMD_SeparateWaters != 0
@@ -1838,17 +1902,7 @@ void HomePatch::addForceToMomentum(const BigReal timestep, const int ftag,
   } else {
     FullAtom *atom_arr  = atom.begin();
     const Force    *force_arr = f_use[ftag].const_begin();
-#ifdef ARCH_POWERPC
-#pragma disjoint (*force_arr, *atom_arr)
-#endif
-    for ( int i = 0; i < numAtoms; ++i ) {
-      if (atom[i].mass == 0.) continue;
-      BigReal recip_val = ( atom[i].mass > 0. ? dt * namd_reciprocal( atom[i].mass ) : 0.); 
-      //printf("Taking reciprocal of mass %f\n", atom[i].mass);
-      atom_arr[i].velocity.x += force_arr[i].x * recip_val;
-      atom_arr[i].velocity.y += force_arr[i].y * recip_val;
-      atom_arr[i].velocity.z += force_arr[i].z * recip_val;
-    }
+    _addForceToMomentum(atom_arr, force_arr, dt, numAtoms);
   }
 }
 
@@ -1878,19 +1932,7 @@ void HomePatch::addForceToMomentum3(const BigReal timestep1, const int ftag1, co
     const Force *force_arr1 = f_use1[ftag1].const_begin();
     const Force *force_arr2 = f_use2[ftag2].const_begin();
     const Force *force_arr3 = f_use3[ftag3].const_begin();
-#ifdef ARCH_POWERPC
-#pragma disjoint (*force_arr1, *atom_arr)
-#pragma disjoint (*force_arr2, *atom_arr)
-#pragma disjoint (*force_arr3, *atom_arr)
-#endif
-    for ( int i = 0; i < numAtoms; ++i ) {
-      if (atom[i].mass == 0.) continue;
-      BigReal recip_val = ( atom[i].mass > 0. ? namd_reciprocal( atom[i].mass ) : 0.); 
-      //printf("Taking reciprocal of mass %f\n", atom[i].mass);
-      atom_arr[i].velocity.x += (force_arr1[i].x*dt1 + force_arr2[i].x*dt2 + force_arr3[i].x*dt3) * recip_val;
-      atom_arr[i].velocity.y += (force_arr1[i].y*dt1 + force_arr2[i].y*dt2 + force_arr3[i].y*dt3) * recip_val;
-      atom_arr[i].velocity.z += (force_arr1[i].z*dt1 + force_arr2[i].z*dt2 + force_arr3[i].z*dt3) * recip_val;
-    }
+    _addForceToMomentum3 (atom_arr, force_arr1, force_arr2, force_arr3, dt1, dt2, dt3, numAtoms);
   }
 }
 
@@ -1904,11 +1946,7 @@ void HomePatch::addVelocityToPosition(const BigReal timestep)
     }
   } else {
     FullAtom *atom_arr  = atom.begin();
-    for ( int i = 0; i < numAtoms; ++i ) {
-      atom_arr[i].position.x  +=  atom_arr[i].velocity.x * dt;
-      atom_arr[i].position.y  +=  atom_arr[i].velocity.y * dt;
-      atom_arr[i].position.z  +=  atom_arr[i].velocity.z * dt;
-    }
+    _addVelocityToPosition(atom_arr, dt, numAtoms);
   }
 }
 
