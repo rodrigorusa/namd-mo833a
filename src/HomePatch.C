@@ -73,7 +73,11 @@ void mollify(CompAtom *qtilde,const HGArrayVector &q0,const BigReal *lambda, HGA
 void _addForceToMomentum ( FullAtom       * __restrict atom_arr,
 			   const Force    * __restrict force_arr,
 			   const BigReal    dt,
-			   int              numAtoms ) __attribute__((__noinline__));
+			   int              numAtoms )
+#if !defined(WIN32) && !defined(WIN64)
+  __attribute__((__noinline__))
+#endif
+  ;
 
 void _addForceToMomentum3 ( FullAtom       * __restrict atom_arr,
 			    const Force    * __restrict force_arr1,
@@ -82,11 +86,19 @@ void _addForceToMomentum3 ( FullAtom       * __restrict atom_arr,
 			    const BigReal    dt1,
 			    const BigReal    dt2,
 			    const BigReal    dt3,
-			    int              numAtoms ) __attribute__((__noinline__));
+			    int              numAtoms )
+#if !defined(WIN32) && !defined(WIN64)
+  __attribute__((__noinline__))
+#endif
+  ;
 
 void _addVelocityToPosition ( FullAtom       * __restrict atom_arr,
 			      const BigReal    dt,
-			      int              numAtoms ) __attribute__((__noinline__));
+			      int              numAtoms )
+#if !defined(WIN32) && !defined(WIN64)
+  __attribute__((__noinline__))
+#endif
+  ;
 
 void _addForceToMomentum ( FullAtom       * __restrict atom_arr,
 			   const Force    * __restrict force_arr,

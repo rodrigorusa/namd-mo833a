@@ -82,7 +82,7 @@ MODIFIED(
       TABENERGY(
       const int numtypes = simParams->tableNumTypes;
       const float table_spacing = simParams->tableSpacing;
-      const int npertype = (int) (mynearbyint(simParams->tableMaxDist / simParams->tableSpacing) + 1);
+      const int npertype = (int) (namdnearbyint(simParams->tableMaxDist / simParams->tableSpacing) + 1);
       )
 
       int table_i = (r2iilist[2*k] >> 14) + r2_delta_expc;  // table_i >= 0 
@@ -255,9 +255,9 @@ MODIFIED(
           register BigReal r1;
           r1 = sqrt(p_ij_x*p_ij_x + p_ij_y*p_ij_y + p_ij_z*p_ij_z);
 
-          //CkPrintf("%i %i %f %f %i\n", npertype, tabtype, r1, table_spacing, (int) (mynearbyint(r1 / table_spacing)));
+          //CkPrintf("%i %i %f %f %i\n", npertype, tabtype, r1, table_spacing, (int) (namdnearbyint(r1 / table_spacing)));
           register int eneraddress;
-          eneraddress = 2 * ((npertype * tabtype) + ((int) mynearbyint(r1 / table_spacing)));
+          eneraddress = 2 * ((npertype * tabtype) + ((int) namdnearbyint(r1 / table_spacing)));
           //CkPrintf("Using distance bin %i for distance %f\n", eneraddress, r1);
 #ifndef A2_QPX
 	  vdw_d = 0.;

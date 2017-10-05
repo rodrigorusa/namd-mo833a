@@ -603,7 +603,7 @@ tracecomputes: updatefiles $(MKINCDIR) $(MKDSTDIR) $(OBJS) $(LIBS)
 	$(LEPTONOBJS) \
 	$(CHARMOPTS) \
 	$(EXTRALINKLIBS) \
-	-lm -o namd2.tc.prj
+	$(MATHLIBS) -o namd2.tc.prj
 
 projections: $(MKINCDIR) $(MKDSTDIR) $(OBJS) $(LIBS)
 	$(MAKEBUILDINFO)
@@ -627,7 +627,7 @@ projections: $(MKINCDIR) $(MKDSTDIR) $(OBJS) $(LIBS)
 	$(LEPTONOBJS) \
 	$(CHARMOPTS) \
 	$(EXTRALINKLIBS) \
-	-lm -o namd2.prj
+	$(MATHLIBS) -o namd2.prj
 
 summary: $(MKINCDIR) $(MKDSTDIR) $(OBJS) $(LIBS)
 	$(MAKEBUILDINFO)
@@ -651,7 +651,7 @@ summary: $(MKINCDIR) $(MKDSTDIR) $(OBJS) $(LIBS)
 	$(LEPTONOBJS) \
 	$(CHARMOPTS) \
 	$(EXTRALINKLIBS) \
-	-lm -o namd2.sum
+	$(MATHLIBS) -o namd2.sum
 
 $(DPMTADIR)/mpole/libmpole.a: $(DPMTADIR)/src/libdpmta2.a
 

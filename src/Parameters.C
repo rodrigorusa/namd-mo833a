@@ -6754,7 +6754,7 @@ void Parameters::read_ener_table(SimParameters *simParams) {
 	}
 
 /* Now allocate memory for the table; we know what we should be getting */
-	numenerentries = 2 * numtypes * int (mynearbyint(maxdist/table_spacing) + 1);
+	numenerentries = 2 * numtypes * int (namdnearbyint(maxdist/table_spacing) + 1);
 	//Set up a full energy lookup table from a file
 	//Allocate the table; layout is atom1 x atom2 x distance energy force
 	fprintf(stdout, "Table has %i entries\n",numenerentries);
@@ -6837,7 +6837,7 @@ xxxxxx
 
 	numenerentries = (numtypes + 1) * numtypes * int (ceil(maxdist/table_spacing));
 //	fprintf(stdout, "Table arithmetic: maxdist %f, table_spacing %f, numtypes %i, numentries %i\n", maxdist, table_spacing, numtypes, numenerentries);
-	columnsize = 2 * mynearbyint(maxdist/table_spacing);
+	columnsize = 2 * namdnearbyint(maxdist/table_spacing);
 	rowsize = numtypes * columnsize;
 	//Set up a full energy lookup table from a file
 	//Allocate the table; layout is atom1 x atom2 x distance energy force
@@ -6885,12 +6885,12 @@ xxxxxx
 
 
 		sscanf(tableline, "%i %i %f %f %f\n", &atom1, &atom2, &dist, &energy, &force);
-		distbin = int(mynearbyint(dist/table_spacing));
+		distbin = int(namdnearbyint(dist/table_spacing));
 //		fprintf(stdout, "Working on atoms %i and %i at distance %f\n",atom1,atom2,dist);
-		if ((atom2 > atom1) || (distbin > int(mynearbyint(maxdist/table_spacing)))) {
+		if ((atom2 > atom1) || (distbin > int(namdnearbyint(maxdist/table_spacing)))) {
 //			fprintf(stdout,"Rejected\n");
 //			fprintf(stdout, "Error: Throwing out energy line beyond bounds\n");
-	//		fprintf(stdout, "Bad line: Atom 1: %i Atom 2: %i Distance Bin: %i Max Distance Bin: %i \n", atom1, atom2, distbin, int(mynearbyint(maxdist/table_spacing)));
+	//		fprintf(stdout, "Bad line: Atom 1: %i Atom 2: %i Distance Bin: %i Max Distance Bin: %i \n", atom1, atom2, distbin, int(namdnearbyint(maxdist/table_spacing)));
 		} else {
 			//The magic formula for the number of columns from previous rows
 			//in the triangular matrix is (2ni+i-i**2)/2
@@ -6984,7 +6984,7 @@ int Parameters::read_energy_type_bothcubspline(FILE* enertable, const int typein
   distbin = 0;
 
   // Read all of the values first -- we'll interpolate later
-	while(fgets(tableline,120,enertable) && distbin <= (int) (mynearbyint(maxdist / table_spacing) + 1)) {
+	while(fgets(tableline,120,enertable) && distbin <= (int) (namdnearbyint(maxdist / table_spacing) + 1)) {
 		if (strncmp(tableline,"#",1)==0) {
 			continue;
 		}
@@ -7107,7 +7107,7 @@ int Parameters::read_energy_type_bothcubspline(FILE* enertable, const int typein
 
   distbin = 0;
   int entriesperseg = (int) ceil(spacing / table_spacing);
-  int table_prefix = 2 * typeindex * (int) (mynearbyint(maxdist / table_spacing) + 1);
+  int table_prefix = 2 * typeindex * (int) (namdnearbyint(maxdist / table_spacing) + 1);
 
   for (i=0; i<numentries-1; i++) {
     BigReal Ae,Be,Ce,De;
@@ -7131,8 +7131,8 @@ int Parameters::read_energy_type_bothcubspline(FILE* enertable, const int typein
     for (j=0; j<entriesperseg; j++) {
       const BigReal mydist = currdist + (j * table_spacing);
       const BigReal mydistfrac = (float) j / (entriesperseg - 1);
-      distbin = (int) mynearbyint(mydist / table_spacing);
-      if (distbin >= (int) mynearbyint(maxdist / table_spacing)) break;
+      distbin = (int) namdnearbyint(mydist / table_spacing);
+      if (distbin >= (int) namdnearbyint(maxdist / table_spacing)) break;
       BigReal energy;
       BigReal force;
 
@@ -7148,7 +7148,7 @@ int Parameters::read_energy_type_bothcubspline(FILE* enertable, const int typein
   }
 
   //The procedure above leaves out the last entry -- add it explicitly
-  distbin = (int) mynearbyint(maxdist / table_spacing);
+  distbin = (int) namdnearbyint(maxdist / table_spacing);
 //  printf("Adding energy/force entry %f / %f in bins %i / %i\n", enervalues[numentries - 1], 0.0, (table_prefix + 2 * distbin), (table_prefix + 2 * distbin + 1));
   table_ener[table_prefix + 2 * distbin] = enervalues[numentries - 1];
   table_ener[table_prefix + 2 * distbin + 1] = 0.0;
@@ -7162,8 +7162,8 @@ int Parameters::read_energy_type_bothcubspline(FILE* enertable, const int typein
   delete be;
   delete bf;
   distbin--;
-  printf("Testing: %i vs %i (from %f / %f)\n", distbin, (int) (mynearbyint(maxdist / table_spacing)), maxdist, table_spacing);
-  if (distbin != (int) (mynearbyint(maxdist / table_spacing))) return 1;
+  printf("Testing: %i vs %i (from %f / %f)\n", distbin, (int) (namdnearbyint(maxdist / table_spacing)), maxdist, table_spacing);
+  if (distbin != (int) (namdnearbyint(maxdist / table_spacing))) return 1;
   return 0;
 } /* end read_energy_type_bothcubspline */
 
@@ -7218,7 +7218,7 @@ int Parameters::read_energy_type_cubspline(FILE* enertable, const int typeindex,
   distbin = 0;
 
   // Read all of the values first -- we'll interpolate later
-	while(fgets(tableline,120,enertable) && distbin <= (int) (mynearbyint(maxdist / table_spacing) + 1)) {
+	while(fgets(tableline,120,enertable) && distbin <= (int) (namdnearbyint(maxdist / table_spacing) + 1)) {
 		if (strncmp(tableline,"#",1)==0) {
 			continue;
 		}
@@ -7350,7 +7350,7 @@ int Parameters::read_energy_type_cubspline(FILE* enertable, const int typeindex,
 
   distbin = 0;
   int entriesperseg = (int) ceil(spacing / table_spacing);
-  int table_prefix = 2 * typeindex * (int) (mynearbyint(maxdist / table_spacing) + 1);
+  int table_prefix = 2 * typeindex * (int) (namdnearbyint(maxdist / table_spacing) + 1);
 
   for (i=0; i<numentries-1; i++) {
     BigReal A,B,C,D;
@@ -7370,8 +7370,8 @@ int Parameters::read_energy_type_cubspline(FILE* enertable, const int typeindex,
     for (j=0; j<entriesperseg; j++) {
       const BigReal mydist = currdist + (j * table_spacing);
       const BigReal mydistfrac = (float) j / (entriesperseg - 1);
-      distbin = (int) mynearbyint(mydist / table_spacing);
-      if (distbin >= (int) mynearbyint(maxdist / table_spacing)) break;
+      distbin = (int) namdnearbyint(mydist / table_spacing);
+      if (distbin >= (int) namdnearbyint(maxdist / table_spacing)) break;
       BigReal energy;
       BigReal force;
 
@@ -7389,7 +7389,7 @@ int Parameters::read_energy_type_cubspline(FILE* enertable, const int typeindex,
   }
 
   //The procedure above leaves out the last entry -- add it explicitly
-  distbin = (int) mynearbyint(maxdist / table_spacing);
+  distbin = (int) namdnearbyint(maxdist / table_spacing);
   printf("Adding energy/force entry %f / %f in bins %i / %i\n", enervalues[numentries - 1], 0.0, (table_prefix + 2 * distbin), (table_prefix + 2 * distbin + 1));
   table_ener[table_prefix + 2 * distbin] = enervalues[numentries - 1];
   table_ener[table_prefix + 2 * distbin + 1] = 0.0;
@@ -7401,8 +7401,8 @@ int Parameters::read_energy_type_cubspline(FILE* enertable, const int typeindex,
   delete x;
   delete b;
   distbin--;
-  printf("Testing: %i vs %i (from %f / %f)\n", distbin, (int) (mynearbyint(maxdist / table_spacing)), maxdist, table_spacing);
-  if (distbin != (int) (mynearbyint(maxdist / table_spacing))) return 1;
+  printf("Testing: %i vs %i (from %f / %f)\n", distbin, (int) (namdnearbyint(maxdist / table_spacing)), maxdist, table_spacing);
+  if (distbin != (int) (namdnearbyint(maxdist / table_spacing))) return 1;
   return 0;
 } /* end read_energy_type_cubspline */
 
@@ -7447,7 +7447,7 @@ int Parameters::read_energy_type(FILE* enertable, const int typeindex, BigReal* 
   currdist = -1.0;
   distbin = -1;
 
-	while(fgets(tableline,120,enertable) && distbin <= (int) (mynearbyint(maxdist / table_spacing) + 1)) {
+	while(fgets(tableline,120,enertable) && distbin <= (int) (namdnearbyint(maxdist / table_spacing) + 1)) {
     printf("At distance %f + %f vs. %f\n", currdist, table_spacing, maxdist);
 		if (strncmp(tableline,"#",1)==0) {
 			continue;
@@ -7483,9 +7483,9 @@ int Parameters::read_energy_type(FILE* enertable, const int typeindex, BigReal* 
 
     currdist = lastdist;
 
-    while (currdist <= readdist && distbin <= (int) (mynearbyint(maxdist / table_spacing))) {
-      distbin = (int) (mynearbyint(currdist / table_spacing));
-      int table_loc = 2 * (distbin + (typeindex * (1 + (int) mynearbyint(maxdist / table_spacing))));
+    while (currdist <= readdist && distbin <= (int) (namdnearbyint(maxdist / table_spacing))) {
+      distbin = (int) (namdnearbyint(currdist / table_spacing));
+      int table_loc = 2 * (distbin + (typeindex * (1 + (int) namdnearbyint(maxdist / table_spacing))));
       printf("Doing interpolation for energy between %f %f and %f %f: Dist %f\n", readener, readdist, lastener, lastdist, currdist);
       table_ener[table_loc] = interp_lin(readener, lastener, readdist, lastdist, currdist);
       table_ener[table_loc + 1] = interp_lin(readforce, lastforce, readdist, lastdist, currdist);
@@ -7500,8 +7500,8 @@ int Parameters::read_energy_type(FILE* enertable, const int typeindex, BigReal* 
 
   // Clean up and make sure everything worked ok
   distbin--;
-  printf("Testing: %i vs %i (from %f / %f)\n", distbin, (int) (mynearbyint(maxdist / table_spacing)), maxdist, table_spacing);
-  if (distbin != (int) (mynearbyint(maxdist / table_spacing))) return 1;
+  printf("Testing: %i vs %i (from %f / %f)\n", distbin, (int) (namdnearbyint(maxdist / table_spacing)), maxdist, table_spacing);
+  if (distbin != (int) (namdnearbyint(maxdist / table_spacing))) return 1;
   return 0;
 }
 

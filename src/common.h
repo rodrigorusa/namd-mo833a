@@ -49,15 +49,33 @@ void * operator new (size_t, void *p) { return p; }
 #define PDBVELINVFACTOR (1.0/PDBVELFACTOR)
 #define PNPERKCALMOL 69.479
 
-/* Some plagtforms don't have nearbyint or round, so we'll define one */
-/* that works everywhere */
+//
+// Defining macro namdnearbyint(X).
+//
+// Some plagtforms don't have nearbyint or round, so we'll define one
+// that works everywhere.
+//
+// Use namdnearbyint(X) instead of rint(X) because rint() is sensitive
+// to the current rounding mode and floor() is not.  It's just safer.
+//
 #ifdef ARCH_POWERPC
+#ifdef POWERPC_TANINT
+// round for BlueGeneQ (and others that set POWERPC_TANINT)
+extern "builtin" double __tanint(double); // IEEE round
+#define namdnearbyint(x)  __tanint(x)
+#else
+// round for Linux POWER
 #include <builtins.h>
 #include <tgmath.h>
-#define mynearbyint(x)  (round(x))
-#else
-#define mynearbyint(x)  floor((x)+0.5)
+#define namdnearbyint(x)  (round(x))
 #endif
+#else
+// fall back should work everywhere
+#define namdnearbyint(x)  floor((x)+0.5)
+#endif
+//
+// End defining macro namdnearbyint(X).
+//
 
 #ifndef PI
 #define PI	3.141592653589793
