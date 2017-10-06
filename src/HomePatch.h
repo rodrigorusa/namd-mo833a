@@ -111,12 +111,39 @@ public:
 
   // methods to implement integration
   void saveForce(const int ftag = Results::normal);
-  void addForceToMomentum(const BigReal, const int ftag = Results::normal,
-				const int useSaved = 0);
-  void addForceToMomentum3(const BigReal timestep1, const int ftag1, const int useSaved1,
-    const BigReal timestep2, const int ftag2, const int useSaved2,
-    const BigReal timestep3, const int ftag3, const int useSaved3);
-  void addVelocityToPosition(const BigReal);
+  void addForceToMomentum(
+      FullAtom       * __restrict atom_arr,
+      const Force    * __restrict force_arr,
+      const BigReal    dt,
+      int              num_atoms
+      )
+#if !defined(WIN32) && !defined(WIN64)
+    __attribute__((__noinline__))
+#endif
+    ;
+  void addForceToMomentum3(
+      FullAtom       * __restrict atom_arr,
+      const Force    * __restrict force_arr1,
+      const Force    * __restrict force_arr2,
+      const Force    * __restrict force_arr3,
+      const BigReal    dt1,
+      const BigReal    dt2,
+      const BigReal    dt3,
+      int              num_atoms
+      ) 
+#if !defined(WIN32) && !defined(WIN64)
+    __attribute__((__noinline__))
+#endif
+    ;
+  void addVelocityToPosition(
+      FullAtom       * __restrict atom_arr,
+      const BigReal    dt,
+      int              num_atoms
+      ) 
+#if !defined(WIN32) && !defined(WIN64)
+    __attribute__((__noinline__))
+#endif
+    ;
 
   // impose hard wall constraint on Drude bond length
   int hardWallDrude(const BigReal, Tensor *virial, SubmitReduction *);

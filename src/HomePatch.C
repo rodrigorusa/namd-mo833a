@@ -70,80 +70,6 @@ void mollify(CompAtom *qtilde,const HGArrayVector &q0,const BigReal *lambda, HGA
 
 #define MASS_EPSILON  (1.0e-35)  //a very small floating point number
 
-void _addForceToMomentum ( FullAtom       * __restrict atom_arr,
-			   const Force    * __restrict force_arr,
-			   const BigReal    dt,
-			   int              numAtoms )
-#if !defined(WIN32) && !defined(WIN64)
-  __attribute__((__noinline__))
-#endif
-  ;
-
-void _addForceToMomentum3 ( FullAtom       * __restrict atom_arr,
-			    const Force    * __restrict force_arr1,
-			    const Force    * __restrict force_arr2,
-			    const Force    * __restrict force_arr3,
-			    const BigReal    dt1,
-			    const BigReal    dt2,
-			    const BigReal    dt3,
-			    int              numAtoms )
-#if !defined(WIN32) && !defined(WIN64)
-  __attribute__((__noinline__))
-#endif
-  ;
-
-void _addVelocityToPosition ( FullAtom       * __restrict atom_arr,
-			      const BigReal    dt,
-			      int              numAtoms )
-#if !defined(WIN32) && !defined(WIN64)
-  __attribute__((__noinline__))
-#endif
-  ;
-
-void _addForceToMomentum ( FullAtom       * __restrict atom_arr,
-			   const Force    * __restrict force_arr,
-			   const BigReal    dt,
-			   int              numAtoms ) 
-{
-  for ( int i = 0; i < numAtoms; ++i ) {
-    BigReal dt_mass = dt * atom_arr[i].recipMass;  // dt/mass
-    atom_arr[i].velocity.x += force_arr[i].x * dt_mass;
-    atom_arr[i].velocity.y += force_arr[i].y * dt_mass;
-    atom_arr[i].velocity.z += force_arr[i].z * dt_mass;
-  }
-}
-
-void _addForceToMomentum3 ( FullAtom       * __restrict atom_arr,
-			    const Force    * __restrict force_arr1,
-			    const Force    * __restrict force_arr2,
-			    const Force    * __restrict force_arr3,
-			    const BigReal    dt1,
-			    const BigReal    dt2,
-			    const BigReal    dt3,
-			    int              numAtoms ) 
-{
-  for ( int i = 0; i < numAtoms; ++i ) {
-    BigReal rmass = atom_arr[i].recipMass;  // 1/mass
-    atom_arr[i].velocity.x += (force_arr1[i].x*dt1 
-        + force_arr2[i].x*dt2 + force_arr3[i].x*dt3) * rmass;
-    atom_arr[i].velocity.y += (force_arr1[i].y*dt1 
-        + force_arr2[i].y*dt2 + force_arr3[i].y*dt3) * rmass;
-    atom_arr[i].velocity.z += (force_arr1[i].z*dt1 
-        + force_arr2[i].z*dt2 + force_arr3[i].z*dt3) * rmass;
-  }
-}
-
-void _addVelocityToPosition ( FullAtom       * __restrict atom_arr,
-			      const BigReal    dt,
-			      int              numAtoms ) 
-{
-  for ( int i = 0; i < numAtoms; ++i ) {
-    atom_arr[i].position.x  +=  atom_arr[i].velocity.x * dt;
-    atom_arr[i].position.y  +=  atom_arr[i].velocity.y * dt;
-    atom_arr[i].position.z  +=  atom_arr[i].velocity.z * dt;
-  }
-}
-
 
 // DMK - Atom Separation (water vs. non-water)
 #if NAMD_SeparateWaters != 0
@@ -1895,70 +1821,94 @@ void HomePatch::redistrib_tip4p_forces(const int ftag, Tensor* virial) {
 }
 
 
-void HomePatch::addForceToMomentum(const BigReal timestep, const int ftag,
-							const int useSaved)
-{
+void HomePatch::addForceToMomentum(
+    FullAtom       * __restrict atom_arr,
+    const Force    * __restrict force_arr,
+    const BigReal    dt,
+    int              num_atoms
+    ) {
   SimParameters *simParams = Node::Object()->simParameters;
-  const BigReal dt = timestep / TIMEFACTOR;
-  ForceList *f_use = (useSaved ? f_saved : f);
 
   if ( simParams->fixedAtomsOn ) {
-    for ( int i = 0; i < numAtoms; ++i ) {
-      if ( atom[i].atomFixed ) {
-        atom[i].velocity = 0;
+    for ( int i = 0; i < num_atoms; ++i ) {
+      if ( atom_arr[i].atomFixed ) {
+        atom_arr[i].velocity = 0;
       } else {
-        BigReal recip_val = ( atom[i].mass > 0. ? dt * namd_reciprocal( atom[i].mass ) : 0.); 
-        atom[i].velocity += f_use[ftag][i] * recip_val;
+        BigReal dt_mass = dt * atom_arr[i].recipMass;  // dt/mass
+        atom_arr[i].velocity.x += force_arr[i].x * dt_mass;
+        atom_arr[i].velocity.y += force_arr[i].y * dt_mass;
+        atom_arr[i].velocity.z += force_arr[i].z * dt_mass;
       }
     }
   } else {
-    FullAtom *atom_arr  = atom.begin();
-    const Force    *force_arr = f_use[ftag].const_begin();
-    _addForceToMomentum(atom_arr, force_arr, dt, numAtoms);
+    for ( int i = 0; i < num_atoms; ++i ) {
+      BigReal dt_mass = dt * atom_arr[i].recipMass;  // dt/mass
+      atom_arr[i].velocity.x += force_arr[i].x * dt_mass;
+      atom_arr[i].velocity.y += force_arr[i].y * dt_mass;
+      atom_arr[i].velocity.z += force_arr[i].z * dt_mass;
+    }
   }
 }
 
-void HomePatch::addForceToMomentum3(const BigReal timestep1, const int ftag1, const int useSaved1,
-    const BigReal timestep2, const int ftag2, const int useSaved2,
-    const BigReal timestep3, const int ftag3, const int useSaved3)
-{
+void HomePatch::addForceToMomentum3(
+    FullAtom       * __restrict atom_arr,
+    const Force    * __restrict force_arr1,
+    const Force    * __restrict force_arr2,
+    const Force    * __restrict force_arr3,
+    const BigReal    dt1,
+    const BigReal    dt2,
+    const BigReal    dt3,
+    int              num_atoms
+    ) {
   SimParameters *simParams = Node::Object()->simParameters;
-  const BigReal dt1 = timestep1 / TIMEFACTOR;
-  const BigReal dt2 = timestep2 / TIMEFACTOR;
-  const BigReal dt3 = timestep3 / TIMEFACTOR;
-  ForceList *f_use1 = (useSaved1 ? f_saved : f);
-  ForceList *f_use2 = (useSaved2 ? f_saved : f);
-  ForceList *f_use3 = (useSaved3 ? f_saved : f);
 
   if ( simParams->fixedAtomsOn ) {
-    for ( int i = 0; i < numAtoms; ++i ) {
-      if ( atom[i].atomFixed ) {
-        atom[i].velocity = 0;
+    for ( int i = 0; i < num_atoms; ++i ) {
+      if ( atom_arr[i].atomFixed ) {
+        atom_arr[i].velocity = 0;
       } else {
-        BigReal recip_val = ( atom[i].mass > 0. ? namd_reciprocal( atom[i].mass ) : 0.); 
-        atom[i].velocity += (f_use1[ftag1][i]*dt1 + f_use2[ftag2][i]*dt2 + f_use3[ftag3][i]*dt3)*recip_val;
+        BigReal rmass = atom_arr[i].recipMass;  // 1/mass
+        atom_arr[i].velocity.x += (force_arr1[i].x*dt1 
+            + force_arr2[i].x*dt2 + force_arr3[i].x*dt3) * rmass;
+        atom_arr[i].velocity.y += (force_arr1[i].y*dt1 
+            + force_arr2[i].y*dt2 + force_arr3[i].y*dt3) * rmass;
+        atom_arr[i].velocity.z += (force_arr1[i].z*dt1 
+            + force_arr2[i].z*dt2 + force_arr3[i].z*dt3) * rmass;
       }
     }
   } else {
-    FullAtom *atom_arr  = atom.begin();
-    const Force *force_arr1 = f_use1[ftag1].const_begin();
-    const Force *force_arr2 = f_use2[ftag2].const_begin();
-    const Force *force_arr3 = f_use3[ftag3].const_begin();
-    _addForceToMomentum3 (atom_arr, force_arr1, force_arr2, force_arr3, dt1, dt2, dt3, numAtoms);
+    for ( int i = 0; i < num_atoms; ++i ) {
+      BigReal rmass = atom_arr[i].recipMass;  // 1/mass
+      atom_arr[i].velocity.x += (force_arr1[i].x*dt1 
+          + force_arr2[i].x*dt2 + force_arr3[i].x*dt3) * rmass;
+      atom_arr[i].velocity.y += (force_arr1[i].y*dt1 
+          + force_arr2[i].y*dt2 + force_arr3[i].y*dt3) * rmass;
+      atom_arr[i].velocity.z += (force_arr1[i].z*dt1 
+          + force_arr2[i].z*dt2 + force_arr3[i].z*dt3) * rmass;
+    }
   }
 }
 
-void HomePatch::addVelocityToPosition(const BigReal timestep)
-{
+void HomePatch::addVelocityToPosition(
+    FullAtom       * __restrict atom_arr,
+    const BigReal    dt,
+    int              num_atoms
+    ) {
   SimParameters *simParams = Node::Object()->simParameters;
-  const BigReal dt = timestep / TIMEFACTOR;
   if ( simParams->fixedAtomsOn ) {
-    for ( int i = 0; i < numAtoms; ++i ) {
-      if ( ! atom[i].atomFixed ) atom[i].position += atom[i].velocity * dt;
+    for ( int i = 0; i < num_atoms; ++i ) {
+      if ( ! atom_arr[i].atomFixed ) {
+        atom_arr[i].position.x  +=  atom_arr[i].velocity.x * dt;
+        atom_arr[i].position.y  +=  atom_arr[i].velocity.y * dt;
+        atom_arr[i].position.z  +=  atom_arr[i].velocity.z * dt;
+      }
     }
   } else {
-    FullAtom *atom_arr  = atom.begin();
-    _addVelocityToPosition(atom_arr, dt, numAtoms);
+    for ( int i = 0; i < num_atoms; ++i ) {
+      atom_arr[i].position.x  +=  atom_arr[i].velocity.x * dt;
+      atom_arr[i].position.y  +=  atom_arr[i].velocity.y * dt;
+      atom_arr[i].position.z  +=  atom_arr[i].velocity.z * dt;
+    }
   }
 }
 

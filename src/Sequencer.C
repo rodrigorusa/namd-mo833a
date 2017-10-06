@@ -1571,29 +1571,49 @@ void Sequencer::saveForce(const int ftag)
   patch->saveForce(ftag);
 }
 
-void Sequencer::addForceToMomentum(BigReal dt, const int ftag, const int useSaved)
+void Sequencer::addForceToMomentum(
+    BigReal timestep, const int ftag, const int useSaved
+    ) {
+#if CMK_BLUEGENEL
+  CmiNetworkProgressAfter (0);
+#endif
+  const BigReal dt = timestep / TIMEFACTOR;
+  FullAtom *atom_arr  = patch->atom.begin();
+  ForceList *f_use = (useSaved ? patch->f_saved : patch->f);
+  const Force *force_arr = f_use[ftag].const_begin();
+  patch->addForceToMomentum(atom_arr, force_arr, dt, patch->numAtoms);
+}
+
+void Sequencer::addForceToMomentum3(
+    const BigReal timestep1, const int ftag1, const int useSaved1,
+    const BigReal timestep2, const int ftag2, const int useSaved2,
+    const BigReal timestep3, const int ftag3, const int useSaved3
+    ) {
+#if CMK_BLUEGENEL
+  CmiNetworkProgressAfter (0);
+#endif
+  const BigReal dt1 = timestep1 / TIMEFACTOR;
+  const BigReal dt2 = timestep2 / TIMEFACTOR;
+  const BigReal dt3 = timestep3 / TIMEFACTOR;
+  ForceList *f_use1 = (useSaved1 ? patch->f_saved : patch->f);
+  ForceList *f_use2 = (useSaved2 ? patch->f_saved : patch->f);
+  ForceList *f_use3 = (useSaved3 ? patch->f_saved : patch->f);
+  FullAtom *atom_arr  = patch->atom.begin();
+  const Force *force_arr1 = f_use1[ftag1].const_begin();
+  const Force *force_arr2 = f_use2[ftag2].const_begin();
+  const Force *force_arr3 = f_use3[ftag3].const_begin();
+  patch->addForceToMomentum3 (atom_arr, force_arr1, force_arr2, force_arr3,
+      dt1, dt2, dt3, patch->numAtoms);
+}
+
+void Sequencer::addVelocityToPosition(BigReal timestep)
 {
 #if CMK_BLUEGENEL
   CmiNetworkProgressAfter (0);
 #endif
-  patch->addForceToMomentum(dt,ftag,useSaved);
-}
-
-void Sequencer::addForceToMomentum3(const BigReal timestep1, const int ftag1, const int useSaved1,
-        const BigReal timestep2, const int ftag2, const int useSaved2,
-        const BigReal timestep3, const int ftag3, const int useSaved3) {
-#if CMK_BLUEGENEL
-  CmiNetworkProgressAfter (0);
-#endif
-  patch->addForceToMomentum3(timestep1,ftag1,useSaved1, timestep2,ftag2,useSaved2, timestep3,ftag3,useSaved3);  
-}
-
-void Sequencer::addVelocityToPosition(BigReal dt)
-{
-#if CMK_BLUEGENEL
-  CmiNetworkProgressAfter (0);
-#endif
-  patch->addVelocityToPosition(dt);
+  const BigReal dt = timestep / TIMEFACTOR;
+  FullAtom *atom_arr  = patch->atom.begin();
+  patch->addVelocityToPosition(atom_arr, dt, patch->numAtoms);
 }
 
 void Sequencer::hardWallDrude(BigReal dt, int pressure)
