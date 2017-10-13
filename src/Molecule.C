@@ -192,10 +192,10 @@ void Molecule::initialize(SimParameters *simParams, Parameters *param)
   resLookup=NULL;
 
   // DRUDE
-  is_lonepairs_psf = 0;
+  is_lonepairs_psf = 1;  // anticipate having lone pair hosts
   is_drude_psf = 0;  // assume not Drude model
   drudeConsts=NULL;
-  lphosts=NULL;
+  lphosts=NULL;  // might have lone pair hosts without Drude!
   anisos=NULL;
   tholes=NULL;
   lphostIndexes=NULL;
@@ -894,10 +894,6 @@ void Molecule::read_psf_file(char *fname, Parameters *params)
         "enabling the Drude model in the simulation config file\n" << endi;
     }
     is_drude_psf = 1;
-    is_lonepairs_psf = 1;
-  }
-  else if (simParams->lonepairs) {
-    is_lonepairs_psf = 1;
   }
   // DRUDE
 
@@ -1139,59 +1135,126 @@ void Molecule::read_psf_file(char *fname, Parameters *params)
   if (numExclusions)
     read_exclusions(psf_file);
 
-  // DRUDE: read lone pair hosts and anisotropic terms from PSF
-  if (is_lonepairs_psf)
-  {
-    while (!NAMD_find_word(buffer, "NUMLP"))
-    {
+  //
+  // The remaining sections that we can read might be optional to the PSF.
+  //
+  // Possibilities are:
+  // - Drude simulation:
+  //   + NUMLP (probably, but necessarily?)
+  //   + NUMANISO (required)
+  //   + NCRTERM (optional)
+  // - non-Drude simulation
+  //   + NUMLP (optional)
+  //   + NCRTERM (optional)
+  //
+  // Also, there might be unrecognized PSF sections that we should skip.
+  //
+
+  // Keep reading until we recognize another section of PSF or find EOF.
+  int is_found = 0;
+  int is_found_numlp = 0;
+  int is_found_numaniso = 0;
+  int is_found_ncrterm = 0;
+  while ( ! is_found ) {
+    // Read until we find the next non-blank line
+    do {
       ret_code = NAMD_read_line(psf_file, buffer);
-      if (ret_code != 0)
-      {
-        NAMD_die("EOF ENCOUNTERED LOOKING FOR NUMLP IN DRUDE PSF FILE");
-      }
+    } while (ret_code == 0 && NAMD_blank_string(buffer) != 0 );
+    // we either found EOF or we will try to match word in buffer
+    if (ret_code != 0) {
+      is_found = -1;  // found end of file
     }
+    else if ( (is_found_numlp = NAMD_find_word(buffer, "NUMLP")) > 0) {
+      is_found = is_found_numlp;
+    }
+    else if ( (is_found_numaniso = NAMD_find_word(buffer, "NUMANISO")) > 0) {
+      is_found = is_found_numaniso;
+    }
+    else if ( (is_found_ncrterm = NAMD_find_word(buffer, "NCRTERM")) > 0) {
+      is_found = is_found_ncrterm;
+    }
+  }
+
+  if (is_found_numlp) {
+    // We found lone pair hosts.
+    // Read the number and then read the lone pair hosts.
     sscanf(buffer, "%d", &numLphosts);
-    if (numLphosts) read_lphosts(psf_file);
-  }
+    if (numLphosts > 0) read_lphosts(psf_file);
 
-  if (is_drude_psf)
-  {
-    while (!NAMD_find_word(buffer, "NUMANISO"))
-    {
-      ret_code = NAMD_read_line(psf_file, buffer);
-      if (ret_code != 0)
-      {
-        NAMD_die("EOF ENCOUNTERED LOOKING FOR NUMANISO IN DRUDE PSF FILE");
+    // Keep reading for next keyword.
+    is_found = 0;
+    is_found_numaniso = 0;
+    is_found_ncrterm = 0;
+    while ( ! is_found ) {
+      // Read until we find the next non-blank line
+      do {
+        ret_code = NAMD_read_line(psf_file, buffer);
+      } while (ret_code == 0 && NAMD_blank_string(buffer) != 0 );
+      // we either found EOF or we will try to match word in buffer
+      if (ret_code != 0) {
+        is_found = -1;  // found end of file
+      }
+      else if ( (is_found_numaniso = NAMD_find_word(buffer, "NUMANISO")) > 0) {
+        is_found = is_found_numaniso;
+      }
+      else if ( (is_found_ncrterm = NAMD_find_word(buffer, "NCRTERM")) > 0) {
+        is_found = is_found_ncrterm;
       }
     }
-    sscanf(buffer, "%d", &numAnisos);
-    if (numAnisos) read_anisos(psf_file);
   }
-  // DRUDE
 
-  /*  look for the cross-term section.     */
-  int crossterms_present = 1;
-  while (!NAMD_find_word(buffer, "NCRTERM"))
-  {
-    ret_code = NAMD_read_line(psf_file, buffer);
+  if (numLphosts == 0) {
+    // We either had no NUMLP section or we did and zero were listed.
+    // Nevertheless, we have no lone pair hosts
+    // so reset the simparams flag before simulation
+    simParams->lonepairs = FALSE;
+    is_lonepairs_psf = 0;
+  }
+  else if (simParams->lonepairs == FALSE /* but numLphosts > 0 */) {
+    // Config file "lonepairs" option is (now) enabled by default.
+    // Bad things will happen when lone pair hosts exist but "lonepairs"
+    // in simparams is disabled. In this event, terminate with an error.
+    NAMD_die("FOUND LONE PAIR HOSTS IN PSF WITH \"LONEPAIRS\" DISABLED IN CONFIG FILE");
+  }
 
-    if (ret_code != 0)
-    {
-      // hit EOF before finding cross-term section
-      crossterms_present = 0;
-      break;
+  if (is_found_numaniso && is_drude_psf) {
+    // We are reading a Drude PSF and found the anisotropic terms.
+    // Read the number and then read those terms.
+    sscanf(buffer, "%d", &numAnisos);
+    if (numAnisos > 0) read_anisos(psf_file);
+
+    // Keep reading for next keyword.
+    is_found = 0;
+    is_found_ncrterm = 0;
+    while ( ! is_found ) {
+      // Read until we find the next non-blank line
+      do {
+        ret_code = NAMD_read_line(psf_file, buffer);
+      } while (ret_code == 0 && NAMD_blank_string(buffer) != 0 );
+      // we either found EOF or we will try to match word in buffer
+      if (ret_code != 0) {
+        is_found = -1;  // found end of file
+      }
+      else if ( (is_found_ncrterm = NAMD_find_word(buffer, "NCRTERM")) > 0) {
+        is_found = is_found_ncrterm;
+      }
     }
   }
-
-  if ( crossterms_present) {
-
-    /*  Read in the number of cross-terms and then the cross-terms*/
-    sscanf(buffer, "%d", &numCrossterms);
-
-    if (numCrossterms)
-      read_crossterms(psf_file, params);
-
+  else if (is_drude_psf /* but not is_found_numaniso */) {
+    NAMD_die("DID NOT FIND REQUIRED NUMANISO IN DRUDE PSF FILE");
   }
+  else if (is_found_numaniso /* but not is_drude_file */) {
+    NAMD_die("FOUND NUMANISO IN PSF FILE MISSING DRUDE DESIGNATION");
+  }
+
+  if (is_found_ncrterm) {
+    // We found crossterms section of PSF.
+    // Read the number and then read the crossterms.
+    sscanf(buffer, "%d", &numCrossterms);
+    if (numCrossterms > 0) read_crossterms(psf_file, params);
+  }
+
+  // Nothing else for us to read.
 
   /*  Close the .psf file.  */
   Fclose(psf_file);
@@ -1466,7 +1529,7 @@ void Molecule::read_bonds(FILE *fd, Parameters *params)
     /*  Make sure this isn't a fake bond meant for shake in x-plor.  */
     Real k, x0;
     params->get_bond_params(&k,&x0,b->bond_type);
-    if (simParams->lonepairs) {
+    if (is_lonepairs_psf) {
       // need to retain Lonepair bonds for Drude
       if ( k == 0. && !is_lp(b->atom1) && !is_lp(b->atom2)) --numBonds;
       else ++num_read;
@@ -2767,7 +2830,7 @@ void Molecule::plgLoadBonds(int *from, int *to){
         //Make sure this isn't a fake bond meant for shake in x-plor
         Real k, x0;
         params->get_bond_params(&k, &x0, thisBond->bond_type);
-        if(simParams->lonepairs) {
+        if (is_lonepairs_psf) {
             //need to retain Lonepair bonds for Drude
             if(k!=0. || is_lp(thisBond->atom1) || 
                is_lp(thisBond->atom2)) {               
@@ -3392,7 +3455,7 @@ void Molecule::setBFactorData(molfile_atom_t *atomarray){
        }
 
        // DRUDE: init lphostIndexes array
-       if (simParams->lonepairs) {
+       if (is_lonepairs_psf) {
          // allocate lone pair host index array only if we need it!
          DebugM(3,"Initializing lone pair host index array.\n");
          lphostIndexes = new int32[numAtoms];
@@ -8964,8 +9027,7 @@ void Molecule::build_atom_status(void) {
   int numZeroMassAtoms = 0;
   for (i=0; i < numAtoms; i++) {
     if ( atoms[i].mass <= 0. ) {
-      if (simParams->watmodel == WAT_TIP4 ||
-          simParams->lonepairs) {
+      if (simParams->watmodel == WAT_TIP4 || is_lonepairs_psf) {
         ++numLonepairs;
       } else {
         atoms[i].mass = 0.001;
@@ -8977,12 +9039,12 @@ void Molecule::build_atom_status(void) {
     }
   }
   // DRUDE: verify number of LPs
-  if (simParams->lonepairs && numLonepairs != numLphosts) {
+  if (is_lonepairs_psf && numLonepairs != numLphosts) {
     NAMD_die("must have same number of LP hosts as lone pairs");
   }
   // DRUDE
   if ( ! CkMyPe() ) {
-    if (simParams->watmodel == WAT_TIP4 || simParams->lonepairs) {
+    if (simParams->watmodel == WAT_TIP4 || is_lonepairs_psf) {
       iout << iWARN << "CORRECTION OF ZERO MASS ATOMS TURNED OFF "
         "BECAUSE LONE PAIRS ARE USED\n" << endi;
     } else if ( numZeroMassAtoms ) {
@@ -9068,7 +9130,7 @@ void Molecule::build_atom_status(void) {
       }
     }
     // SWM4 water has lone pair and Drude particles
-    else if ( /* simParams->watmodel == WAT_SWM4 */ simParams->lonepairs) {
+    else if ( /* simParams->watmodel == WAT_SWM4 */ is_lonepairs_psf) {
       if (is_lp(a1) || is_drude(a1)) {
         if (is_hydrogen(a2) || is_lp(a2) || is_drude(a2)) {
           char msg[256];
