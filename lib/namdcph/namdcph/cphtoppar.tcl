@@ -134,12 +134,45 @@ proc ::cphSystem::proposeResidueTitration {segresid} {
         set numProtonsTrial [expr {lsum($occ)}]
         if {$numProtons != $numProtonsTrial} {
             cphSystem set trialState $segresid $state
-            return 0
+            return 1
         }
     }
     # This is an error and should never happen.
     return -1
 }
+
+proc ::cphSystem::proposeProtonTransfer {segresid1 segresid2} {
+    variable ::cphSystem::resDefDict
+    set numProtons1 [expr {lsum([cphSystem get occupancy $segresid1])}]
+    set possibleStates1 [cphSystem get trialStateList $segresid1]
+    set resname1 [cphSystem get resname $segresid1]
+    set numProtons2 [expr {lsum([cphSystem get occupancy $segresid2])}]
+    set possibleStates2 [cphSystem get trialStateList $segresid2]
+    set resname2 [cphSystem get resname $segresid2]
+    set dn [expr {$numProtons1 - $numProtons2}]
+
+    if {$dn == 0.0} {     
+        # No proton transfer is possible.
+        return 0
+    } 
+    # transfer from 1 to 2
+    while {true} {
+        set state1 [choice $possibleStates1]
+        set occ1 [dict get $resDefDict $resname1 states $state1]
+        set numProtonsTrial1 [expr {lsum($occ1)}]
+        set state2 [choice $possibleStates2]
+        set occ2 [dict get $resDefDict $resname2 states $state2]
+        set numProtonsTrial2 [expr {lsum($occ2)}]
+        if {$dn == [expr {$numProtonsTrial2 - $numProtonsTrial1}]} {
+            cphSystem set trialState $segresid1 $state1
+            cphSystem set trialState $segresid2 $state2
+            return 1
+        }
+    }
+    # This is an error and should never happen.
+    return -1
+}
+
 
 # ::cphSystem::proposeResidueTautomerization
 #
@@ -307,25 +340,29 @@ proc ::cphSystem::computeInherentNormedWeights {pH segresid} {
 # computed, not the temperature of the simulation. See 
 # computeInherentAcceptance for definition of the remaining notation.
 #
-proc ::cphSystem::computeSwitchAcceptance {segresid} {
-    set l [cphSystem get occupancy $segresid]
-    set lp [cphSystem get trialOccupancy $segresid]
-    set dn [expr {lsum($lp) - lsum($l)}]
-    set s [occupancy2Index $l]
-    set sp [occupancy2Index $lp]
-    set ssp [index2flatindex $s $sp]
-    set dG [lindex [cphSystem get dGPair $segresid] $ssp]
-    set pKa [lindex [cphSystem get pKaPair $segresid] $ssp]
-    set pKai [lindex [cphSystem get pKaiPair $segresid] $ssp]
-    if {$dn == 0.0} {
-        # tautomerization: "pKa" is positive in direction of lower index
-        set sgn [expr {$sp > $s} ? 1.0 : -1.0]
-    } else {
-        # titration: pKa is positive in direction of fewer protons
-        set sgn [expr {$dn > 0} ? 1.0 : -1.0]
+proc ::cphSystem::computeSwitchAcceptance {segresidList} {
+    set du 0.0
+    foreach segresid $segresidList {
+        set l [cphSystem get occupancy $segresid]
+        set lp [cphSystem get trialOccupancy $segresid]
+        set dn [expr {lsum($lp) - lsum($l)}]
+        set s [occupancy2Index $l]
+        set sp [occupancy2Index $lp]
+        set ssp [index2flatindex $s $sp]
+        set dG [lindex [cphSystem get dGPair $segresid] $ssp]
+        set pKa [lindex [cphSystem get pKaPair $segresid] $ssp]
+        set pKai [lindex [cphSystem get pKaiPair $segresid] $ssp]
+        if {$dn == 0.0} {
+            # tautomerization: "pKa" is positive in direction of lower index
+            set sgn [expr {$sp > $s} ? 1.0 : -1.0]
+        } else {
+            # titration: pKa is positive in direction of fewer protons
+            set sgn [expr {$dn > 0} ? 1.0 : -1.0]
+        }
+        set kT [expr {$::BOLTZMANN*[cphSystem get Tref $segresid]}]
+        set du [expr {$du + $sgn*($dG - $kT*$::LN10*($pKa - $pKai))}]
     }
-    set kT [expr {$::BOLTZMANN*[cphSystem get Tref $segresid]}]
-    return [expr {$sgn*($dG - $kT*$::LN10*($pKa - $pKai))}]
+    return $du
 }
 
 # ---------------

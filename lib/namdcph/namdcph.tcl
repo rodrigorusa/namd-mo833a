@@ -19,6 +19,7 @@ namespace eval ::namdcphwrapper {
             cphRestartFile cphRestartFreq\
             cphForceConstant cphMDBasename cphSwitchBasename\
             cphMaxProposalAttempts cphNumMinSteps cphProposalWeight\
+            cphProposeProtonTransfer\
             cphNumstepsPerSwitch\
             testResidue cphAnalyzeForce cphExcludeResidue
 

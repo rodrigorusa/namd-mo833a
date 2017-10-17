@@ -62,6 +62,25 @@ proc ::cphTitrator::buildTitrator {systempH moveInfo} {
             dict unset moveInfo $segresid
         }
     }
+    # Build proton transfer moves
+    foreach moveLabel [dict get $moveInfo ptransfer] {
+        lassign [split $moveLabel "/"] segresid1 segresid2
+        dict set MoveSet $moveLabel proposalCmd\
+                "proposeProtonTransferMove $moveLabel" 
+        dict set MoveSet $moveLabel segresidList [list $segresid1 $segresid2]
+        dict set MoveSet $moveLabel weight\
+                [dictPopOrDefault moveInfo $moveLabel weight]
+        dict set MoveSet $moveLabel numsteps\
+                [dictPopOrDefault moveInfo $moveLabel numsteps]
+        dict set MoveSet $moveLabel successes 0
+        dict set MoveSet $moveLabel attempts 0
+        if {[dict exists $moveInfo $moveLabel]\
+            && ![dict size [dict get $moveInfo $moveLabel]]} {
+            dict unset moveInfo $moveLabel
+        }
+    }
+    dict unset moveInfo ptransfer
+    ###
     computeWeightSum
     return $moveInfo
 }
@@ -122,6 +141,20 @@ proc ::cphTitrator::proposeResidueMove {segresid} {
        cphSystem set trialState $segresid [lindex $states $j]
    }
    return $accept
+}
+
+proc ::cphTitrator::proposeProtonTransferMove {moveLabel} {
+    variable ::cphTitrator::pH
+    lassign [split $moveLabel "/"] segresid1 segresid2
+    set errCode [::cphSystem::proposeProtonTransfer $segresid1 $segresid2]
+    if {$errCode > 0} {
+        set du1 [cphSystem compute inherent $pH $segresid1]
+        set du2 [cphSystem compute inherent $pH $segresid2]
+        set accept [metropolisAcceptance [expr {$du1 + $du2}]]
+    } else {
+        set accept 0
+    }
+    return $accept
 }
 
 proc ::cphTitrator::proposeMove {} {

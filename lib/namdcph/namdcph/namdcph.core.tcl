@@ -30,6 +30,7 @@ namespace eval ::namdcph {
     dict set moveInfo maxProposalAttempts 0
     dict set moveInfo default numsteps 20 
     dict set moveInfo default weight 1.0
+    dict set moveInfo ptransfer [list]
 
     variable residueAliases [dict create]
     dict set residueAliases HIS {HSD HSE HSP}
@@ -389,6 +390,14 @@ proc ::namdcph::cphProposalWeight {args} {
     return
 }
 
+proc ::namdcph::cphProposeProtonTransfer {args} {
+    variable ::namdcph::moveInfo
+    foreach moveLabel $args {
+        dict lappend moveInfo ptransfer $moveLabel
+    }
+    return
+}
+
 # ::namdcph::cphMaxProposalAttempts
 #
 # Number of attempted MC proposals from each move set before giving up.
@@ -517,7 +526,7 @@ proc ::namdcph::runSwitch {numsteps segresidList} {
     set DeltaE [cphSystem compute switch $segresidList]
     set Work [expr {$::energyArray(CUMALCHWORK) + $DeltaE}]
     set ReducedWork [expr {$Work / ($::BOLTZMANN*[$::thermostatTempCmd])}]
-    set accept [metropolisAcceptance $ReducedWork] 
+    set accept [metropolisAcceptance $ReducedWork]
 #    printProposalSummary $segresidList
     set tmp [printProposalSummary $segresidList]
     cphPrint [format "%s WorkCorr % 10.4f CorrWork % 10.4f"\
