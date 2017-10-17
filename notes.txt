@@ -546,10 +546,16 @@ A recent Intel compiler is obviously required to compile for Xeon Phi.
 
 Compiling NAMD
 
-Building a complete NAMD binary from source code requires working
-C and C++ compilers, Charm++/Converse, TCL, and FFTW.  NAMD will
-compile without TCL or FFTW but certain features will be disabled.
-Fortunately, precompiled libraries are available from
+Building a complete NAMD binary from source code requires:
+
+- working C and C++ compilers;
+- a compiled version of the Charm++/Converse library;
+- a compiled version of the TCL library and its header files;
+- a compiled version of the FFTW library and its header files;
+- a C shell (csh/tcsh) to run the script used to configure the build.
+
+NAMD can be compiled without TCL or FFTW, but certain features will be
+disabled.  Fortunately, precompiled TCL and FFTW libraries are available from
 http://www.ks.uiuc.edu/Research/namd/libraries/.  You may disable
 these options by specifying --without-tcl --without-fftw as options
 when you run the config script.  Some files in arch may need editing
