@@ -118,6 +118,7 @@ void Sequencer::algorithm(void)
 {
   int scriptTask;
   int scriptSeq = 0;
+  // Blocking receive for the script barrier.
   while ( (scriptTask = broadcast->scriptBarrier.get(scriptSeq++)) != SCRIPT_END ) {
     switch ( scriptTask ) {
       case SCRIPT_OUTPUT:
@@ -322,6 +323,7 @@ void Sequencer::integrate(int scriptTask) {
 
     for ( ++step; step <= numberOfSteps; ++step )
     {
+      PUSH_RANGE("integrate 1", 0);
 
       rescaleVelocities(step);
       tcoupleVelocities(timestep,step);
@@ -346,16 +348,26 @@ void Sequencer::integrate(int scriptTask) {
          } */
 
       maximumMove(timestep);
+
+      POP_RANGE;  // integrate 1
+
       if ( simParams->langevinPistonOn || (simParams->langevinOn && simParams->langevin_useBAOAB) ) {
         if ( ! commOnly ) addVelocityToPosition(0.5*timestep);
         // We add an Ornstein-Uhlenbeck integration step for the case of BAOAB (Langevin)
         langevinVelocities(timestep);
+
+        // There is a blocking receive inside of langevinPiston()
+        // that might suspend the current thread of execution,
+        // so split profiling around this conditional block.
         langevinPiston(step);
+
         if ( ! commOnly ) addVelocityToPosition(0.5*timestep);
       } else {
         // If Langevin is not used, take full time step directly instread of two half steps      
         if ( ! commOnly ) addVelocityToPosition(timestep); 
       }
+
+      PUSH_RANGE("integrate 2", 1);
 
       // impose hard wall potential for Drude bond length
       hardWallDrude(timestep, 1);
@@ -365,9 +377,13 @@ void Sequencer::integrate(int scriptTask) {
       doNonbonded = !(step%nonbondedFrequency);
       doFullElectrostatics = (dofull && !(step%fullElectFrequency));
 
-      if ( zeroMomentum && doFullElectrostatics )
+      if ( zeroMomentum && doFullElectrostatics ) {
+        // There is a blocking receive inside of correctMomentum().
         correctMomentum(step,slowstep);
+      }
 
+      // There are NO sends in submitHalfstep() just local summation 
+      // into the Reduction struct.
       submitHalfstep(step);
 
       doMolly = simParams->mollyOn && doFullElectrostatics;
@@ -397,7 +413,12 @@ void Sequencer::integrate(int scriptTask) {
         doMomenta = 1;
       }
 
+      POP_RANGE;  // integrate 2
+
+      // The current thread of execution will suspend in runComputeObjects().
       runComputeObjects(!(step%stepsPerCycle),step<numberOfSteps);
+
+      PUSH_RANGE("integrate 3", 2);
 
       rescaleaccelMD(step, doNonbonded, doFullElectrostatics); // for accelMD
      
@@ -447,6 +468,8 @@ void Sequencer::integrate(int scriptTask) {
       multigratorPressure(step, 2);
       multigratorTemperature(step, 2);
       doMultigratorRattle = (simParams->multigratorOn && !(step % simParams->multigratorTemperatureFreq));
+
+      POP_RANGE;  // integrate 3
 
 #if CYCLE_BARRIER
         cycleBarrier(!((step+1) % stepsPerCycle), step);
@@ -604,7 +627,10 @@ void Sequencer::minimize() {
   int downhill = 1;  // start out just fixing bad contacts
   int minSeq = 0;
   for ( ++step; step <= numberOfSteps; ++step ) {
+
+   // Blocking receive for the minimization coefficient.
    BigReal c = broadcast->minimizeCoefficient.get(minSeq++);
+
    if ( downhill ) {
     if ( c ) minimizeMoveDownhill(fmax2);
     else {
@@ -614,9 +640,15 @@ void Sequencer::minimize() {
    }
    if ( ! downhill ) {
     if ( ! c ) {  // new direction
+
+      // Blocking receive for the minimization coefficient.
       c = broadcast->minimizeCoefficient.get(minSeq++);
+
       newMinimizeDirection(c);  // v = c * v + f
+
+      // Blocking receive for the minimization coefficient.
       c = broadcast->minimizeCoefficient.get(minSeq++);
+
     }  // same direction
     newMinimizePosition(c);  // x = x + c * v
    }
@@ -781,7 +813,9 @@ void Sequencer::correctMomentum(int step, BigReal drifttime) {
   if ( simParams->fixedAtomsOn )
     NAMD_die("Cannot zero momentum when fixed atoms are present.");
 
+  // Blocking receive for the momentum correction vector.
   const Vector dv = broadcast->momentumCorrection.get(step);
+
   const Vector dx = dv * ( drifttime / TIMEFACTOR );
 
   FullAtom *a = patch->atom.begin();
@@ -846,7 +880,7 @@ void Sequencer::multigratorPressure(int step, int callNumber) {
     FullAtom *a = patch->atom.begin();
     int numAtoms = patch->numAtoms;
 
-    // Receive scaling factors from Controller
+    // Blocking receive (get) scaling factors from Controller
     Tensor scaleTensor    = (callNumber == 1) ? broadcast->positionRescaleFactor.get(step) : broadcast->positionRescaleFactor2.get(step);
     Tensor velScaleTensor = (callNumber == 1) ? broadcast->velocityRescaleTensor.get(step) : broadcast->velocityRescaleTensor2.get(step);
     Tensor posScaleTensor = scaleTensor;
@@ -1004,7 +1038,7 @@ BigReal Sequencer::calcKineticEnergy() {
 
 void Sequencer::multigratorTemperature(int step, int callNumber) {
   if (simParams->multigratorOn && !(step % simParams->multigratorTemperatureFreq)) {
-    // Scale velocities
+    // Blocking receive (get) velocity scaling factor.
     BigReal velScale = (callNumber == 1) ? broadcast->velocityRescaleFactor.get(step) : broadcast->velocityRescaleFactor2.get(step);
     scaleVelocities(velScale);
     // Calculate new kineticEnergy
@@ -1051,6 +1085,8 @@ void Sequencer::newtonianVelocities(BigReal stepscale, const BigReal timestep,
                                     const int doNonbonded,
                                     const int doFullElectrostatics)
 {
+  RANGE("newtonianVelocities", 3);
+
   // Deterministic velocity update, account for multigrator
   if (staleForces || (doNonbonded && doFullElectrostatics)) {
     addForceToMomentum3(stepscale*timestep, Results::normal, 0,
@@ -1104,6 +1140,7 @@ void Sequencer::langevinVelocities(BigReal dt_fs)
 
 void Sequencer::langevinVelocitiesBBK1(BigReal dt_fs)
 {
+  RANGE("langevinVelocitiesBBK1", 7);
   if ( simParams->langevinOn && !simParams->langevin_useBAOAB )
   {
     FullAtom *a = patch->atom.begin();
@@ -1171,6 +1208,7 @@ void Sequencer::langevinVelocitiesBBK1(BigReal dt_fs)
 
 void Sequencer::langevinVelocitiesBBK2(BigReal dt_fs)
 {
+  RANGE("langevinVelocitiesBBK2", 8);
   if ( simParams->langevinOn && !simParams->langevin_useBAOAB ) 
   {
     rattle1(dt_fs,1);  // conserve momentum if gammas differ
@@ -1270,6 +1308,7 @@ void Sequencer::berendsenPressure(int step)
    berendsenPressure_count = 0;
    FullAtom *a = patch->atom.begin();
    int numAtoms = patch->numAtoms;
+   // Blocking receive for the updated lattice scaling factor.
    Tensor factor = broadcast->positionRescaleFactor.get(step);
    patch->lattice.rescale(factor);
    if ( simParams->useGroupPressure )
@@ -1330,6 +1369,7 @@ void Sequencer::langevinPiston(int step)
   {
    FullAtom *a = patch->atom.begin();
    int numAtoms = patch->numAtoms;
+   // Blocking receive for the updated lattice scaling factor.
    Tensor factor = broadcast->positionRescaleFactor.get(step);
    // JCP FIX THIS!!!
    Vector velFactor(1/factor.xx,1/factor.yy,1/factor.zz);
@@ -1405,6 +1445,7 @@ void Sequencer::rescaleVelocities(int step)
     int numAtoms = patch->numAtoms;
     ++rescaleVelocities_numTemps;
     if ( rescaleVelocities_numTemps == rescaleFreq ) {
+      // Blocking receive for the velcity scaling factor.
       BigReal factor = broadcast->velocityRescaleFactor.get(step);
       for ( int i = 0; i < numAtoms; ++i )
       {
@@ -1420,6 +1461,7 @@ void Sequencer::rescaleaccelMD (int step, int doNonbonded, int doFullElectrostat
    if (!simParams->accelMDOn) return;
    if ((step < simParams->accelMDFirstStep) || ( simParams->accelMDLastStep >0 && step > simParams->accelMDLastStep)) return;
 
+   // Blocking receive for the Accelerated MD scaling factors.
    Vector accelMDfactor = broadcast->accelMDRescaleFactor.get(step);
    const BigReal factor_dihe = accelMDfactor[0];
    const BigReal factor_tot  = accelMDfactor[1];
@@ -1469,7 +1511,8 @@ void Sequencer::adaptTempUpdate(int step)
    }
    // Get Updated Temperature
    if ( !(step % simParams->adaptTempFreq ) && (step > simParams->firstTimestep ))
-    adaptTempT = broadcast->adaptTemperature.get(step);
+     // Blocking receive for the updated adaptive tempering temperature.
+     adaptTempT = broadcast->adaptTemperature.get(step);
 }
 
 void Sequencer::reassignVelocities(BigReal timestep, int step)
@@ -1554,6 +1597,7 @@ void Sequencer::tcoupleVelocities(BigReal dt_fs, int step)
   {
     FullAtom *a = patch->atom.begin();
     int numAtoms = patch->numAtoms;
+    // Blocking receive for the temperature coupling coefficient.
     BigReal coefficient = broadcast->tcoupleCoefficient.get(step);
     Molecule *molecule = Node::Object()->molecule;
     BigReal dt = dt_fs * 0.001;  // convert to ps
@@ -1608,6 +1652,7 @@ void Sequencer::addForceToMomentum3(
 
 void Sequencer::addVelocityToPosition(BigReal timestep)
 {
+  RANGE("addVelocityToPosition", 5);
 #if CMK_BLUEGENEL
   CmiNetworkProgressAfter (0);
 #endif
@@ -1633,6 +1678,7 @@ void Sequencer::hardWallDrude(BigReal dt, int pressure)
 
 void Sequencer::rattle1(BigReal dt, int pressure)
 {
+  RANGE("rattle1", 9);
   if ( simParams->rigidBonds != RIGID_NONE ) {
     Tensor virial;
     Tensor *vp = ( pressure ? &virial : 0 );
@@ -1662,6 +1708,8 @@ void Sequencer::rattle1(BigReal dt, int pressure)
 
 void Sequencer::maximumMove(BigReal timestep)
 {
+  RANGE("maximumMove", 4);
+
   FullAtom *a = patch->atom.begin();
   int numAtoms = patch->numAtoms;
   if ( simParams->maximumMove ) {
@@ -1716,6 +1764,8 @@ void Sequencer::minimizationQuenchVelocity(void)
 
 void Sequencer::submitHalfstep(int step)
 {
+  RANGE("submitHalfstep", 6);
+
   // velocity-dependent quantities *** ONLY ***
   // positions are not at half-step when called
   FullAtom *a = patch->atom.begin();
@@ -1893,6 +1943,7 @@ void Sequencer::calcFixVirial(Tensor& fixVirialNormal, Tensor& fixVirialNbond, T
 
 void Sequencer::submitReductions(int step)
 {
+  RANGE("submitReductions", 10);
   FullAtom *a = patch->atom.begin();
   int numAtoms = patch->numAtoms;
 
@@ -2266,6 +2317,7 @@ void Sequencer::submitMinimizeReductions(int step, BigReal fmax2)
 
 void Sequencer::submitCollections(int step, int zeroVel)
 {
+  RANGE("submitCollections", 11);
   int prec = Output::coordinateNeeded(step);
   if ( prec )
     collection->submitPositions(step,patch->atom,patch->lattice,prec);
@@ -2465,16 +2517,19 @@ void Sequencer::rebalanceLoad(int timestep) {
 void Sequencer::cycleBarrier(int doBarrier, int step) {
 #if USE_BARRIER
 	if (doBarrier)
+          // Blocking receive for the cycle barrier.
 	  broadcast->cycleBarrier.get(step);
 #endif
 }
 
 void Sequencer::traceBarrier(int step){
+        // Blocking receive for the trace barrier.
 	broadcast->traceBarrier.get(step);
 }
 
 #ifdef MEASURE_NAMD_WITH_PAPI
 void Sequencer::papiMeasureBarrier(int step){
+        // Blocking receive for the PAPI measure barrier.
 	broadcast->papiMeasureBarrier.get(step);
 }
 #endif
