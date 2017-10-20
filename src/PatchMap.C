@@ -130,8 +130,8 @@ int PatchMap::sizeGrid(ScaledPosition xmin, ScaledPosition xmax,
   if ( bDim < bmin ) bDim = bmin;
   if ( cDim < cmin ) cDim = cmin;
 
-  if ( maxNumPatches > aDim*bDim*cDim ) {
-    maxNumPatches = aDim*bDim*cDim;
+  if ( maxNumPatches > (double)aDim*bDim*cDim ) {
+    maxNumPatches = (double)aDim*bDim*cDim;
   }
 
   int abest = amin;
