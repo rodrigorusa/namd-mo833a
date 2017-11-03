@@ -284,10 +284,10 @@ template <class Elem> class UniqueSetRaw {
 
     // basic hash table pointers
     Entry<Elem> **table;
-    int tableLength;
-    int growSize;
+    unsigned int tableLength;
+    unsigned int growSize;
     // number of elements in table
-    int numElem;
+    unsigned int numElem;
     // allocation parameters
     int growable;
     int globSize;
@@ -295,7 +295,7 @@ template <class Elem> class UniqueSetRaw {
 
     // Utilities
 
-    int findSize(int size) {
+    int findSize(unsigned int size) {
       size /= 2;
       int rval;
       if ( ( rval = 11 ) <= size )

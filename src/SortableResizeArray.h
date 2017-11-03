@@ -23,9 +23,9 @@ template <class Elem> class SortableResizeArray : public ResizeArray<Elem> {
     }
 
 
-    inline void siftup(int offset, int i, int size) {
+    inline void siftup(int offset, unsigned int i, unsigned int size) {
       char tmp[sizeof(Elem)];
-      register int j;
+      register unsigned int j;
       register Elem *r = (this->rep.array+offset);
     
       while ((j = 2*i+1) < size) {
