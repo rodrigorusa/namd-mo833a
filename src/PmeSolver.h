@@ -32,7 +32,7 @@ private:
 
 class PmePencilXMap : public CBase_PmePencilXMap {
 public:
-  PmePencilXMap(int ia, int ib, int width, std::vector<int>& pes) : ia(ia), ib(ib), width(width), pes(pes) {}
+  PmePencilXMap(int ia, int ib, int width, const std::vector<int>& pes) : ia(ia), ib(ib), width(width), pes(pes) {}
   int registerArray(CkArrayIndex& numElements, CkArrayID aid) {
     return 0;
   }
@@ -69,7 +69,7 @@ private:
 
 class PmePencilXYMap : public CBase_PmePencilXYMap {
 public:
-  PmePencilXYMap(std::vector<int>& pes) : pes(pes) {}
+  PmePencilXYMap(const std::vector<int>& pes) : pes(pes) {}
   int registerArray(CkArrayIndex& numElements, CkArrayID aid) {
     return 0;
   }
