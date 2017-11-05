@@ -41,6 +41,9 @@ ParallelIOMgr::ParallelIOMgr()
     totalMV.x = totalMV.y = totalMV.z = 0.0;
     totalMass = 0.0;
     totalCharge = 0.0;
+    numTotalExclusions = 0;
+    numCalcExclusions = 0;
+    numCalcFullExclusions = 0;
 
     isOKToRecvHPAtoms = false;
     hpAtomsList = NULL;
@@ -941,9 +944,9 @@ void ParallelIOMgr::recvMolInfo(MolInfoMsg *msg)
     molecule->numCalcImpropers += msg->numCalcImpropers;
     molecule->numCrossterms += msg->numCrossterms;
     molecule->numCalcCrossterms += msg->numCalcCrossterms;
-    molecule->numTotalExclusions += msg->numExclusions;
-    molecule->numCalcExclusions += msg->numCalcExclusions;
-    molecule->numCalcFullExclusions += msg->numCalcFullExclusions;
+    numTotalExclusions += msg->numExclusions;
+    numCalcExclusions += msg->numCalcExclusions;
+    numCalcFullExclusions += msg->numCalcFullExclusions;
     molecule->numRigidBonds += msg->numRigidBonds;
 
     totalMass += msg->totalMass;
@@ -965,9 +968,9 @@ void ParallelIOMgr::recvMolInfo(MolInfoMsg *msg)
         msg->numCalcImpropers = molecule->numCalcImpropers;
         msg->numCrossterms = molecule->numCrossterms;
         msg->numCalcCrossterms = molecule->numCalcCrossterms;
-        msg->numExclusions = molecule->numTotalExclusions/2;
-        msg->numCalcExclusions = molecule->numCalcExclusions/2;
-        msg->numCalcFullExclusions = molecule->numCalcFullExclusions/2;
+        msg->numExclusions = numTotalExclusions/2;
+        msg->numCalcExclusions = numCalcExclusions/2;
+        msg->numCalcFullExclusions = numCalcFullExclusions/2;
         msg->numRigidBonds = molecule->numRigidBonds;
 
         msg->totalMass = totalMass;

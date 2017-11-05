@@ -195,6 +195,9 @@ private:
     Vector totalMV; //used to remove center of mass motion
     BigReal totalMass; //used to remove center of mass motion
     BigReal totalCharge;
+    int64 numTotalExclusions;
+    int64 numCalcExclusions;
+    int64 numCalcFullExclusions;
 ///////End of fields related to parallel input////////
 
 ///////Beginning of fields related to parallel output////////

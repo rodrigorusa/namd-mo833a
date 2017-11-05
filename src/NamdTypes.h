@@ -83,14 +83,16 @@ typedef int AtomSigID;
 typedef int ExclSigID;
 
 struct CompAtomExt {
-  #ifdef MEM_OPT_VERSION
-  AtomSigID sigId;
-  ExclSigID exclId;
-  #endif
   #if defined(NAMD_CUDA) || defined(NAMD_MIC)
   int sortOrder;  // used to reorder atoms for CUDA
   #endif
+  #ifdef MEM_OPT_VERSION
+  int id;
+  ExclSigID exclId;
+  int sigId : 30;  // AtomSigID sigId;
+  #else
   int id : 30;  // minimum for 100M atoms is 28 signed, 27 unsigned
+  #endif
   unsigned int atomFixed : 1;
   unsigned int groupFixed : 1;
 };

@@ -1321,7 +1321,7 @@ void Controller::tcoupleVelocities(int step)
 static char *FORMAT(BigReal X)
 {
   static char tmp_string[25];
-  const double maxnum = 9999999999.9999;
+  const double maxnum = 99999999999.9999;
   if ( X > maxnum ) X = maxnum;
   if ( X < -maxnum ) X = -maxnum;
   sprintf(tmp_string," %14.4f",X); 
