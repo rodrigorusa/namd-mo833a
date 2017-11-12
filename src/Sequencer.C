@@ -164,6 +164,12 @@ void Sequencer::algorithm(void)
 	break;
       case SCRIPT_RUN:
       case SCRIPT_CONTINUE:
+  //
+  // DJH: Call a cleaned up version of integrate().
+  //
+  // We could test for simulation options and call a more basic version
+  // of integrate() where we can avoid performing most tests.
+  //
 	integrate(scriptTask);
 	break;
       default:
@@ -182,6 +188,12 @@ void Sequencer::integrate(int scriptTask) {
     char tracePrefix[20];
     sprintf(tracePrefix, "p:%d,s:",patch->patchID);
 //    patch->write_tip4_props();
+
+    //
+    // DJH: Copy all data into SOA (structure of arrays)
+    // from AOS (array of structures) data structure.
+    //
+    //patch->copy_all_to_SOA();
 
     int &step = patch->flags.step;
     step = simParams->firstTimestep;
@@ -518,6 +530,11 @@ void Sequencer::integrate(int scriptTask) {
 #endif
 
     }
+
+    //
+    // DJH: Copy updates of SOA back into AOS.
+    //
+    //patch->copy_updates_to_AOS();
 }
 
 // add moving drag to each atom's position
@@ -564,6 +581,12 @@ void Sequencer::addRotDragToPosition(BigReal timestep) {
 }
 
 void Sequencer::minimize() {
+    //
+    // DJH: Copy all data into SOA (structure of arrays)
+    // from AOS (array of structures) data structure.
+    //
+    //patch->copy_all_to_SOA();
+
   const int numberOfSteps = simParams->N;
   const int stepsPerCycle = simParams->stepsPerCycle;
   int &step = patch->flags.step;
@@ -664,6 +687,11 @@ void Sequencer::minimize() {
     rebalanceLoad(step);
   }
   quenchVelocities();  // zero out bogus velocity
+
+    //
+    // DJH: Copy updates of SOA back into AOS.
+    //
+    //patch->copy_updates_to_AOS();
 }
 
 // x = x + 0.1 * unit(f) for large f
@@ -2317,12 +2345,21 @@ void Sequencer::submitMinimizeReductions(int step, BigReal fmax2)
 
 void Sequencer::submitCollections(int step, int zeroVel)
 {
+  //
+  // DJH: Copy updates of SOA back into AOS.
+  // Do we need to update everything or is it safe to just update
+  // positions and velocities separately, as needed?
+  //
+  //patch->copy_updates_to_AOS();
+
   RANGE("submitCollections", 11);
   int prec = Output::coordinateNeeded(step);
-  if ( prec )
+  if ( prec ) {
     collection->submitPositions(step,patch->atom,patch->lattice,prec);
-  if ( Output::velocityNeeded(step) )
+  }
+  if ( Output::velocityNeeded(step) ) {
     collection->submitVelocities(step,zeroVel,patch->atom);
+  }
   if ( Output::forceNeeded(step) ) {
     int maxForceUsed = patch->flags.maxForceUsed;
     if ( maxForceUsed > Results::slow ) maxForceUsed = Results::slow;
@@ -2350,6 +2387,16 @@ void Sequencer::runComputeObjects(int migration, int pairlists, int pressureStep
 
   if ( simParams->lonepairs ) patch->reposition_all_lonepairs();
 
+  //
+  // DJH: Copy updates of SOA back into AOS.
+  // The positionsReady() routine starts force computation and atom migration.
+  //
+  // We could reduce amount of copying here by checking migration status
+  // and copying velocities only when migrating. Some types of simulation
+  // always require velocities, such as Lowe-Anderson.
+  //
+  //patch->copy_updates_to_AOS();
+
   patch->positionsReady(migration);  // updates flags.sequence
 
   int seq = patch->flags.sequence;
@@ -2368,6 +2415,22 @@ void Sequencer::runComputeObjects(int migration, int pairlists, int pressureStep
     priority = basePriority + COMPUTE_HOME_PRIORITY;
     suspend(); // until all deposit boxes close
   }
+
+  //
+  // DJH: Copy all data into SOA from AOS.
+  //
+  // We need everything copied after atom migration.
+  // When doing force computation without atom migration,
+  // all data except forces will already be up-to-date in SOA
+  // (except maybe for some special types of simulation).
+  //
+  //patch->copy_all_to_SOA();
+
+  //
+  // DJH: Copy forces to SOA.
+  // Force available after suspend() has returned.
+  //
+  //patch->copy_forces_to_SOA();
 
   if ( patch->flags.savePairlists && patch->flags.doNonbonded ) {
     pairlistsAreValid = 1;
