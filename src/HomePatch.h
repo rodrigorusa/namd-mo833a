@@ -27,6 +27,12 @@
 #include <string>
 #include <map>
 
+//
+// DJH: NAMDLite array buffers are memory aligned for vector instructions.
+//
+//#include "nl_Array.h"
+//
+
 class RegisterProxyMsg;
 class UnregisterProxyMsg;
 class ProxyResultVarsizeMsg;
@@ -42,6 +48,42 @@ class ExchangeAtomsMsg;
 class ProxyNodeAwareSpanningTreeMsg;
 
 class ComputeQMMgr;
+
+//
+// DJH: Array buffers defined here for storing data from FullAtomList and
+// also forces into SOA (structure of arrays) layout. Also declare methods
+// for copying from AOS to SOA and back again.
+//
+// We will also remove derived constants from FullAtom (e.g. recipMass).
+// The idea is reduce the messaging footprint as much as possible.
+// Recalculate constants after atom migration.
+//
+//struct PatchDataSOA {
+//
+//namdlite::Array<float> gaussrand; // fill with Gaussian random numbers
+//
+//namdlite::Array<float> mass;
+//namdlite::Array<float> recipMass; // derived from mass
+//namdlite::Array<float> langevinParam;
+//namdlite::Array<float> langScalVelBBK2;  // derived from langevinParam
+//namdlite::Array<float> langScalRandBBK2; // from langevinParam and recipMass
+//
+//namdlite::Array<double> vel_x;  // Jim recommends double precision velocity
+//namdlite::Array<double> vel_y;
+//namdlite::Array<double> vel_z;
+//namdlite::Array<double> pos_x;
+//namdlite::Array<double> pos_y;
+//namdlite::Array<double> pos_z;
+//namdlite::Array<double> f_normal_x;
+//namdlite::Array<double> f_normal_y;
+//namdlite::Array<double> f_normal_z;
+//namdlite::Array<double> f_nbond_x;
+//namdlite::Array<double> f_nbond_y;
+//namdlite::Array<double> f_nbond_z;
+//namdlite::Array<double> f_slow_x;
+//namdlite::Array<double> f_slow_y;
+//namdlite::Array<double> f_slow_z;
+//};
 
 class HomePatch : public Patch {
   friend class PatchMgr;
@@ -273,6 +315,25 @@ private:
   ExtForce *replacementForces;
 
   CudaAtomList cudaAtomList;
+
+  //
+  // DJH: SOA data structure declared here.
+  //
+  //PatchDataSOA patchDataSOA;
+  //
+  // Copy fields from FullAtom into SOA form.
+  //void copy_atoms_to_SOA();
+  //
+  // Copy forces into SOA form.
+  //void copy_forces_to_SOA();
+  //
+  // Calculate derived constants after atom migration.
+  //void calculate_derived_SOA();
+  //
+  // Copy the updated quantities, e.g., positions and velocities, from SOA
+  // back to AOS form.
+  //void copy_updates_to_AOS();
+  //
 
   // DMK - Atom Separation (water vs. non-water)
   #if NAMD_SeparateWaters != 0

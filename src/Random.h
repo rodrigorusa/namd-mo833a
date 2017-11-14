@@ -141,6 +141,7 @@ public:
   }
 
   // return a random long
+  // signed int32 ranges from 0 to (2^31)-1
   long integer(void) {
     skip();
     return ( ( rand48_seed >> 17 ) & INT64_LITERAL(0x000000007fffffff) );
@@ -154,6 +155,28 @@ public:
       const Elem e = a[ie];
       a[ie] = a[i];
       a[i] = e;
+    }
+  }
+
+  ///
+  /// Fill length n array from uniform distribution.
+  ///
+  void uniform_array_f(float *a, int n) {
+    // for now just call uniform()
+    // ultimately we will provide faster implementation
+    for (int i=0;  i < n;  i++) {
+      a[i] = (float)uniform();
+    }
+  }
+
+  ///
+  /// Fill length n array from standard Gaussian distribution.
+  ///
+  void gaussian_array_f(float *a, int n) {
+    // for now just call gaussian()
+    // ultimately we will provide faster implementation
+    for (int i=0;  i < n;  i++) {
+      a[i] = (float)gaussian();
     }
   }
 

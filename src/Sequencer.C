@@ -333,6 +333,13 @@ void Sequencer::integrate(int scriptTask) {
 
   bool doMultigratorRattle = false;
 
+  //
+  // DJH: There are a lot of mod operations below and elsewhere to
+  // test step number against the frequency of something happening.
+  // Mod and integer division are expensive!
+  // Might be better to replace with counters and test equality.
+  //
+
     for ( ++step; step <= numberOfSteps; ++step )
     {
       PUSH_RANGE("integrate 1", 0);
@@ -838,6 +845,9 @@ if ( simParams->zeroMomentumAlt ) {
 
 void Sequencer::correctMomentum(int step, BigReal drifttime) {
 
+  //
+  // DJH: This test should be done in SimParameters.
+  //
   if ( simParams->fixedAtomsOn )
     NAMD_die("Cannot zero momentum when fixed atoms are present.");
 
@@ -1106,6 +1116,10 @@ void Sequencer::multigratorTemperature(int step, int callNumber) {
 }
 // --------- End Multigrator ---------
 
+//
+// DJH: Calls one or more addForceToMomentum which in turn calls HomePatch
+// versions. We should inline to reduce the number of function calls.
+//
 void Sequencer::newtonianVelocities(BigReal stepscale, const BigReal timestep, 
                                     const BigReal nbondstep, 
                                     const BigReal slowstep, 
@@ -1220,6 +1234,10 @@ void Sequencer::langevinVelocitiesBBK1(BigReal dt_fs)
     } // end if drudeOn
     else {
 
+      //
+      // DJH: The conditional inside loop prevents vectorization and doesn't
+      // avoid much work since addition and multiplication are cheap.
+      //
       for ( i = 0; i < numAtoms; ++i )
       {
         BigReal dt_gamma = dt * a[i].langevinParam;
@@ -1239,6 +1257,10 @@ void Sequencer::langevinVelocitiesBBK2(BigReal dt_fs)
   RANGE("langevinVelocitiesBBK2", 8);
   if ( simParams->langevinOn && !simParams->langevin_useBAOAB ) 
   {
+    //
+    // DJH: This call is expensive. Avoid calling when gammas don't differ.
+    // Set flag in SimParameters and make this call conditional.
+    // 
     rattle1(dt_fs,1);  // conserve momentum if gammas differ
 
     FullAtom *a = patch->atom.begin();
@@ -1310,6 +1332,13 @@ void Sequencer::langevinVelocitiesBBK2(BigReal dt_fs)
     } // end if drudeOn
     else {
 
+      //
+      // DJH: For case using same gamma (the Langevin parameter),
+      // no partitions (e.g. FEP), and no adaptive tempering (adaptTempMD),
+      // we can precompute constants. Then by lifting the RNG from the
+      // loop (filling up an array of random numbers), we can vectorize
+      // loop and simplify arithmetic to just addition and multiplication.
+      //
       for ( i = 0; i < numAtoms; ++i )
       {
         BigReal dt_gamma = dt * a[i].langevinParam;
@@ -1395,6 +1424,10 @@ void Sequencer::langevinPiston(int step)
 {
   if ( simParams->langevinPistonOn && ! ( (step-1-slowFreq/2) % slowFreq ) )
   {
+    //
+    // DJH: Loops below simplify if we lift out special cases of fixed atoms
+    // and pressure excluded atoms and make them their own branch.
+    //
    FullAtom *a = patch->atom.begin();
    int numAtoms = patch->numAtoms;
    // Blocking receive for the updated lattice scaling factor.
@@ -1642,6 +1675,12 @@ void Sequencer::saveForce(const int ftag)
 {
   patch->saveForce(ftag);
 }
+
+//
+// DJH: Need to change division by TIMEFACTOR into multiplication by
+// reciprocal of TIMEFACTOR. Done several times for each iteration of
+// the integrate() loop.
+//
 
 void Sequencer::addForceToMomentum(
     BigReal timestep, const int ftag, const int useSaved
