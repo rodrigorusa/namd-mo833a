@@ -11,18 +11,6 @@
  * $Revision: 1.1230 $
  *****************************************************************************/
 
-// The UPPER_BOUND macro is used to eliminate all of the per atom
-// computation done for the numerical integration in Sequencer::integrate()
-// other than the actual force computation and atom migration.
-// The idea is to "turn off" the integration for doing performance
-// profiling in order to get an upper bound on the speedup available
-// by moving the integration parts to the GPU.
-//
-// Define it in the Make.config file, i.e. CXXOPTS += -DUPPER_BOUND
-// or simply uncomment the line below.
-//
-//#define UPPER_BOUND
-
 //for gbis debugging; print net force on each atom
 #define PRINT_FORCES 0
 
@@ -247,7 +235,6 @@ void Sequencer::integrate(int scriptTask) {
 					maxForceMerged = Results::slow;
     if ( doFullElectrostatics ) maxForceUsed = Results::slow;
 
-//#ifndef UPPER_BOUND
     const Bool accelMDOn = simParams->accelMDOn;
     const Bool accelMDdihe = simParams->accelMDdihe;
     const Bool accelMDdual = simParams->accelMDdual;
@@ -280,27 +267,21 @@ void Sequencer::integrate(int scriptTask) {
     // Do we need to return forces to TCL script or Colvar module?
     int doTcl = simParams->tclForcesOn;
 	int doColvars = simParams->colvarsOn;
-//#endif
     ComputeGlobal *computeGlobal = Node::Object()->computeMgr->computeGlobalObject;
 
     // Bother to calculate energies?
     int &doEnergy = patch->flags.doEnergy;
     int energyFrequency = simParams->outputEnergies;
 
-#ifndef UPPER_BOUND
     const int reassignFreq = simParams->reassignFreq;
-#endif
 
     int &doVirial = patch->flags.doVirial;
     doVirial = 1;
 
   if ( scriptTask == SCRIPT_RUN ) {
 
-#ifndef UPPER_BOUND
 //    printf("Doing initial rattle\n");
-#ifndef UPPER_BOUND
     rattle1(0.,0);  // enforce rigid bond constraints on initial positions
-#endif
 
     if (simParams->lonepairs) {
       patch->atomMapper->registerIDsFullAtom(
@@ -310,21 +291,15 @@ void Sequencer::integrate(int scriptTask) {
     if ( !commOnly && ( reassignFreq>0 ) && ! (step%reassignFreq) ) {
        reassignVelocities(timestep,step);
     }
-#endif
 
     doEnergy = ! ( step % energyFrequency );
-#ifndef UPPER_BOUND
     if ( accelMDOn && !accelMDdihe ) doEnergy=1;
     //Update energy every timestep for adaptive tempering
     if ( adaptTempOn ) doEnergy=1;
-#endif
     runComputeObjects(1,step<numberOfSteps); // must migrate here!
-#ifndef UPPER_BOUND
     rescaleaccelMD(step, doNonbonded, doFullElectrostatics); // for accelMD 
     adaptTempUpdate(step); // update adaptive tempering temperature
-#endif
 
-#ifndef UPPER_BOUND
     if ( staleForces || doTcl || doColvars ) {
       if ( doNonbonded ) saveForce(Results::nbond);
       if ( doFullElectrostatics ) saveForce(Results::slow);
@@ -333,9 +308,7 @@ void Sequencer::integrate(int scriptTask) {
       newtonianVelocities(-0.5,timestep,nbondstep,slowstep,0,1,1);
     }
     minimizationQuenchVelocity();
-#ifndef UPPER_BOUND
     rattle1(-timestep,0);
-#endif
     submitHalfstep(step);
     if ( ! commOnly ) {
       newtonianVelocities(1.0,timestep,nbondstep,slowstep,0,1,1);
@@ -348,22 +321,17 @@ void Sequencer::integrate(int scriptTask) {
     if ( ! commOnly ) {
       newtonianVelocities(-0.5,timestep,nbondstep,slowstep,0,1,1);
     }
-#endif
     submitReductions(step);
-#ifndef UPPER_BOUND
     if(traceIsOn()){
         traceUserEvent(eventEndOfTimeStep);
         sprintf(traceNote, "%s%d",tracePrefix,step); 
         traceUserSuppliedNote(traceNote);
     }
-#endif
     rebalanceLoad(step);
 
   } // scriptTask == SCRIPT_RUN
 
-#ifndef UPPER_BOUND
   bool doMultigratorRattle = false;
-#endif
 
   //
   // DJH: There are a lot of mod operations below and elsewhere to
@@ -375,7 +343,6 @@ void Sequencer::integrate(int scriptTask) {
     for ( ++step; step <= numberOfSteps; ++step )
     {
       PUSH_RANGE("integrate 1", 0);
-#ifndef UPPER_BOUND
 
       rescaleVelocities(step);
       tcoupleVelocities(timestep,step);
@@ -425,12 +392,10 @@ void Sequencer::integrate(int scriptTask) {
       hardWallDrude(timestep, 1);
 
       minimizationQuenchVelocity();
-#endif // UPPER_BOUND
 
       doNonbonded = !(step%nonbondedFrequency);
       doFullElectrostatics = (dofull && !(step%fullElectFrequency));
 
-#ifndef UPPER_BOUND 
       if ( zeroMomentum && doFullElectrostatics ) {
         // There is a blocking receive inside of correctMomentum().
         correctMomentum(step,slowstep);
@@ -466,7 +431,7 @@ void Sequencer::integrate(int scriptTask) {
         doKineticEnergy = 1;
         doMomenta = 1;
       }
-#endif
+
       POP_RANGE;  // integrate 2
 
       // The current thread of execution will suspend in runComputeObjects().
@@ -474,7 +439,6 @@ void Sequencer::integrate(int scriptTask) {
 
       PUSH_RANGE("integrate 3", 2);
 
-#ifndef UPPER_BOUND
       rescaleaccelMD(step, doNonbonded, doFullElectrostatics); // for accelMD
      
       if ( staleForces || doTcl || doColvars ) {
@@ -511,11 +475,9 @@ void Sequencer::integrate(int scriptTask) {
       }
 
 	// rattle2(timestep,step);
-#endif
 
 	submitReductions(step);
 	submitCollections(step);
-#ifndef UPPER_BOUND
        //Update adaptive tempering temperature
         adaptTempUpdate(step);
 
@@ -527,7 +489,6 @@ void Sequencer::integrate(int scriptTask) {
       doMultigratorRattle = (simParams->multigratorOn && !(step % simParams->multigratorTemperatureFreq));
 
       POP_RANGE;  // integrate 3
-#endif
 
 #if CYCLE_BARRIER
         cycleBarrier(!((step+1) % stepsPerCycle), step);
@@ -537,7 +498,6 @@ void Sequencer::integrate(int scriptTask) {
         cycleBarrier(1, step);
 #endif
 
-#ifndef UPPER_BOUND
 	 if(Node::Object()->specialTracing || simParams->statsOn){
 		 int bstep = simParams->traceStartStep;
 		 int estep = bstep + simParams->numTraceSteps;
@@ -561,7 +521,6 @@ void Sequencer::integrate(int scriptTask) {
             sprintf(traceNote, "%s%d",tracePrefix,step); 
             traceUserSuppliedNote(traceNote);
         }
-#endif // UPPER_BOUND
 	rebalanceLoad(step);
 
 #if PME_BARRIER
@@ -2051,10 +2010,8 @@ void Sequencer::calcFixVirial(Tensor& fixVirialNormal, Tensor& fixVirialNbond, T
 
 void Sequencer::submitReductions(int step)
 {
-#ifndef UPPER_BOUND
   RANGE("submitReductions", 10);
   FullAtom *a = patch->atom.begin();
-#endif
   int numAtoms = patch->numAtoms;
 
 #if CMK_BLUEGENEL
@@ -2064,7 +2021,6 @@ void Sequencer::submitReductions(int step)
   reduction->item(REDUCTION_ATOM_CHECKSUM) += numAtoms;
   reduction->item(REDUCTION_MARGIN_VIOLATIONS) += patch->marginViolations;
 
-#ifndef UPPER_BOUND
   // For non-Multigrator doKineticEnergy = 1 always
   if (doKineticEnergy || doMomenta || patch->flags.doVirial)
   {
@@ -2283,12 +2239,9 @@ void Sequencer::submitReductions(int step)
       ADD_VECTOR_OBJECT(reduction,REDUCTION_EXT_FORCE_SLOW,fixForceSlow);
     }
   }
-#endif // UPPER_BOUND
 
   reduction->submit();
-#ifndef UPPER_BOUND
   if (pressureProfileReduction) pressureProfileReduction->submit();
-#endif
 }
 
 void Sequencer::submitMinimizeReductions(int step, BigReal fmax2)
