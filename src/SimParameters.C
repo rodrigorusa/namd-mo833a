@@ -283,6 +283,8 @@ void SimParameters::scriptSet(const char *param, const char *value) {
     if ( alchOn && ! alchOnAtStartup ) {
        NAMD_die("Alchemy must be enabled at startup to disable and re-enable in script.");
     }
+    alchFepOn = alchOn && alchFepOnAtStartup;
+    alchThermIntOn = alchOn && alchThermIntOnAtStartup;
     ComputeNonbondedUtil::select();
     return;
   }
@@ -3359,8 +3361,8 @@ void SimParameters::check_config(ParseOptions &opts, ConfigList *config, char *&
    }
 
 //fepb
-   alchFepOn = FALSE;
-   alchThermIntOn = FALSE;
+   alchFepOnAtStartup = alchFepOn = FALSE;
+   alchThermIntOnAtStartup = alchThermIntOn = FALSE;
    alchOnAtStartup = alchOn;
 
    if (alchOn) {
@@ -3379,10 +3381,10 @@ void SimParameters::check_config(ParseOptions &opts, ConfigList *config, char *&
      else {
        opts.get("alchType",s);
        if (!strcasecmp(s, "fep")) {
-         alchFepOn = TRUE;
+         alchFepOnAtStartup = alchFepOn = TRUE;
        }
        else if (!strcasecmp(s, "ti")) {
-         alchThermIntOn = TRUE;
+         alchThermIntOnAtStartup = alchThermIntOn = TRUE;
        }
        else {
          NAMD_die("Unknown type of alchemical simulation; choices are fep or ti\n");
