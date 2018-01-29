@@ -299,7 +299,11 @@ void Molecule::initialize(SimParameters *simParams, Parameters *param)
 //fepb
   fepAtomFlags=NULL;
 //fepe
-
+//soluteScaling
+  ssAtomFlags=NULL;
+  ss_vdw_type=NULL;
+  ss_index=NULL;
+//soluteScaling
   nameArena = new ObjectArena<char>;
   // nameArena->setAlignment(8);
   // arena->setAlignment(32);
@@ -680,6 +684,15 @@ Molecule::~Molecule()
   if (fepAtomFlags != NULL)
        delete [] fepAtomFlags;
 //fepe
+
+//soluteScaling
+  if (ssAtomFlags != NULL)
+       delete [] ssAtomFlags;
+  if (ss_vdw_type != NULL)
+       delete [] ss_vdw_type;
+  if (ss_index != NULL)
+       delete [] ss_index;
+//soluteScaling
 
   if (qmAtomGroup != NULL)
        delete [] qmAtomGroup;
@@ -5537,6 +5550,13 @@ void Molecule::send_Molecule(MOStream *msg){
   }
   //fepe
 
+  if (simParams->soluteScalingOn) {
+    msg->put(numAtoms*sizeof(char), (char*)ssAtomFlags);
+    msg->put(ss_num_vdw_params);
+    msg->put(params->get_num_vdw_params()*sizeof(int), (char*)ss_vdw_type);
+    msg->put(numAtoms*sizeof(int), (char*)ss_index);
+  }
+
   #ifdef OPENATOM_VERSION
   // needs to be refactored into its own openatom version
   if (simParams->openatomOn ) {
@@ -6003,6 +6023,20 @@ void Molecule::receive_Molecule(MIStream *msg){
       }
 //fepe
 
+//soluteScaling
+      if (simParams->soluteScalingOn) {
+        delete [] ssAtomFlags;
+        delete [] ss_vdw_type;
+        delete [] ss_index;
+        ssAtomFlags = new unsigned char[numAtoms];
+        ss_vdw_type = new int [params->get_num_vdw_params()];
+        ss_index = new int [numAtoms];
+        msg->get(numAtoms*sizeof(unsigned char), (char*)ssAtomFlags);
+        msg->get(ss_num_vdw_params);
+        msg->get(params->get_num_vdw_params()*sizeof(int), (char*)ss_vdw_type);
+        msg->get(numAtoms*sizeof(int), (char*)ss_index);
+      }
+//soluteScaling
 #ifdef OPENATOM_VERSION
       // This needs to be refactored into its own version
       if (simParams->openatomOn) {
@@ -8710,7 +8744,183 @@ void Molecule::build_fep_flags(StringList *alchfile, StringList *alchcol,
   }
 }
 // End of function build_fep_flags
+
+// XXX Passing in cwd is useless, since the only caller (NamdState) always
+// sends NULL - note that several other routines have this same form,
+// which probably dates back to much earlier NAMD
+// XXX Should not be necessary to pass PDB pointer as nonconst when
+// we just want to read from it.
+//
+void Molecule::build_ss_flags(
+    const StringList *ssfile,
+    const StringList *sscol,
+    PDB *initial_pdb,
+    const char *cwd
+    ) {
+  PDB *bPDB;
+  int bcol = 4;
+  Real bval = 0;
+  int i, j;
+  char filename[129];
+
+  if (ssfile == NULL) {
+    if ( ! initial_pdb ) {
+      NAMD_die("Initial PDB file unavailable, ssFile required.");
+    }
+    bPDB = initial_pdb;
+    strcpy(filename, "coordinate PDB file (default)");
+  }
+  else {
+    if (ssfile->next != NULL) {
+      NAMD_die("Multiple definitions of ssFile in configuration file");
+    }
+
+    if ((cwd == NULL) || (ssfile->data[0] == '/')) {
+      strcpy(filename, ssfile->data);
+    }
+    else {
+      strcpy(filename, cwd);
+      strcat(filename, ssfile->data);
+    }
+
+    bPDB = new PDB(filename);
+    if (bPDB == NULL) {
+      NAMD_die("Memory allocation failed in Molecule::build_ss_flags");
+    }
+
+    if (bPDB->num_atoms() != numAtoms) {
+      NAMD_die("Number of atoms in ssFile PDB does not match coordinate PDB");
+    }
+  }
+
+  if (sscol == NULL) {
+    bcol = 4;
+  }
+  else {
+    if (sscol->next != NULL) {
+      NAMD_die("Multiple definitions of ssCol value in config file");
+    }
+
+    if (strcasecmp(sscol->data, "X") == 0) {
+      bcol = 1;
+    }
+    else if (strcasecmp(sscol->data, "Y") == 0) {
+      bcol = 2;
+    }
+    else if (strcasecmp(sscol->data, "Z") == 0) {
+      bcol = 3;
+    }
+    else if (strcasecmp(sscol->data, "O") == 0) {
+      bcol = 4;
+    }
+    else if (strcasecmp(sscol->data, "B") == 0) {
+      bcol = 5;
+    }
+    else {
+      NAMD_die("ssCol must have value of X, Y, Z, O or B");
+    }
+  }
+
+  iout << iINFO << "Reading solute scaling data from file: "
+    << filename << "\n" << endi;
+  iout << iINFO << "Reading solute scaling flags from column: "
+    << bcol << "\n" << endi;
+
+  ssAtomFlags = new unsigned char[numAtoms];
+  ss_index = new int[numAtoms];
+
+  if (ssAtomFlags == NULL || ss_index == NULL) {
+    NAMD_die("Memory allocation failed in Molecule::build_ss_params()");
+  }
+
+  num_ss = 0;
+  for (i = 0; i < numAtoms; i++) {
+    switch (bcol) {
+      case 1:
+        bval = (bPDB->atom(i))->xcoor();
+        break;
+      case 2:
+        bval = (bPDB->atom(i))->ycoor();
+        break;
+      case 3:
+        bval = (bPDB->atom(i))->zcoor();
+        break;
+      case 4:
+        bval = (bPDB->atom(i))->occupancy();
+        break;
+      case 5:
+        bval = (bPDB->atom(i))->temperaturefactor();
+        break;
+    }
+    if (simParams->soluteScalingOn) {
+      if (bval == 1.0) {
+        ssAtomFlags[i] = 1;
+        ss_index[num_ss] = i;
+        num_ss++;
+      }
+      else {
+        ssAtomFlags[i] = 0;
+      }
+    }
+  }
+
+  if (ssfile != NULL) {
+    delete bPDB;
+  }
+
+  // number of LJtypes read in from params files
+  int LJtypecount = params->get_num_vdw_params();
+
+  // generate a new array of LJtypecount elements.
+  // Each element stores number of REST2 atoms of that LJType.
+  int *numAtomsByLjType = new int[LJtypecount];
+
+  // array that stores LJTypes for REST2 atoms based on array numAtomsByLjType.
+  // The 'new' LJTypes will be used to construct extended LJTable later.  
+  ss_vdw_type = new int[LJtypecount];
+
+  // zero number of REST2 atoms per LJType.
+  for (i = 0; i < LJtypecount; i++) {
+    numAtomsByLjType[i] = 0;
+  }
+
+  // count number of REST2 atoms (histogram) per LJType.
+  // The num_ss is the total number of REST2 atoms.
+  for (i = 0; i < num_ss;  i++) {
+    numAtomsByLjType[atoms[ss_index[i]].vdw_type]++;
+  }
+
+  //zero number of vdw param types for REST2 atoms
+  ss_num_vdw_params = 0;
+  for (i = 0; i < LJtypecount; i++) { //loop all LJTypes.
+    // only process LJTypes that have nonzero REST2 atoms.
+    if (numAtomsByLjType[i] != 0) {
+      // Build a subset of vdw params for REST2 atoms.
+      // Each REST2 atom will have a new vdw type index
+      ss_vdw_type[ss_num_vdw_params] = i;
+      // once meets a LJType of nonzero REST2 atoms,
+      // number of vdw param types of REST2 increments.
+      ss_num_vdw_params++;
+    }
+  }
+
+  for (i = 0; i < num_ss;  i++) { // loop over all REST2 atoms
+    // loop over all vdw param types of REST2 atoms
+    for (j = 0; j < ss_num_vdw_params; j++) {
+      // Extends number of LJTypes with REST2 atoms. 
+      if (atoms[ss_index[i]].vdw_type == ss_vdw_type[j]) {
+        // The LJType of a REST2 atom now is equal to sum of original #LJTypes
+        // and its vdw type index within REST2 atoms (ss_vdw_type)  
+        atoms[ss_index[i]].vdw_type = LJtypecount + j;
+      }
+    }
+  }
+
+  delete [] numAtomsByLjType;
+
+} // End of function build_ss_flags
  
+
    //
    //
    //  FUNCTION delete_alch_bonded

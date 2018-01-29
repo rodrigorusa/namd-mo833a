@@ -112,6 +112,8 @@ void NamdState::checkMemOptCompatibility(){
         NAMD_die("MEMOPT: alchThermIntOn could not be enabled in memory optimized version");
     if(simParameters->lesOn)
         NAMD_die("MEMOPT: lesOn could not be enabled in memory optimized version");
+    if(simParameters->soluteScalingOn)
+        NAMD_die("MEMOPT: soluteScalingOn could not be enabled in memory optimized version");
     if(simParameters->lonepairs) {
         NAMD_die("MEMOPT: lonepairs could not be enabled in memory optimized version");
     }
@@ -504,6 +506,10 @@ int NamdState::loadStructure(const char *molFilename, const char *pdbFilename, i
            molecule->build_fep_flags(configList->find("lesfile"),
                 configList->find("lescol"), pdb, NULL, "les");
         }
+        if (simParameters->soluteScalingOn) {
+           molecule->build_ss_flags(configList->find("ssfile"),
+                configList->find("sscol"), pdb, NULL);
+        }
         if (simParameters->pairInteractionOn) {
            molecule->build_fep_flags(configList->find("pairInteractionFile"),
                 configList->find("pairInteractionCol"), pdb, NULL, "pairInteraction");
@@ -681,6 +687,10 @@ int NamdState::loadStructure(const char *molFilename, const char *pdbFilename, i
         if (simParameters->lesOn) {
            iout << iINFO << molecule->numFepInitial <<
                " LOCALLY ENHANCED ATOMS ENABLED\n";
+        }
+
+        if (simParameters->soluteScalingOn) {
+           iout << iINFO << " SOLUTE SCALING ENABLED\n";
         }
        
         if (simParameters->pairInteractionOn) {

@@ -203,9 +203,12 @@ template <class T, class S, class P> class HomeTuples : public Tuples {
       LocalID aid[T::size];
 
       const int lesOn = node->simParameters->lesOn;
+      const int soluteScalingOn = node->simParameters->soluteScalingOn;
       Real invLesFactor = lesOn ? 
                           1.0/node->simParameters->lesFactor :
                           1.0;
+      const Real soluteScalingFactor = node->simParameters->soluteScalingFactor;
+      const Bool soluteScalingAll = node->simParameters->soluteScalingAll;
 
       // cycle through each patch and gather all tuples
       TuplePatchListIter ai(tuplePatchList);
@@ -252,13 +255,16 @@ template <class T, class S, class P> class HomeTuples : public Tuples {
             int homepatch = aid[0].pid;
             int samepatch = 1;
             int has_les = lesOn && node->molecule->get_fep_type(t.atomID[0]);
+            int has_ss = soluteScalingOn && node->molecule->get_ss_type(t.atomID[0]);
             for (i=1; i < T::size; i++) {
               aid[i] = atomMap->localID(t.atomID[i]);
               samepatch = samepatch && ( homepatch == aid[i].pid );
               has_les |= lesOn && node->molecule->get_fep_type(t.atomID[i]);
+              has_ss |= soluteScalingOn && node->molecule->get_ss_type(t.atomID[i]);
             }
+            if (T::size < 4 && !soluteScalingAll) has_ss = false;
             if ( samepatch ) continue;
-            t.scale = has_les ? invLesFactor : 1;
+            t.scale = (!has_les && !has_ss) ? 1.0 : ( has_les ? invLesFactor : soluteScalingFactor );
             for (i=1; i < T::size; i++) {
               homepatch = patchMap->downstream(homepatch,aid[i].pid);
             }
@@ -338,9 +344,12 @@ template <class T, class S, class P> class ComputeHomeTuples : public Compute {
       LocalID aid[T::size];
 
       const int lesOn = node->simParameters->lesOn;
+      const int soluteScalingOn = node->simParameters->soluteScalingOn;
       Real invLesFactor = lesOn ? 
                           1.0/node->simParameters->lesFactor :
                           1.0;
+      const Real soluteScalingFactor = node->simParameters->soluteScalingFactor;
+      const Bool soluteScalingAll = node->simParameters->soluteScalingAll;
 
       // cycle through each patch and gather all tuples
       TuplePatchListIter ai(tuplePatchList);
@@ -374,13 +383,16 @@ template <class T, class S, class P> class ComputeHomeTuples : public Compute {
              int homepatch = aid[0].pid;
              int samepatch = 1;
              int has_les = lesOn && node->molecule->get_fep_type(t.atomID[0]);
+             int has_ss = soluteScalingOn && node->molecule->get_ss_type(t.atomID[0]);
              for (i=1; i < T::size; i++) {
 	         aid[i] = atomMap->localID(t.atomID[i]);
 	         samepatch = samepatch && ( homepatch == aid[i].pid );
                  has_les |= lesOn && node->molecule->get_fep_type(t.atomID[i]);
+                 has_ss |= soluteScalingOn && node->molecule->get_ss_type(t.atomID[i]);
              }
+             if (T::size < 4 && !soluteScalingAll) has_ss = false;
              if ( samepatch ) continue;
-             t.scale = has_les ? invLesFactor : 1;
+             t.scale = (!has_les && !has_ss) ? 1.0 : ( has_les ? invLesFactor : soluteScalingFactor );
              for (i=1; i < T::size; i++) {
 	         homepatch = patchMap->downstream(homepatch,aid[i].pid);
              }

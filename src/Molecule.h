@@ -342,6 +342,11 @@ private:
 	unsigned char *fepAtomFlags; 
 //fepe
 
+//soluteScaling
+        unsigned char *ssAtomFlags;
+        unsigned int num_ss;
+//soluteScaling
+
   //occupancy and bfactor data from plugin-based IO implementation of loading structures
   float *occupancy;
   float *bfactor;
@@ -444,6 +449,12 @@ private:
 	void read_parm(const GromacsTopFile *);  
 	  
 public:
+
+  // for solute scaling
+  int ss_num_vdw_params;
+  int *ss_vdw_type;
+  int *ss_index;
+
   // DRUDE
   int is_drude_psf;      // flag for reading Drude PSF
   int is_lonepairs_psf;  // flag for reading lone pairs from PSF
@@ -930,6 +941,22 @@ public:
         void delete_alch_bonded(void);
 //fepe
 
+  /**
+   * Build the flags needed for solute scaling.
+   *
+   * A PDB file is read, indicating which atoms are to be scaled,
+   * and an array is maintained marking which are to be included.
+   * Each marked atom then has its corresponding van der Waals
+   * type number reassigned to enable extending the LJTable with
+   * scaled interaction values.
+   */
+  void build_ss_flags(
+      const StringList *ssfile, ///< config "ssfile = my.pdb" for PDB filename
+      const StringList *sscol,  ///< config "ssfile = O" indicating column
+      PDB *initial_pdb,         ///< the initial PDB file
+      const char *cwd           ///< current working directory
+      );
+
   void build_exPressure_atoms(StringList *, StringList *, PDB *, char *);
         //  Determine which atoms are excluded from
                                 //  pressure (if any)
@@ -1303,6 +1330,13 @@ public:
   {
     return(fepAtomFlags[anum]);
   }
+
+//soluteScaling
+        unsigned char get_ss_type(int anum) const
+        {
+                return(ssAtomFlags[anum]);
+        }
+//soluteScaling
 
   /* BKR - Get the FEP type (i.e. 0, 1, or 2) of a bonded _interaction_ based 
      on the atom indices of the atoms involved (internally converted to FEP 

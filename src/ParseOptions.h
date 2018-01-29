@@ -172,6 +172,11 @@ class ParseOptions {
    int require(const char *newname, const char *parent, const char *msg,
 	       char *ptr);
    
+   //
+   // XXX prototypes for optional reverse "newname" and "parent"
+   // (the argument names in a prototype don't matter
+   // but it makes the code more difficult to understand)
+   //
    int optional(const char *newname, const char *parent, const char *msg,
 		BigReal *ptr, BigReal defalt);
    int optional(const char *newname, const char *parent, const char *msg,

@@ -71,6 +71,14 @@ Sequencer::Sequencer(HomePatch *p) :
     random = new Random(simParams->randomSeed);
     random->split(patch->getPatchID()+1,PatchMap::Object()->numPatches()+1);
 
+    // Is soluteScaling enabled?
+    if (simParams->soluteScalingOn) {
+      // If so, we must "manually" perform charge scaling on startup because
+      // Sequencer will not get a scripting task for initial charge scaling.
+      // Subsequent rescalings will take place through a scripting task.
+      rescaleSoluteCharges(simParams->soluteScalingFactorCharge);
+    }
+
     rescaleVelocities_numTemps = 0;
     stochRescale_count = 0;
     berendsenPressure_count = 0;
@@ -137,6 +145,9 @@ void Sequencer::algorithm(void)
       case SCRIPT_RESCALEVELS:
 	rescaleVelocitiesByFactor(simParams->scriptArg1);
 	break;
+      case SCRIPT_RESCALESOLUTECHARGES:
+        rescaleSoluteCharges(simParams->soluteScalingFactorCharge);
+        break;
       case SCRIPT_RELOADCHARGES:
 	reloadCharges();
 	break;
@@ -1651,6 +1662,22 @@ void Sequencer::reloadCharges()
   for ( int i = 0; i < numAtoms; ++i )
   {
     a[i].charge = molecule->atomcharge(a[i].id);
+  }
+}
+
+// REST2 solute charge scaling
+void Sequencer::rescaleSoluteCharges(BigReal factor)
+{
+  FullAtom *a = patch->atom.begin();
+  int numAtoms = patch->numAtoms;
+  Molecule *molecule = Node::Object()->molecule;
+  BigReal sqrt_factor = sqrt(factor);
+  // apply scaling to the original charge (stored in molecule)
+  // of just the marked solute atoms
+  for ( int i = 0; i < numAtoms; ++i ) {
+    if (molecule->get_ss_type(a[i].id)) {
+      a[i].charge = sqrt_factor * molecule->atomcharge(a[i].id);
+    }
   }
 }
 

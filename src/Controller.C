@@ -302,6 +302,10 @@ void Controller::algorithm(void)
         iout << "RESCALING VELOCITIES AT STEP " << simParams->firstTimestep
           << " BY " << simParams->scriptArg1 << "\n" << endi;
         break;
+      case SCRIPT_RESCALESOLUTECHARGES:
+        // Parameter setting already reported in ScriptTcl
+        // Nothing to do!
+        break;
       case SCRIPT_CHECKPOINT:
         iout << "CHECKPOINTING AT STEP " << simParams->firstTimestep
           << "\n" << endi;

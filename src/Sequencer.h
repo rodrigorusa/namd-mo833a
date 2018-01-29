@@ -77,6 +77,7 @@ protected:
     void minimizationQuenchVelocity(void);
 
     void reloadCharges();
+    void rescaleSoluteCharges(BigReal);
 
     BigReal adaptTempT;         // adaptive tempering temperature
     void adaptTempUpdate(int); // adaptive tempering temperature update
