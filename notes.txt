@@ -580,8 +580,8 @@ Unpack NAMD and matching Charm++ source code:
 
 Build and test the Charm++/Converse library (single-node multicore version):
   cd charm-6.8.2
-  ./build charm++ multicore-linux64 --with-production
-  cd multicore-linux64/tests/charm++/megatest
+  ./build charm++ multicore-linux-x86_64 --with-production
+  cd multicore-linux-x86_64/tests/charm++/megatest
   make pgm
   ./pgm +p4   (multicore does not support multiple nodes)
   cd ../../../../..
@@ -629,7 +629,7 @@ Optionally edit various configuration files:
   vi arch/Linux-x86_64.tcl      (fix library version and path to TCL files)
 
 Set up build directory and compile:
-  multicore version: ./config Linux-x86_64-g++ --charm-arch multicore-linux64
+  multicore version: ./config Linux-x86_64-g++ --charm-arch multicore-linux-x86_64
   ethernet version: ./config Linux-x86_64-g++ --charm-arch netlrts-linux-x86_64
   InfiniBand version: ./config Linux-x86_64-g++ --charm-arch verbs-linux-x86_64
   MPI version: ./config Linux-x86_64-g++ --charm-arch mpi-linux-x86_64

@@ -11,7 +11,7 @@ function error_syntax {
   echo '  --charm-base <Charm++ base build directory containing src>'
   echo "      (defaults to ./charm-$CHARM_VERSION or ./charm)"
   echo '  --charm-arch <subdirectory of Charm++ base build directory>'
-  echo '      (such as mpi-linux-x86_64-mpicxx or multicore-linux64)'
+  echo '      (such as mpi-linux-x86_64-mpicxx or multicore-linux-x86_64)'
   echo '  --charm-opts <options to pass to charmc (quote list)>'
   echo '  --with-tcl (default)  --without-tcl'
   echo '  --tcl-prefix <directory containing Tcl lib and include>'
