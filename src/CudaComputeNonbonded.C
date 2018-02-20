@@ -1468,7 +1468,8 @@ void CudaComputeNonbonded::forceDoneCheck(void *arg, double walltime) {
 
       // Finish patch
       int pe = c->patches[patchInd].pe;
-      c->computeMgr->sendFinishPatchOnPe(pe, c, patchInd);
+      PatchID patchID = c->patches[patchInd].patchID;  // for priority
+      c->computeMgr->sendFinishPatchOnPe(pe, c, patchInd, patchID);
 
       // Last patch, return
       if ( c->patchReadyQueueNext == c->patchReadyQueueLen ) return;
