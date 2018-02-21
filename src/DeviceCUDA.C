@@ -420,6 +420,16 @@ BASE
 
 void DeviceCUDA::register_user_events() {
 
+  traceRegisterUserEvent("CUDA PME spreadCharge", CUDA_PME_SPREADCHARGE_EVENT);
+  traceRegisterUserEvent("CUDA PME gatherForce", CUDA_PME_GATHERFORCE_EVENT);
+
+  traceRegisterUserEvent("CUDA bonded", CUDA_BONDED_KERNEL_EVENT);
+  traceRegisterUserEvent("CUDA debug", CUDA_DEBUG_EVENT);
+  traceRegisterUserEvent("CUDA nonbonded", CUDA_NONBONDED_KERNEL_EVENT);
+  traceRegisterUserEvent("CUDA GBIS Phase 1 kernel", CUDA_GBIS1_KERNEL_EVENT);
+  traceRegisterUserEvent("CUDA GBIS Phase 2 kernel", CUDA_GBIS2_KERNEL_EVENT);
+  traceRegisterUserEvent("CUDA GBIS Phase 3 kernel", CUDA_GBIS3_KERNEL_EVENT);
+
   traceRegisterUserEvent("CUDA poll remote", CUDA_EVENT_ID_POLL_REMOTE);
   traceRegisterUserEvent("CUDA poll local", CUDA_EVENT_ID_POLL_LOCAL);
 

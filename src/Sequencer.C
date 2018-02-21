@@ -322,7 +322,7 @@ void Sequencer::integrate(int scriptTask) {
       newtonianVelocities(-0.5,timestep,nbondstep,slowstep,0,1,1);
     }
     submitReductions(step);
-    if(traceIsOn()){
+    if(0){ // if(traceIsOn()){
         traceUserEvent(eventEndOfTimeStep);
         sprintf(traceNote, "%s%d",tracePrefix,step); 
         traceUserSuppliedNote(traceNote);
@@ -516,7 +516,7 @@ void Sequencer::integrate(int scriptTask) {
 	 }
 #endif
 	  
-        if(traceIsOn()){
+        if(0){ // if(traceIsOn()){
             traceUserEvent(eventEndOfTimeStep);
             sprintf(traceNote, "%s%d",tracePrefix,step); 
             traceUserSuppliedNote(traceNote);
