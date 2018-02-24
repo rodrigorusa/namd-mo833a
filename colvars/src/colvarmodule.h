@@ -39,16 +39,14 @@ You can browse the class hierarchy or the list of source files.
 #define FILE_ERROR      (1<<4)
 #define MEMORY_ERROR    (1<<5)
 #define FATAL_ERROR     (1<<6) // Should be set, or not, together with other bits
-#define DELETE_COLVARS  (1<<7) // Instruct the caller to delete cvm
+//#define DELETE_COLVARS  (1<<7) // Instruct the caller to delete cvm
 #define COLVARS_NO_SUCH_FRAME (1<<8) // Cannot load the requested frame
 
 #include <iostream>
 #include <iomanip>
-#include <string>
-#include <cstring>
-#include <sstream>
 #include <fstream>
-#include <cmath>
+#include <sstream>
+#include <string>
 #include <vector>
 #include <list>
 
@@ -75,7 +73,16 @@ private:
   /// Impossible to initialize the main object without arguments
   colvarmodule();
 
+  /// Integer representing the version string (allows comparisons)
+  int version_int;
+
 public:
+
+  /// Get the version number (higher = more recent)
+  int version_number() const
+  {
+    return version_int;
+  }
 
   friend class colvarproxy;
   // TODO colvarscript should be unaware of colvarmodule's internals
@@ -83,6 +90,21 @@ public:
 
   /// Defining an abstract real number allows to switch precision
   typedef  double    real;
+
+  /// Override std::pow with a product for n integer
+  static inline real integer_power(real const &x, int const n)
+  {
+    // Original code: math_special.h in LAMMPS
+    double yy, ww;
+    if (x == 0.0) return 0.0;
+    int nn = (n > 0) ? n : -n;
+    ww = x;
+    for (yy = 1.0; nn != 0; nn >>= 1, ww *=ww) {
+      if (nn & 1) yy *= ww;
+    }
+    return (n > 0) ? yy : 1.0/yy;
+  }
+
   /// Residue identifier
   typedef  int       residue_id;
 
@@ -144,10 +166,6 @@ public:
   {
     return it;
   }
-
-  /// If true, get it_restart from the state file; if set to false,
-  /// the MD program is providing it
-  bool it_restart_from_state_file;
 
   /// \brief Finite difference step size (if there is no dynamics, or
   /// if gradients need to be tested independently from the size of
@@ -292,13 +310,23 @@ private:
 
 public:
 
+  /// Return how many variables are defined
+  int num_variables() const;
+
+  /// Return how many variables have this feature enabled
+  int num_variables_feature(int feature_id) const;
+
+  /// Return how many biases are defined
+  int num_biases() const;
+
   /// Return how many biases have this feature enabled
   int num_biases_feature(int feature_id) const;
 
-  /// Return how many biases are defined with this type
+  /// Return how many biases of this type are defined
   int num_biases_type(std::string const &type) const;
 
-  /// Return the names of time-dependent biases with forces enabled
+  /// Return the names of time-dependent biases with forces enabled (ABF,
+  /// metadynamics, etc)
   std::vector<std::string> const time_dependent_biases() const;
 
 private:
@@ -337,9 +365,9 @@ public:
 
   /// Write all trajectory files
   int write_traj_files();
-  /// Write all restart files
-  int write_restart_files();
-  /// Write all FINAL output files
+  /// Write a state file useful to resume the simulation
+  int write_restart_file(std::string const &out_name);
+  /// Write all other output files
   int write_output_files();
   /// Backup a file before writing it
   static int backup_file(char const *filename);
@@ -545,6 +573,9 @@ protected:
   /// Appending to the existing trajectory file?
   bool cv_traj_append;
 
+  /// Write labels at the next iteration
+  bool cv_traj_write_labels;
+
 private:
 
   /// Counter for the current depth in the object hierarchy (useg e.g. in output)
@@ -583,7 +614,7 @@ public:
   /// from static functions in the colvarmodule class
   static colvarproxy *proxy;
 
-  /// \brief Accessor for the above
+  /// \brief Access the one instance of the Colvars module
   static colvarmodule *main();
 
 };
@@ -593,16 +624,14 @@ public:
 typedef colvarmodule cvm;
 
 
-#include "colvartypes.h"
-
 
 std::ostream & operator << (std::ostream &os, cvm::rvector const &v);
 std::istream & operator >> (std::istream &is, cvm::rvector &v);
 
 
 template<typename T> std::string cvm::to_str(T const &x,
-                                              size_t const &width,
-                                              size_t const &prec) {
+                                             size_t const &width,
+                                             size_t const &prec) {
   std::ostringstream os;
   if (width) os.width(width);
   if (prec) {
@@ -613,9 +642,10 @@ template<typename T> std::string cvm::to_str(T const &x,
   return os.str();
 }
 
+
 template<typename T> std::string cvm::to_str(std::vector<T> const &x,
-                                              size_t const &width,
-                                              size_t const &prec) {
+                                             size_t const &width,
+                                             size_t const &prec) {
   if (!x.size()) return std::string("");
   std::ostringstream os;
   if (prec) {
@@ -635,71 +665,5 @@ template<typename T> std::string cvm::to_str(std::vector<T> const &x,
   return os.str();
 }
 
-
-#include "colvarproxy.h"
-
-
-inline cvm::real cvm::unit_angstrom()
-{
-  return proxy->unit_angstrom();
-}
-
-inline cvm::real cvm::boltzmann()
-{
-  return proxy->boltzmann();
-}
-
-inline cvm::real cvm::temperature()
-{
-  return proxy->temperature();
-}
-
-inline cvm::real cvm::dt()
-{
-  return proxy->dt();
-}
-
-// Replica exchange commands
-inline bool cvm::replica_enabled() {
-  return proxy->replica_enabled();
-}
-inline int cvm::replica_index() {
-  return proxy->replica_index();
-}
-inline int cvm::replica_num() {
-  return proxy->replica_num();
-}
-inline void cvm::replica_comm_barrier() {
-  return proxy->replica_comm_barrier();
-}
-inline int cvm::replica_comm_recv(char* msg_data, int buf_len, int src_rep) {
-  return proxy->replica_comm_recv(msg_data,buf_len,src_rep);
-}
-inline int cvm::replica_comm_send(char* msg_data, int msg_len, int dest_rep) {
-  return proxy->replica_comm_send(msg_data,msg_len,dest_rep);
-}
-
-
-inline void cvm::request_total_force()
-{
-  proxy->request_total_force(true);
-}
-
-inline cvm::rvector cvm::position_distance(atom_pos const &pos1,
-                                            atom_pos const &pos2)
-{
-  return proxy->position_distance(pos1, pos2);
-}
-
-inline cvm::real cvm::position_dist2(cvm::atom_pos const &pos1,
-                                      cvm::atom_pos const &pos2)
-{
-  return proxy->position_dist2(pos1, pos2);
-}
-
-inline cvm::real cvm::rand_gaussian(void)
-{
-  return proxy->rand_gaussian();
-}
 
 #endif

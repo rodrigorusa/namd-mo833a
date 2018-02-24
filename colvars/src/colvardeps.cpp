@@ -8,10 +8,16 @@
 // Colvars repository at GitHub.
 
 
+#include "colvarmodule.h"
+#include "colvarproxy.h"
 #include "colvardeps.h"
 
+
 colvardeps::colvardeps()
-  : time_step_factor (1) {}
+{
+  time_step_factor = 1;
+}
+
 
 colvardeps::~colvardeps() {
   size_t i;
@@ -416,6 +422,9 @@ void colvardeps::init_cvb_requires() {
     init_feature(f_cvb_get_total_force, "obtain total force", f_type_dynamic);
     f_req_children(f_cvb_get_total_force, f_cv_total_force);
 
+    init_feature(f_cvb_output_acc_work, "output accumulated work", f_type_user);
+    f_req_self(f_cvb_output_acc_work, f_cvb_apply_force);
+
     init_feature(f_cvb_history_dependent, "history-dependent", f_type_static);
 
     init_feature(f_cvb_time_dependent, "time-dependent", f_type_static);
@@ -519,9 +528,6 @@ void colvardeps::init_cv_requires() {
 
     init_feature(f_cv_subtract_applied_force, "subtract applied force from total force", f_type_user);
     f_req_self(f_cv_subtract_applied_force, f_cv_total_force);
-    // There is no well-defined way to implement f_cv_subtract_applied_force
-    // in the case of extended-Lagrangian colvars
-    f_req_exclude(f_cv_subtract_applied_force, f_cv_extended_Lagrangian);
 
     init_feature(f_cv_lower_boundary, "lower boundary", f_type_user);
     f_req_self(f_cv_lower_boundary, f_cv_scalar);

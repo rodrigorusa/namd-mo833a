@@ -18,6 +18,7 @@
 \newcommand{\cvnamebasedonly}[1]{#1}
 \newcommand{\cvlammpsonly}[1]{}
 \newcommand{\cvscriptonly}[1]{#1}
+\newcommand{\cvleptononly}[1]{#1}
 \newcommand{\cvcommand}{cv}
 
 % use the NAMD UG macros to document keywords
@@ -32,9 +33,9 @@
   {\bf \large \tt #1:} analogous to \texttt{#3}%
 }
 
-\newcommand{\cvsec}[1]{\subsection{#1}}
-\newcommand{\cvsubsec}[1]{\subsubsection{#1}}
-\newcommand{\cvsubsubsec}[1]{\paragraph*{#1}}
+\newcommand{\cvsec}[2]{\subsection{#1}}
+\newcommand{\cvsubsec}[2]{\subsubsection{#1}}
+\newcommand{\cvsubsubsec}[2]{\paragraph*{#1}}
 
 \newcommand{\outputName}{\emph{outputName}}
 \newcommand{\restartName}{\emph{restartName}}

@@ -59,7 +59,9 @@ protected:
   SubmitReduction *reduction;
 
 #ifdef NAMD_TCL
-  Tcl_Interp *interp; // Tcl interpreter embedded in NAMD
+
+  void init_tcl_pointers();
+
 #endif
 
 public:
@@ -122,19 +124,15 @@ public:
     return simparams->dt;
   }
 
+#if CMK_SMP && USE_CKLOOP
   int smp_enabled()
   {
-#if CMK_SMP && USE_CKLOOP
     if (b_smp_active) {
       return COLVARS_OK;
     }
     return COLVARS_ERROR;
-#else
-    return COLVARS_NOT_IMPLEMENTED;
-#endif
   }
 
-#if CMK_SMP && USE_CKLOOP
   int smp_colvars_loop();
 
   int smp_biases_loop();
@@ -143,8 +141,6 @@ public:
 
   friend void calc_colvars_items_smp(int first, int last, void *result, int paramNum, void *param);
   friend void calc_cv_biases_smp(int first, int last, void *result, int paramNum, void *param);
-#endif
-
   friend void calc_cv_scripted_forces(int paramNum, void *param);
 
   int smp_thread_id()
@@ -159,13 +155,13 @@ public:
 
 protected:
 
-  CmiNodeLock smp_lock_state;
+  CmiNodeLock charm_lock_state;
 
 public:
 
   int smp_lock()
   {
-    smp_lock_state = CmiCreateLock();
+    charm_lock_state = CmiCreateLock();
     return COLVARS_OK;
   }
 
@@ -176,9 +172,11 @@ public:
 
   int smp_unlock()
   {
-    CmiDestroyLock(smp_lock_state);
+    CmiDestroyLock(charm_lock_state);
     return COLVARS_OK;
   }
+
+#endif // #if CMK_SMP && USE_CKLOOP
 
   // Replica communication functions.
   bool replica_enabled() {
@@ -289,7 +287,7 @@ public:
   int close_output_stream(std::string const &output_name);
   int backup_file(char const *filename);
 
-  char *script_obj_to_str(unsigned char *obj);
+  char const *script_obj_to_str(unsigned char *obj);
 };
 
 

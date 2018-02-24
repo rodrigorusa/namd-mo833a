@@ -27,7 +27,8 @@
 #define PATHSEP "/"
 #endif
 
-
+#include "colvarmodule.h"
+#include "colvarproxy.h"
 #include "colvar.h"
 #include "colvarbias_meta.h"
 
@@ -105,7 +106,7 @@ int colvarbias_meta::init(std::string const &conf)
       get_keyval(conf, "dumpFreeEnergyFile", dump_fes, true, colvarparse::parse_silent);
     if (get_keyval(conf, "saveFreeEnergyFile", dump_fes_save, false, colvarparse::parse_silent)) {
       cvm::log("Option \"saveFreeEnergyFile\" is deprecated, "
-               "please use \"keepFreeEnergyFile\" instead.");
+               "please use \"keepFreeEnergyFiles\" instead.");
     }
     get_keyval(conf, "keepFreeEnergyFiles", dump_fes_save, dump_fes_save);
 

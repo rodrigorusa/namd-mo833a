@@ -11,26 +11,26 @@ use the following syntax: \texttt{set value [cv colvar myVar value]}.
 All subcommands of \texttt{cv} are documented below.
 
 % The NAMD and VMD manuals have this section at different levels
-\newcommand{\cvparagraph}[1]{\cvsubsec{#1}}
+\newcommand{\cvparagraph}[2]{\cvsubsec{#1}{#2}}
 \cvvmdonly{
-\renewcommand{\cvparagraph}[1]{\cvsubsubsec{#1}}
+\renewcommand{\cvparagraph}[2]{\cvsubsubsec{#1}{#2}}
 }
 
-\cvparagraph{Managing the colvars module}
+\cvparagraph{Managing the Colvars module}{sec:cv_command_general}
 
 \begin{itemize}
 \cvvmdonly{
-\item \texttt{molid} \emph{$<$molid$>$}: setup the colvars module for the given molecule; \emph{$<$molid$>$} is the identifier of a valid VMD molecule, either an integer or \texttt{top} for the top molecule;
-\item \texttt{delete}: delete the colvars module; after this, the module can be setup again using \texttt{cv molid};
+\item \texttt{molid} \emph{$<$molid$>$}: setup the Colvars module for the given molecule; \emph{$<$molid$>$} is the identifier of a valid VMD molecule, either an integer or \texttt{top} for the top molecule;
+\item \texttt{delete}: delete the Colvars module; after this, the module can be setup again using \texttt{cv molid};
 }
 \item \texttt{configfile} \emph{$<$file name$>$}: read configuration from a file;
 \item \texttt{config} \emph{$<$string$>$}: read configuration from the given string; both \texttt{config} and \texttt{configfile} subcommands may be invoked multiple times;
 \cvvmdonly{see \ref{sec:colvars_config} for the configuration syntax;}
-\item \texttt{reset}: delete all internal configuration of the colvars module;
+\item \texttt{reset}: delete all internal configuration of the Colvars module;
 \item \texttt{version}: return the version of the colvars code.
 \end{itemize}
 
-\cvparagraph{Input and output}
+\cvparagraph{Input and output}{sec:cv_command_io}
 
 \begin{itemize}
 \item \texttt{list}: return a list of all currently defined variables;
@@ -49,13 +49,15 @@ All subcommands of \texttt{cv} are documented below.
 }
 \end{itemize}
 
-\cvparagraph{Accessing collective variables}
+\cvparagraph{Accessing collective variables}{sec:cv_command_colvar}
 
 \begin{itemize}
 \item \texttt{colvar} \emph{$<$name$>$} \texttt{value}: return the current value of colvar \emph{$<$name$>$};
 \item \texttt{colvar} \emph{$<$name$>$} \texttt{update}: recalculate colvar \emph{$<$name$>$};
 \item \texttt{colvar} \emph{$<$name$>$} \texttt{type}: return the type of colvar \emph{$<$name$>$};
+\cvvmdonly{
 \item \texttt{colvar} \emph{$<$name$>$} \texttt{delete}: delete colvar \emph{$<$name$>$};
+}
 \cvnamdonly{
 \item \texttt{colvar} \emph{$<$name$>$} \texttt{addforce} \emph{$<$F$>$}: apply given force on colvar \emph{$<$name$>$};
 \item \texttt{colvar} \emph{$<$name$>$} \texttt{getappliedforce}: get the force currently being applied on colvar \emph{$<$name$>$};
@@ -66,7 +68,7 @@ All subcommands of \texttt{cv} are documented below.
 string order), set which cvcs are enabled or disabled in subsequent evaluations according to a list of 0/1 flags (one per cvc).
 \end{itemize}
 
-\cvparagraph{Accessing biases}
+\cvparagraph{Accessing biases}{sec:cv_command_bias}
 
 \begin{itemize}
 \item \texttt{bias} \emph{$<$name$>$} \texttt{energy}: return the current energy of the bias \emph{$<$name$>$};
