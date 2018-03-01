@@ -43,31 +43,33 @@ proc ::cphTitrator::buildTitrator {systempH moveInfo} {
         set maxAttempts [cphSystem get numresidues]
     }
     #   The default move set is to switch each residue independently (i.e. the
-    # move label is just the segresid for that residue). Settings from the
+    # move label is just the segresidname for that residue). Settings from the
     # restart and config files are discarded as they get used so that only
     # unused options remain in the moveInfo dict when this is finished (also
     # the default options, which must also be discarded.
     #
-    foreach segresid [cphSystem get segresids] {
-        dict set MoveSet $segresid proposalCmd "proposeResidueMove $segresid"
-        dict set MoveSet $segresid segresidList $segresid
-        dict set MoveSet $segresid weight\
-                [dictPopOrDefault moveInfo $segresid weight]
-        dict set MoveSet $segresid numsteps\
-                [dictPopOrDefault moveInfo $segresid numsteps]
-        dict set MoveSet $segresid successes 0
-        dict set MoveSet $segresid attempts 0
-        if {[dict exists $moveInfo $segresid]\
-            && ![dict size [dict get $moveInfo $segresid]]} {
-            dict unset moveInfo $segresid
+    foreach segresidname [cphSystem get segresidnames] {
+        dict set MoveSet $segresidname proposalCmd\
+                "proposeResidueMove $segresidname"
+        dict set MoveSet $segresidname segresidnameList $segresidname
+        dict set MoveSet $segresidname weight\
+                [dictPopOrDefault moveInfo $segresidname weight]
+        dict set MoveSet $segresidname numsteps\
+                [dictPopOrDefault moveInfo $segresidname numsteps]
+        dict set MoveSet $segresidname successes 0
+        dict set MoveSet $segresidname attempts 0
+        if {[dict exists $moveInfo $segresidname]\
+            && ![dict size [dict get $moveInfo $segresidname]]} {
+            dict unset moveInfo $segresidname
         }
     }
     # Build proton transfer moves
     foreach moveLabel [dict get $moveInfo ptransfer] {
-        lassign [split $moveLabel "/"] segresid1 segresid2
+        lassign [split $moveLabel "/"] segresidname1 segresidname2
         dict set MoveSet $moveLabel proposalCmd\
                 "proposeProtonTransferMove $moveLabel" 
-        dict set MoveSet $moveLabel segresidList [list $segresid1 $segresid2]
+        dict set MoveSet $moveLabel segresidnameList\
+                [list $segresidname1 $segresidname2]
         dict set MoveSet $moveLabel weight\
                 [dictPopOrDefault moveInfo $moveLabel weight]
         dict set MoveSet $moveLabel numsteps\
@@ -117,7 +119,7 @@ proc ::cphTitrator::computeWeightSum {} {
 # =============================================================================
 # ::cphTitrator::proposeResidueMove
 #
-# Propose a move invovling a single residue via Metropolized independence
+# Propose a move involving a single residue via Metropolized independence
 # sampling. Return True if such a move was proposed, accepted, and stored.
 #
 # The core idea here is that we want to propose the most probable new state
@@ -125,9 +127,9 @@ proc ::cphTitrator::computeWeightSum {} {
 # trivial, it's just the other state. For three or more states, this will
 # naturally prefer tautomerization at extreme pKa values.
 #
-proc ::cphTitrator::proposeResidueMove {segresid} {
+proc ::cphTitrator::proposeResidueMove {segresidname} {
    variable ::cphTitrator::pH
-   lassign [cphSystem compute inherentWeights $pH $segresid] weights states 
+   lassign [cphSystem compute inherentWeights $pH $segresidname] weights states 
    # NB: The remaining weights normalize to pic = (1 - pi), NOT 1.
    #     If you want to see the weights as probabilities, each weight should
    #     be divided by pic (this is implicit inside weightedChoice).
@@ -138,18 +140,19 @@ proc ::cphTitrator::proposeResidueMove {segresid} {
    set du [expr {log((1. - $pj) / $pic)}]
    set accept [metropolisAcceptance $du]
    if {$accept} {
-       cphSystem set trialState $segresid [lindex $states $j]
+       cphSystem set trialState $segresidname [lindex $states $j]
    }
    return $accept
 }
 
 proc ::cphTitrator::proposeProtonTransferMove {moveLabel} {
     variable ::cphTitrator::pH
-    lassign [split $moveLabel "/"] segresid1 segresid2
-    set errCode [::cphSystem::proposeProtonTransfer $segresid1 $segresid2]
+    lassign [split $moveLabel "/"] segresidname1 segresidname2
+    set errCode\
+        [::cphSystem::proposeProtonTransfer $segresidname1 $segresidname2]
     if {$errCode > 0} {
-        set du1 [cphSystem compute inherent $pH $segresid1]
-        set du2 [cphSystem compute inherent $pH $segresid2]
+        set du1 [cphSystem compute inherent $pH $segresidname1]
+        set du2 [cphSystem compute inherent $pH $segresidname2]
         set accept [metropolisAcceptance [expr {$du1 + $du2}]]
     } else {
         set accept 0
@@ -168,16 +171,16 @@ proc ::cphTitrator::proposeMove {} {
         incr nattempts
         # Clear the previous trial if it was rejected.
         if {$nattempts > 1} {
-             cphSystem update $accept $segresidList
+             cphSystem update $accept $segresidnameList
         }
         set index [weightedChoice $weights $weightSum]
         set moveLabel [lindex [dict keys $MoveSet] $index]
         set proposalCmd [dict get $MoveSet $moveLabel proposalCmd]
         set accept [eval $proposalCmd]
         set numsteps [dict get $MoveSet $moveLabel numsteps]
-        set segresidList [dict get $MoveSet $moveLabel segresidList]
+        set segresidnameList [dict get $MoveSet $moveLabel segresidnameList]
     }
-    return [list $accept $numsteps $segresidList $nattempts]
+    return [list $accept $numsteps $segresidnameList $nattempts]
 }
 
 # =============================================================================

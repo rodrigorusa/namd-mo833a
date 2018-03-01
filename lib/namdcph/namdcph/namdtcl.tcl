@@ -199,6 +199,18 @@ proc getThermostat {{forbidBerendsen true}} {
     return 1 
 }
 
+# kBT
+#
+# Return kBT using the current thermostat temperature. If no thermostat is set
+# then return 0.
+#
+proc kBT {} {
+    if {$::thermostatIsSet} {
+        return [expr {$::BOLTZMANN*[$::thermostatTempCmd]}]
+    }
+    return 0.0
+}
+
 # getBarostat
 #
 # This only requires that the barostat itself has been invoked, not that a

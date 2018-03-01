@@ -12,12 +12,21 @@ source [file join [file dirname [info script]] "namdmcmc.tcl"]
 namespace eval ::cphSystem {
     #   The core information of the cphSystem is the residueDict, which stores
     # the unique and mutable information for each instance of a titratable
-    # residue. The keys are "segresids" of the form <segid>:<resid>, just as in
-    # the psfgen patch command. The residueDefDict stores non-unique and
-    # immutable information for each residue definition (or type). The keys are
-    # residue names (e.g. ASP, HIS, etc.). Generally, when looking up 
+    # residue. The keys are "segresidnames" of the form:
+    #
+    # <segid>:<resid>:<resname>.
+    #
+    # Note the <resname> is a _titratable residue_ name and may or may not be
+    # the same as a recognizable residue from the force field. For example,
+    # amino acid termini are titratable residues. The residueDefDict stores
+    # non-unique and immutable information for each residue definition. The
+    # keys are residue names (e.g. ASP, HIS, etc.). Generally, when looking up
     # information for a specific residue, one simply needs look up the name in
     # residueDict and then look up the info in residueDefDict.
+    #
+    # Note that a <segid>:<resid> combination can correspond to _multiple_
+    # residue names. This permits non-overlapping "sub-residues," such as amino
+    # acid termini, which titrate independently of the sidechain.
     #
     variable residueDict [dict create]
     variable residueDefDict [dict create]
@@ -31,7 +40,21 @@ namespace eval ::cphSystem {
 # ::cphSystem::cphSystem
 #
 # This is the only exported function from the cphSystem namespace and provides
-# a complete interface to
+# a complete interface to the cphSystem namespace. The first argument is always
+# an action (e.g. "get" or "set") and the rest are variable arguments.
+#
+# action           description
+# ---------------- -----------
+# get              see cphSystemGet 
+# set              see cphSystemSet
+# build            see buildSystem
+# initialize       see initializeSystem
+# propose          propose a move of the given type
+# compute          compute various quantities needed for MC
+# update           accept/reject the proposed changes
+# alchemifypsf     apply patches that make the system alchemical
+# dealchemifypsf   remove patches so the system is no longer alchemical
+# initializeState  set the initial state of a residue
 #
 proc ::cphSystem::cphSystem {action args} {
     if {[string match -nocase $action get]} {
@@ -97,19 +120,20 @@ proc ::cphSystem::cphSystem {action args} {
 # =============================================================================
 # proc ::cphSystem::updateStates
 #
-# Update the state of one or more residues with the given <segid>:<resid> 
-# specifications based on acceptance/rejection of the trial states. Reset the 
-# trial states to a null value.
+# Update the state of one or more residues with the given
+# <segid>:<resid>:<resname> specifications based on acceptance/rejection of the
+# trial states. Reset the trial states to a null value.
 #
-proc ::cphSystem::updateStates {accept segresidList} {
+proc ::cphSystem::updateStates {accept segresidnameList} {
     if {$accept} {
-        foreach segresid $segresidList {
-            cphSystem set state $segresid [cphSystem get trialState $segresid]
-            cphSystem set trialState $segresid {}
+        foreach segresidname $segresidnameList {
+            cphSystem set state $segresidname\
+                    [cphSystem get trialState $segresidname]
+            cphSystem set trialState $segresidname {}
         }
     } else {
-        foreach segresid $segresidList {
-            cphSystem set trialState $segresid {}
+        foreach segresidname $segresidnameList {
+            cphSystem set trialState $segresidname {}
         }
     }
     return 0
@@ -123,17 +147,17 @@ proc ::cphSystem::updateStates {accept segresidList} {
 # For consistency with tautomers (see below), this always returns true in order
 # to confirm that a titration was in fact found.
 #
-proc ::cphSystem::proposeResidueTitration {segresid} {
+proc ::cphSystem::proposeResidueTitration {segresidname} {
     variable ::cphSystem::resDefDict
-    set possibleStates [cphSystem get trialStateList $segresid]
-    set resname [cphSystem get resname $segresid]
-    set numProtons [expr {lsum([cphSystem get occupancy $segresid])}]
+    set possibleStates [cphSystem get trialStateList $segresidname]
+    set resname [cphSystem get resname $segresidname]
+    set numProtons [expr {lsum([cphSystem get occupancy $segresidname])}]
     while {true} {
         set state [choice $possibleStates]
         set occ [dict get $resDefDict $resname states $state]
         set numProtonsTrial [expr {lsum($occ)}]
         if {$numProtons != $numProtonsTrial} {
-            cphSystem set trialState $segresid $state
+            cphSystem set trialState $segresidname $state
             return 1
         }
     }
@@ -141,14 +165,22 @@ proc ::cphSystem::proposeResidueTitration {segresid} {
     return -1
 }
 
-proc ::cphSystem::proposeProtonTransfer {segresid1 segresid2} {
+# ::cphSystem::proposeProtonTransfer
+#
+# Propose a new trial state requiring a proton transfer - i.e. a movement of a
+# proton from residue to another.
+#
+# If both residues in the pair have/do not currently have a proton, then a
+# transfer cannot occur and this returns false.
+#
+proc ::cphSystem::proposeProtonTransfer {segresidname1 segresidname2} {
     variable ::cphSystem::resDefDict
-    set numProtons1 [expr {lsum([cphSystem get occupancy $segresid1])}]
-    set possibleStates1 [cphSystem get trialStateList $segresid1]
-    set resname1 [cphSystem get resname $segresid1]
-    set numProtons2 [expr {lsum([cphSystem get occupancy $segresid2])}]
-    set possibleStates2 [cphSystem get trialStateList $segresid2]
-    set resname2 [cphSystem get resname $segresid2]
+    set numProtons1 [expr {lsum([cphSystem get occupancy $segresidname1])}]
+    set possibleStates1 [cphSystem get trialStateList $segresidname1]
+    set resname1 [cphSystem get resname $segresidname1]
+    set numProtons2 [expr {lsum([cphSystem get occupancy $segresidname2])}]
+    set possibleStates2 [cphSystem get trialStateList $segresidname2]
+    set resname2 [cphSystem get resname $segresidname2]
     set dn [expr {$numProtons1 - $numProtons2}]
 
     if {$dn == 0.0} {     
@@ -164,8 +196,8 @@ proc ::cphSystem::proposeProtonTransfer {segresid1 segresid2} {
         set occ2 [dict get $resDefDict $resname2 states $state2]
         set numProtonsTrial2 [expr {lsum($occ2)}]
         if {$dn == [expr {$numProtonsTrial2 - $numProtonsTrial1}]} {
-            cphSystem set trialState $segresid1 $state1
-            cphSystem set trialState $segresid2 $state2
+            cphSystem set trialState $segresidname1 $state1
+            cphSystem set trialState $segresidname2 $state2
             return 1
         }
     }
@@ -201,17 +233,17 @@ proc ::cphSystem::proposeProtonTransfer {segresid1 segresid2} {
 #
 # For P(k>0, N) = 0.999, this gives N ~= 10 (the default).
 #
-proc ::cphSystem::proposeResidueTautomerization {segresid {maxAttempts 10}} {
+proc ::cphSystem::proposeResidueTautomerization {segresidname {maxAttempts 10}} {
     variable ::cphSystem::resDefDict
-    set possibleStates [cphSystem get trialStateList $segresid]
-    set resname [cphSystem get resname $segresid]
-    set numProtons [expr {lsum([cphSystem get occupancy $segresid])}]
+    set possibleStates [cphSystem get trialStateList $segresidname]
+    set resname [cphSystem get resname $segresidname]
+    set numProtons [expr {lsum([cphSystem get occupancy $segresidname])}]
     while {true} {
         set state [choice $possibleStates]
         set occ [dict get $resDefDict $resname states $state]
         set numProtonsTrial [expr {lsum($occ)}]
         if {$numProtonsTrial == $numProtons} {
-            cphSystem set trialState $segresid $state
+            cphSystem set trialState $segresidname $state
             return 1
         }
         incr attempts
@@ -227,7 +259,7 @@ proc ::cphSystem::proposeResidueTautomerization {segresid {maxAttempts 10}} {
 # ::cphSystem::computeInherentAcceptance
 #
 # Compute the (reduced) energy difference for a Monte Carlo move based on the 
-# given <segid>:<resid>, its current and trial state, and the given pH.
+# given segresidname, its current and trial state, and the given pH.
 #
 # The proposal energy is based exclusively on the "intrinsic" pKa and the
 # change in the protonation vector. There are two cases: 1) tautomerizations
@@ -247,7 +279,7 @@ proc ::cphSystem::proposeResidueTautomerization {segresid {maxAttempts 10}} {
 #     P(s' --> s)
 #
 # where s and s' are the current and trial state indices, respectively, with
-# number of protons (i.e. magnitude of the occupation vector) n and n',
+# number of protons (i.e. sum of the occupation vector elements) n and n',
 # respectively. By convention, pKa_i(s, s') = pKa_i(s', s) and the antisymmetry
 # of adding vs deleting protons is accounted for by the sgn function. Note
 # that for tautomers, the sgn is computed by the _state index_, not the number
@@ -259,14 +291,14 @@ proc ::cphSystem::proposeResidueTautomerization {segresid {maxAttempts 10}} {
 #
 # where du is either of the the exponents above times -ln(10).
 #
-proc ::cphSystem::computeInherentAcceptance {pH segresid} {
-    set l [cphSystem get occupancy $segresid]
-    set lp [cphSystem get trialOccupancy $segresid]
+proc ::cphSystem::computeInherentAcceptance {pH segresidname} {
+    set l [cphSystem get occupancy $segresidname]
+    set lp [cphSystem get trialOccupancy $segresidname]
     set dn [expr {lsum($lp) - lsum($l)}]
     set s [occupancy2Index $l]
     set sp [occupancy2Index $lp]
     set ssp [index2flatindex $s $sp]
-    set pKai [lindex [cphSystem get pKaiPair $segresid] $ssp]
+    set pKai [lindex [cphSystem get pKaiPair $segresidname] $ssp]
     if {$dn == 0.0} {
         # tautomerization: "pKa" is positive in direction of lower index
         set sgn [expr {$sp > $s} ? 1.0 : -1.0]
@@ -289,11 +321,11 @@ proc ::cphSystem::computeInherentAcceptance {pH segresid} {
 #   is omitted from the stateList and given the index 0 in the list of weights
 #   (hence the weight list is one element longer!).
 #
-proc ::cphSystem::computeInherentNormedWeights {pH segresid} {
-    set l [cphSystem get occupancy $segresid]
+proc ::cphSystem::computeInherentNormedWeights {pH segresidname} {
+    set l [cphSystem get occupancy $segresidname]
     set s [occupancy2Index $l]
-    set resname [cphSystem get resname $segresid]
-    set stateList [cphSystem get trialStateList $segresid]
+    set resname [cphSystem get resname $segresidname]
+    set stateList [cphSystem get trialStateList $segresidname]
     # We implicitly reference against the current state, so its unnormed weight
     # is exactly one.
     set logQs [list 1.0]
@@ -303,7 +335,7 @@ proc ::cphSystem::computeInherentNormedWeights {pH segresid} {
         set dn [expr {lsum($lp) - lsum($l)}]
         set sp [occupancy2Index $lp]
         set ssp [index2flatindex $s $sp]
-        set pKai [lindex [cphSystem get pKaiPair $segresid] $ssp]
+        set pKai [lindex [cphSystem get pKaiPair $segresidname] $ssp]
         if {$dn == 0.0} {
             # tautomerization: "pKa" is positive in direction of lower index
             set sgn [expr {$sp > $s} ? 1.0 : -1.0]
@@ -340,18 +372,18 @@ proc ::cphSystem::computeInherentNormedWeights {pH segresid} {
 # computed, not the temperature of the simulation. See 
 # computeInherentAcceptance for definition of the remaining notation.
 #
-proc ::cphSystem::computeSwitchAcceptance {segresidList} {
+proc ::cphSystem::computeSwitchAcceptance {segresidnameList} {
     set du 0.0
-    foreach segresid $segresidList {
-        set l [cphSystem get occupancy $segresid]
-        set lp [cphSystem get trialOccupancy $segresid]
+    foreach segresidname $segresidnameList {
+        set l [cphSystem get occupancy $segresidname]
+        set lp [cphSystem get trialOccupancy $segresidname]
         set dn [expr {lsum($lp) - lsum($l)}]
         set s [occupancy2Index $l]
         set sp [occupancy2Index $lp]
         set ssp [index2flatindex $s $sp]
-        set dG [lindex [cphSystem get dGPair $segresid] $ssp]
-        set pKa [lindex [cphSystem get pKaPair $segresid] $ssp]
-        set pKai [lindex [cphSystem get pKaiPair $segresid] $ssp]
+        set dG [lindex [cphSystem get dGPair $segresidname] $ssp]
+        set pKa [lindex [cphSystem get pKaPair $segresidname] $ssp]
+        set pKai [lindex [cphSystem get pKaiPair $segresidname] $ssp]
         if {$dn == 0.0} {
             # tautomerization: "pKa" is positive in direction of lower index
             set sgn [expr {$sp > $s} ? 1.0 : -1.0]
@@ -359,7 +391,7 @@ proc ::cphSystem::computeSwitchAcceptance {segresidList} {
             # titration: pKa is positive in direction of fewer protons
             set sgn [expr {$dn > 0} ? 1.0 : -1.0]
         }
-        set kT [expr {$::BOLTZMANN*[cphSystem get Tref $segresid]}]
+        set kT [expr {$::BOLTZMANN*[cphSystem get Tref $segresidname]}]
         set du [expr {$du + $sgn*($dG - $kT*$::LN10*($pKa - $pKai))}]
     }
     return $du
@@ -372,10 +404,12 @@ proc ::cphSystem::computeSwitchAcceptance {segresidList} {
 #
 # Apply a trial alchemical patch to a residue.
 #
-proc ::cphSystem::alchemifyResidue {segresid frcCons temp {buildH false}} {
-    lassign [cphSystem get alchAtomLists $segresid] l0atoms l1atoms
-    set patch [cphSystem get hybridPatch $segresid]
-    alchPatch $patch $segresid $l0atoms $l1atoms $frcCons $temp $buildH
+proc ::cphSystem::alchemifyResidue {segresidname frcCons temp {buildH false}} {
+    lassign [cphSystem get alchAtomLists $segresidname] l0atoms l1atoms
+    set patch [cphSystem get hybridPatch $segresidname]
+    lassign [split $segresidname ":"] segid resid
+    # NB: alchPatch uses psfgen style selections!
+    alchPatch $patch "$segid:$resid" $l0atoms $l1atoms $frcCons $temp $buildH
     return 0
 }
 
@@ -383,9 +417,11 @@ proc ::cphSystem::alchemifyResidue {segresid frcCons temp {buildH false}} {
 #
 # Remove an alchemical patch from a residue.
 #
-proc ::cphSystem::dealchemifyResidue {segresid} {
-    lassign [cphSystem get alchAtomLists $segresid] l0atoms l1atoms
-    alchUnpatch $segresid $l0atoms $l1atoms
+proc ::cphSystem::dealchemifyResidue {segresidname} {
+    lassign [cphSystem get alchAtomLists $segresidname] l0atoms l1atoms
+    lassign [split $segresidname ":"] segid resid 
+    # NB: alchUnpatch uses psfgen style selections!
+    alchUnpatch "$segid:$resid" $l0atoms $l1atoms
     return 0
 }
 
@@ -404,31 +440,33 @@ proc ::cphSystem::dealchemifyResidue {segresid} {
 #
 proc ::cphSystem::initializeSystem {pH temperature buildH stateInfo} {
     variable ::cphSystem::resDict
-    dict for {segresid resData} $resDict {
+    dict for {segresidname resData} $resDict {
         # Assign inherent pKa values.
-        if {[dict exists $stateInfo $segresid pKai]} {
-            cphSystem set pKai $segresid [dict get $stateInfo $segresid pKai]
+        if {[dict exists $stateInfo $segresidname pKai]} {
+            cphSystem set pKai $segresidname\
+                    [dict get $stateInfo $segresidname pKai]
         } else { ;# Default to reference pKa.
-            cphSystem set pKai $segresid [cphSystem get pKa $segresid]
+            cphSystem set pKai $segresidname [cphSystem get pKa $segresidname]
         }
 
         # Assign states.
-        if {[dict exists $stateInfo $segresid state]} {
-            set state [dict get $stateInfo $segresid state]
-            cphSystem initializeState $segresid $state 
+        if {[dict exists $stateInfo $segresidname state]} {
+            set state [dict get $stateInfo $segresidname state]
+            cphSystem initializeState $segresidname $state 
         } else { ;# default randomization based on pKai and pH
-            cphSystem initializeState random $segresid $pH
+            cphSystem initializeState random $segresidname $pH
         }
     }
     # Final pass - Apply the patches
-    foreach segresid [cphSystem get segresids] {
-        patch [cphSystem get statePatch $segresid] $segresid
+    foreach segresidname [cphSystem get segresidnames] {
+        lassign [split $segresidname ":"] segid resid
+        patch [cphSystem get statePatch $segresidname] "$segid:$resid"
     }
     guesscoord
-    foreach segresid [cphSystem get segresids] {
-        cphSystem alchemifypsf $segresid 0.0 $temperature $buildH
-        cphSystem dealchemifypsf $segresid
-        cphSystem update 1 $segresid
+    foreach segresidname [cphSystem get segresidnames] {
+        cphSystem alchemifypsf $segresidname 0.0 $temperature $buildH
+        cphSystem dealchemifypsf $segresidname
+        cphSystem update 1 $segresidname
     }
     regenerate angles dihedrals
     # NB - These changes are only reflected in _memory_ for the cphSystem and
@@ -444,6 +482,35 @@ proc ::cphSystem::initializeSystem {pH temperature buildH stateInfo} {
 proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
     variable ::cphSystem::resDict
     variable ::cphSystem::resDefDict [checkResDefs $resDefs]
+
+    # Check for special sub-type residues.
+    # In general, THESE WILL NOT BE MATCHED BY NAME, but rather are sub-typed
+    # within one or more other residue definitions. Therefore we keep a
+    # separate dict of residue names that have a sub-type (these may not even
+    # be titratable otherwise, such as terminal amino acids). The keys are
+    # the actual residue names and the values are a list of the possible
+    # sub-types. However, even if a sub-typed residue is present, that doesn't
+    # mean the sub-residue exists. There are two (optional) additional checks
+    # in the sub-residue definition:
+    #
+    # subatoms - a list of atom names that MUST exist
+    # notsubatoms - a list of atom names that MUST NOT exist
+    #
+    # For example, alanine is not titratable, but may contain a titratable
+    # C-terminus. The terminal oxygen atoms must exist, but are only titratable
+    # if they are not blocked by amination or methylation.
+    #
+    set subresDefDict [dict create]
+    dict for {subresname resDef} $resDefDict {
+        if {![dict exists $resDef subtypeof]} continue
+        foreach subtypedRes [dict get $resDef subtypeof] {
+            if {![dict exists $subresDefDict $subtypedRes]} {
+                dict set subresDefDict $subtypedRes [list]
+            }
+            dict lappend subresDefDict $subtypedRes $subresname
+        }
+    }
+
     # Read in whatever files were specified to NAMD.
     set Args [list [structure] pdb [coordinates]]
     if {[isset binCoordinates]} {
@@ -454,27 +521,81 @@ proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
     }
     resetpsf
     readpsf {*}$Args
+
+    set definedResidues [dict keys $resDefDict]
+    set definedSubResidues [dict keys $subresDefDict]
     foreach segid [segment segids] {
         foreach resid [segment resids $segid] {
             set resname [segment residue $segid $resid]
             set segresid [format "%s:%s" $segid $resid]
+            set segresidname [format "%s:%s" $segresid $resname]
             # Perform aliasing to fix residues with multiple names.
             dict for {realName altNames} $resAliases {
                 if {[lsearch -nocase $altNames $resname] < 0} {
                     continue
                 }
-                print "aliasing $segid:$resid:$resname to $realName"
+                print "aliasing $segresidname to $realName"
                 psfset resname $segid $resid $realName
                 set resname $realName
             }
-            # Bail here if the residue name does not match any of the
-            # definitions or the segresid is explicitly excluded.
-            if {[lsearch -nocase [dict keys $resDefDict] $resname] < 0
-                || [lsearch -nocase $segresExcls $segresid] >= 0} {
+            set resIsDefined 0
+            if {[lsearch -nocase $definedResidues $resname] >= 0} {
+                set resIsDefined 1
+            }
+            set resIsSubtyped 0
+            if {[lsearch -nocase $definedSubResidues $resname] >= 0} {
+                set resIsSubtyped 1
+            }
+            set resIsExcluded 0
+            if {[lsearch -nocase $segresExcls $segresidname] >= 0} {
+                set resIsExcluded 1
+            }
+            # Break here if nothing to do.
+            if {(!$resIsDefined && !$resIsSubtyped) || $resIsExcluded} {
                 continue
             }
-            dict set resDict $segresid [dict create]
-            dict set resDict $segresid resname $resname
+
+            if {$resIsDefined} { 
+                dict set resDict $segresidname [dict create]
+                dict set resDict $segresidname resname $resname
+            }
+
+            if {!$resIsSubtyped} continue
+
+            # The conditions for subtyping may still not be met...
+            set atoms [segment atoms $segid $resid]
+            foreach subresname [dict get $subresDefDict $resname] {
+                set subatoms [list]
+                if {[dict exists $resDefDict $subresname subatoms]} {
+                    set subatoms [dict get $resDefDict $subresname subatoms]
+                }
+                set notsubatoms [list]
+                if {[dict exists $resDefDict $subresname notsubatoms]} {
+                    set notsubatoms\
+                            [dict get $resDefDict $subresname notsubatoms]
+                }
+
+                set allSubatomsExist 1
+                foreach atom $subatoms {
+                    if {[lsearch -nocase $atoms $atom] < 0} {
+                        set allSubatomsExist 0
+                        break
+                    }
+                }
+                set allNotSubatomsDoNotExist 1
+                foreach atom $notsubatoms { 
+                    if {[lsearch -nocase $atoms $atom] >= 0} {
+                        set allNotSubatomsDoNotExist 0
+                        break
+                    }
+                }
+                if {$allSubatomsExist && $allNotSubatomsDoNotExist} {
+                    set segresidname [format "%s:%s" $segresid $subresname]
+                    dict set resDict $segresidname [dict create]
+                    dict set resDict $segresidname resname $subresname
+                }
+            }
+
         }
     }
     return $resDict
@@ -508,7 +629,6 @@ proc ::cphSystem::checkResDefs {resDefs} {
         } else {
             set l1atoms [dict get $resDefs $resname l1atoms]
         }
-
 
         if {[llength $l0atoms] != [llength $l1atoms]} { 
             abort "Mismatch in atom definitions for residue $resname"
@@ -557,7 +677,7 @@ proc ::cphSystem::checkResDefs {resDefs} {
 #
 # Arguments:
 # ----------
-# segresid : string
+# segresidname : string
 #   residue specification as "<segid>:<resid>" - this is the same syntax as for
 #   the regular psfgen patch command.
 # state : string
@@ -567,12 +687,11 @@ proc ::cphSystem::checkResDefs {resDefs} {
 # --------
 # None
 #
-proc ::cphSystem::assignState {segresid state} {
-    cphSystem set state $segresid $state
-    cphSystem propose titration $segresid
-    set trialState [cphSystem get state $segresid]
-    cphSystem set state $segresid [cphSystem get trialState $segresid]
-    cphSystem set trialState $segresid $trialState
+proc ::cphSystem::assignState {segresidname state} {
+    cphSystem set state $segresidname $state
+    cphSystem propose titration $segresidname
+    cphSystem set state $segresidname [cphSystem get trialState $segresidname]
+    cphSystem set trialState $segresidname $state
     return 0
 }
 
@@ -590,7 +709,7 @@ proc ::cphSystem::assignState {segresid state} {
 #
 # Arguments:
 # ----------
-# segresid : string
+# segresidname : string
 #   residue specification as "<segid>:<resid>" - this is the same syntax as for
 #   the regular psfgen patch command.
 # pH : float
@@ -600,12 +719,12 @@ proc ::cphSystem::assignState {segresid state} {
 # --------
 # None 
 #
-proc ::cphSystem::randomizeState {segresid pH} {
+proc ::cphSystem::randomizeState {segresidname pH} {
     while {true} {
-        set states [cphSystem get stateList $segresid]
-        cphSystem set state $segresid [choice $states]
-        cphSystem propose titration $segresid
-        set du [cphSystem compute inherent $pH $segresid]
+        set states [cphSystem get stateList $segresidname]
+        cphSystem set state $segresidname [choice $states]
+        cphSystem propose titration $segresidname
+        set du [cphSystem compute inherent $pH $segresidname]
         if {[metropolisAcceptance $du]} { 
             return 0
         }
@@ -620,16 +739,16 @@ proc ::cphSystem::randomizeState {segresid pH} {
 #
 # Getters for system and residue attributes, called as:
 #
-#   <attribute> [<segresid> [<args>]]
+#   <attribute> [<segresidname> [<args>]]
 #
-# <attribute> is the name of either a system attribute (segresid selections are
-# invalid) or else a residue attribute. For SOME residue attributes, not
-# specifying a segresid will return a list for all residues. Some attributes
-# also require some additional arguments (see below)
+# <attribute> is the name of either a system attribute (segresidname selections
+# are invalid) or else a residue attribute. For SOME residue attributes, not
+# specifying a segresidname will return a list for all residues. Some
+# attributes also require some additional arguments (see below)
 #
 # system attributes  description
 # -----------------  -----------
-# segresids          list of all segresids
+# segresidnames      list of all segresidnames
 # numresidues        number of residues in the system
 # resdefs            list of defined resnames
 # numdefs            number of defined resnames
@@ -645,7 +764,6 @@ proc ::cphSystem::randomizeState {segresid pH} {
 # Tref               reference temperature for pKa
 # occupancy          occupancy vector for the current state
 # trialOccupancy     occupancy vector for the trial state
-# reslabel           residue name with prepended segresid
 # stateList          all possible states
 # trialStateList     all possible trial states (not the current state)
 # dGPair             pair dG for current/trial states
@@ -656,20 +774,20 @@ proc ::cphSystem::randomizeState {segresid pH} {
 # alchAtomLists*     lists of alchemical atoms at 0/1
 # alchBonds*^        extraBonds entries
 #
-# * - segresid selection is required
+# * - segresidname selection is required
 # ^ - requires additional arguments
 #
-proc ::cphSystem::cphSystemGet {attr {segresid {}} args} {
+proc ::cphSystem::cphSystemGet {attr {segresidname {}} args} {
     variable ::cphSystem::resDict
     variable ::cphSystem::resDefDict
 
-    set getAll [expr {![llength $segresid]}]
-    if {!$getAll && ![dict exists $resDict $segresid]} {
-        abort "cphSystemGet: Invalid segresid $segresid"
+    set getAll [expr {![llength $segresidname]}]
+    if {!$getAll && ![dict exists $resDict $segresidname]} {
+        abort "cphSystemGet: Invalid segresidname $segresidname"
     }
     # System attributes - any selection is invalid.
     #
-    if {[string match -nocase $attr segresids]} {
+    if {[string match -nocase $attr segresidnames]} {
         return [dict keys $resDict]
     } elseif {[string match -nocase $attr numresidues]} {
         return [dict size $resDict]
@@ -684,42 +802,35 @@ proc ::cphSystem::cphSystemGet {attr {segresid {}} args} {
         if {$getAll} {
             return [getAllResAttr $attr]
         } else {
-            return [getResAttr $attr $segresid]
+            return [getResAttr $attr $segresidname]
         }
     } 
     if {[lsearch -nocase {dG pKa Tref} $attr] > -1} {
         if {$getAll} {
             return [getAllResDefAttr $attr]
         } else {
-            return [getResDefAttr $attr $segresid]
+            return [getResDefAttr $attr $segresidname]
         }
     } 
     if {[string match -nocase $attr occupancy]} {
         if {$getAll} {
             return [getAllOccupancy]
         } else {
-            return [getOccupancy $segresid]
+            return [getOccupancy $segresidname]
         }
     } 
     if {[string match -nocase $attr trialOccupancy]} {
         if {$getAll} {
             cannotGetAll $attr
         } else {
-            return [getTrialOccupancy $segresid]
+            return [getTrialOccupancy $segresidname]
         }
     } 
-    if {[string match -nocase $attr reslabel]} {
-        if {$getAll} {
-            return [getAllReslabel]
-        } else {
-            return [getReslabel $segresid]
-        }
-    }
     if {[string match -nocase $attr stateList]} {
         if {$getAll} {
             cannotGetAll $attr
         } else {
-            set resname [getResAttr resname $segresid]
+            set resname [getResAttr resname $segresidname]
             return [dict keys [dict get $resDefDict $resname states]] 
         }
     }
@@ -727,8 +838,8 @@ proc ::cphSystem::cphSystemGet {attr {segresid {}} args} {
         if {$getAll} {
             cannotGetAll $attr
         } else {
-            set resname [getResAttr resname $segresid]
-            set state [getResAttr state $segresid]
+            set resname [getResAttr resname $segresidname]
+            set state [getResAttr state $segresidname]
             set states [dict keys [dict get $resDefDict $resname states]]
             return [lsearch -all -inline -not -nocase $states $state]
         }
@@ -738,9 +849,9 @@ proc ::cphSystem::cphSystemGet {attr {segresid {}} args} {
             cannotGetAll $attr
         } else {
             if {[lsearch -nocase {dGPair pKaPair} $attr] > -1} {
-                return [getResDefAttr $attr $segresid]
+                return [getResDefAttr $attr $segresidname]
             } else {
-                return [getResAttr $attr $segresid]
+                return [getResAttr $attr $segresidname]
             }
         }
     }
@@ -748,8 +859,8 @@ proc ::cphSystem::cphSystemGet {attr {segresid {}} args} {
         if {$getAll} {
             cannotGetAll $attr
         } else {
-            set resname [getResAttr resname $segresid]
-            set state [getResAttr state $segresid]
+            set resname [getResAttr resname $segresidname]
+            set state [getResAttr state $segresidname]
             return [format "%s%s" $resname $state]
         }
     }
@@ -757,8 +868,8 @@ proc ::cphSystem::cphSystemGet {attr {segresid {}} args} {
         if {$getAll} {
             cannotGetAll $attr
         } else {
-            set resname [getResAttr resname $segresid]
-            set trialState [getResAttr trialState $segresid]
+            set resname [getResAttr resname $segresidname]
+            set trialState [getResAttr trialState $segresidname]
             return [format "%sH%s" $resname $trialState]
         }
     }
@@ -766,8 +877,8 @@ proc ::cphSystem::cphSystemGet {attr {segresid {}} args} {
         if {$getAll} {
             cannotGetAll $attr
         } else {
-            return [list [getResDefAttr l0atoms $segresid]\
-                         [getResDefAttr l1atoms $segresid]]
+            return [list [getResDefAttr l0atoms $segresidname]\
+                         [getResDefAttr l1atoms $segresidname]]
         }
     }
     if {[string match -nocase $attr alchBonds]} {
@@ -776,9 +887,9 @@ proc ::cphSystem::cphSystemGet {attr {segresid {}} args} {
         } else {
             lassign $args k
             set bondEntries [list]
-            foreach l0atom [getResDefAttr l0atoms $segresid]\
-                    l1atom [getResDefAttr l1atoms $segresid] {
-                lassign [split $segresid ":"] segid resid
+            foreach l0atom [getResDefAttr l0atoms $segresidname]\
+                    l1atom [getResDefAttr l1atoms $segresidname] {
+                lassign [split $segresidname ":"] segid resid
                 # Note that atomid indices start at one, not zero!
                 set i [expr {[segment atomid $segid $resid $l0atom] - 1}]
                 set j [expr {[segment atomid $segid $resid $l1atom] - 1}]
@@ -791,15 +902,15 @@ proc ::cphSystem::cphSystemGet {attr {segresid {}} args} {
 }
 
 proc ::cphSystem::cannotGetAll {attr} {
-    abort "cphSystemGet: Cannot get all $attr - must select a segresid"
+    abort "cphSystemGet: Cannot get all $attr - must select a segresidname"
 }
 
 # ------------------------------
 # Getters for residue attributes
 # ------------------------------
-proc ::cphSystem::getResAttr {attr segresid} {
+proc ::cphSystem::getResAttr {attr segresidname} {
     variable ::cphSystem::resDict
-    return [dict get $resDict $segresid $attr]
+    return [dict get $resDict $segresidname $attr]
 }
 
 proc ::cphSystem::getAllResAttr {attr} {
@@ -814,10 +925,10 @@ proc ::cphSystem::getAllResAttr {attr} {
 # -----------------------------------------
 # Getters for residue definition attributes
 # -----------------------------------------
-proc ::cphSystem::getResDefAttr {attr segresid} {
+proc ::cphSystem::getResDefAttr {attr segresidname} {
     variable ::cphSystem::resDict
     variable ::cphSystem::resDefDict
-    set resname [dict get $resDict $segresid resname]
+    set resname [dict get $resDict $segresidname resname]
     return [dict get $resDefDict $resname $attr]
 }
 
@@ -841,17 +952,17 @@ proc ::cphSystem::state2Occupancy {resname state} {
 
 # NB: When returning all occupancies, only the current state can be used and
 #   the list is flattened.
-proc ::cphSystem::getOccupancy {segresid} {
+proc ::cphSystem::getOccupancy {segresidname} {
     variable ::cphSystem::resDict
-    set resname [dict get $resDict $segresid resname]
-    set state [dict get $resDict $segresid state]
+    set resname [dict get $resDict $segresidname resname]
+    set state [dict get $resDict $segresidname state]
     return [state2Occupancy $resname $state]
 }
 
-proc ::cphSystem::getTrialOccupancy {segresid} {
+proc ::cphSystem::getTrialOccupancy {segresidname} {
     variable ::cphSystem::resDict
-    set resname [dict get $resDict $segresid resname]
-    set state [dict get $resDict $segresid trialState]
+    set resname [dict get $resDict $segresidname resname]
+    set state [dict get $resDict $segresidname trialState]
     return [state2Occupancy $resname $state]
 }
 
@@ -863,20 +974,6 @@ proc ::cphSystem::getAllOccupancy {} {
         set resname [dict get $resData resname]
         set state [dict get $resData state]
         set retList [list {*}$retList {*}[state2Occupancy $resname $state]]
-    }
-    return $retList
-}
-
-proc ::cphSystem::getReslabel {segresid} {
-    variable ::cphSystem::resDict
-    return "$segresid:[dict get $resDict $segresid resname]"
-}
-
-proc ::cphSystem::getAllReslabel {} {
-    variable ::cphSystem::resDict
-    set retList [list]
-    dict for {segresid resData} $resDict {
-        lappend retList "$segresid:[dict get $resData resname]"
     }
     return $retList
 }
@@ -932,7 +1029,7 @@ proc ::cphSystem::index2flatindex {i j} {
 #
 # Setters for residue attributes, called as:
 #
-#   <attribute> <segresid> <value>
+#   <attribute> <segresidname> <value>
 #
 # <attribute> is the name of a residue attribute.
 #
@@ -942,30 +1039,30 @@ proc ::cphSystem::index2flatindex {i j} {
 # trialState         proposed trial state
 # pKai               minimal pKai list for this residue
 #
-proc ::cphSystem::cphSystemSet {attr segresid value} {
+proc ::cphSystem::cphSystemSet {attr segresidname value} {
     variable ::cphSystem::resDict
     variable ::cphSystem::resDefDict
-    if {![dict exists $resDict $segresid]} {
-        abort "cphSystemSet: Invalid segresid $segresid"
+    if {![dict exists $resDict $segresidname]} {
+        abort "cphSystemSet: Invalid segresidname $segresidname"
     }
     if {[lsearch -nocase {state trialState} $attr] > -1} {
-        set states [cphSystem get stateList $segresid]
+        set states [cphSystem get stateList $segresidname]
         if {[lsearch -nocase $states $value] < 0} {
             if {[string match -nocase $attr trialState] && ![llength $value]} {
             
             } else {
-                abort "Invalid state assignment $value for residue $segresid"
+                abort "Invalid state assignment $value for residue $segresidname"
             }
         }
-        dict set resDict $segresid $attr $value
+        dict set resDict $segresidname $attr $value
         return $value
     }
     if {[string match $attr pKai]} {
-        set resname [cphSystem get resname $segresid]
+        set resname [cphSystem get resname $segresidname]
         set resDef [dict get $resDefDict $resname]
         set pKaiMatrix [resDef2Matrix $resDef $value]
-        dict set resDict $segresid pKai $value
-        dict set resDict $segresid pKaiPair $pKaiMatrix 
+        dict set resDict $segresidname pKai $value
+        dict set resDict $segresidname pKaiPair $pKaiMatrix 
         return $pKaiMatrix
     }
 }

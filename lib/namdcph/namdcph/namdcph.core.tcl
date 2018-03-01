@@ -52,16 +52,25 @@ proc ::namdcph::cphRun {numsteps {numcycles 1}} {
     if {$::namdcph::numMinSteps > 0} {
         set tmp [firstTimeStep]
         minimize $::namdcph::numMinSteps
+        if {[isset temperature]} {
+          reinitvels [temperature]
+        } else {
+          reinitvels [$::thermostatTempCmd]
+        }
         firstTimeStep $tmp
     }
     set cphlog [openCpHLog]
     set firstCycle 1
     set lastCycle [expr {$firstCycle + $numcycles - 1}] 
+    set runArgs [list $numsteps]
     for {set cycle $firstCycle} {$cycle <= $lastCycle} {incr cycle} { 
-        # (1) Propose a move from the full move set.
+        # (1) Perform whatever equilibrium sampling is desired.
         #
-        lassign [proposeMove] accept swNumsteps segresidList nattempts
-        # (2) At this point we have either selected a switch or rejected a
+        runMD {*}$runArgs
+        # (2) Propose a move from the full move set.
+        #
+        lassign [proposeMove] accept swNumsteps segresidnameList nattempts
+        # (3) At this point we have either selected a switch or rejected a
         # whole bunch of moves. If the former, perform the switch.
         #
         if {!$accept} {
@@ -69,15 +78,12 @@ proc ::namdcph::cphRun {numsteps {numcycles 1}} {
             set runArgs [list norepeat $numsteps]
         } else {
             cphPrint "Proposal accepted ($nattempts), attemping a switch."
-            set accept [runSwitch $swNumsteps $segresidList]
+            set accept [runSwitch $swNumsteps $segresidnameList]
             set runArgs [list $numsteps]
             # Only accumulate statistics for attempted switches.
-            accumulateAcceptanceRate $accept $segresidList
+            accumulateAcceptanceRate $accept $segresidnameList
         }
-        cphSystem update $accept $segresidList
-        # (3) Perform whatever equilibrium sampling is desired.
-        #
-        runMD {*}$runArgs
+        cphSystem update $accept $segresidnameList
         # (4) Output cycle information and a checkpoint file if necessary.
         #
         puts $cphlog "[format "%6d" $cycle] [cphSystem get occupancy]"
@@ -96,11 +102,15 @@ proc ::namdcph::cphRun {numsteps {numcycles 1}} {
 #
 # FOR ADVANCED USE ONLY!!!
 #
-# ::namdcph::testResidue
+# ::namdcph::checkResidueDefinitions
 #
-# Test one or more residue definitions.
+# Check that appropriate residue definitions are defined for this residue.
 #
-proc ::namdcph::testResidue {resnames {verbose 0}} {
+# This essentially just scans all possible states for each titratable residue,
+# of a given type in the system. THIS OFFERS NO VALIDATION AS TO WHETHER OR NOT
+# THE DEFINITIONS MAKE SENSE, it simply checks that the exist.
+#
+proc ::namdcph::checkResidueDefinitions {resnames} {
     cphWarnExpt
     pH 7.0
     cphForceConstant 0.0
@@ -110,15 +120,12 @@ proc ::namdcph::testResidue {resnames {verbose 0}} {
     $::thermostatTempCmd 0.0
     outputEnergies 1
     alchLambdaFreq 0
-    set report [dict create]
-    set terms [list BOND ANGLE DIHED IMPRP ELECT VDW POTENTIAL]
-    foreach resLabel [cphSystem get reslabel] {
-        lassign [split $resLabel ":"] segid resid residue
-        if {[lsearch $resnames $residue] < 0} {
+    foreach segresidname [cphSystem get segresidnames] {
+        lassign [split $segresidname ":"] segid resid resname
+        if {[lsearch $resnames $resname] < 0} {
             continue
         } 
-        set segresid "$segid:$resid"
-        set states [cphSystem get stateList $segresid]
+        set states [cphSystem get stateList $segresidname]
         foreach state0 $states {
             foreach state1 $states {
                 if {[string match $state0 $state1]} {
@@ -127,83 +134,78 @@ proc ::namdcph::testResidue {resnames {verbose 0}} {
                 # Force the initial state as state0
                 output [getMDBasename]
                 psfgenRead [getMDBasename]
-                cphSystem initializeState $segresid $state0
-                cphSystem alchemifypsf $segresid 0.0 0.0
-                cphSystem dealchemifypsf $segresid
-                regenerate angles dihedrals 
-                cphSystem update 1 $segresid
-                psfgenWrite [getMDBasename] 
-                reloadAndReinit [getMDBasename] false
-                # Now perform an alchemifying and dealchemifying transition.
-                run 0
-                storeEnergies
-                array set MDEnergies0 [array get ::energyArray]
-                cphSystem set trialState $segresid $state1
-                alchemify $segresid
-                reloadAndReinit [getSWBasename] true
-                alchLambda 0.0
-                run 0
-                storeEnergies
-                array set SWEnergies0 [array get ::energyArray]
-                alchLambda 1.0
-                run 0
-                storeEnergies
-                array set SWEnergies1 [array get ::energyArray]
-                dealchemify $segresid
-                cphSystem update 1 $segresid
-                run 0
-                storeEnergies
-                array set MDEnergies1 [array get ::energyArray]
-                # Record the differences in energy.
-                set label [format "%s%sH%s" $residue $state0 $state1]
-                dict set report $label [dict create]
-                dict set report $label 0 [dict create]
-                dict set report $label 1 [dict create]
-                foreach term $terms {
-                    set diff0 [expr {$MDEnergies0($term)-$SWEnergies0($term)}]
-                    set diff1 [expr {$MDEnergies1($term)-$SWEnergies1($term)}]
-                    if {[expr {abs($diff0)}] < 1e-5} {
-                        set diff0 0.0
-                    }
-                    if {[expr {abs($diff1)}] < 1e-5} {
-                        set diff0 0.0
-                    }
-                    dict set report $label 0 $term $diff0
-                    dict set report $label 1 $term $diff1
-                }
+                cphSystem initializeState $segresidname $state0
+                alchemify $segresidname
+                dealchemify $segresidname
+                cphSystem update 1 $segresidname
+                # Run an instantaneous switch
+                runTestSwitch $segresidname $state1
             }
         }
     }
-    dict for {label data} $report {
-        cphPrint [format "%-14s  %14s" $label "RMS-error"]
-        foreach lambda {0 1} label {alchemify dealchemify} {
-            set i 1
-            set termStr " "
-            set diffStr " "
-            set rmse 0.0
-            dict for {term diff} [dict get $data 0] {
-                set termStr [format "%s % 14s" $termStr $term]
-                set diffStr [format "%s % 14.4f" $diffStr $diff]
-                set rmse [expr {$rmse + $diff*$diff}]
-                incr i
-                if {$i == 5} {
-                    set termStr "$termStr     "
-                    set diffStr "$diffStr     "
-                    set i 0
-                }
-            }
-            set rmse [expr {2*$rmse / [dict size $data]}]
-            cphPrint [format "%-14s: % 14.4f" $label $rmse]
-            if {$verbose} {
-                cphPrint $termStr
-                cphPrint $diffStr
-            }
-        }
-    }
+    return 
+}
+
+#
+# FOR ADVANCED USE ONLY!!!
+#
+# ::namdcph::testResidueSwitch
+#
+# Run an instantenous switch for the given residue between the given states.
+#
+# This is meant as an interface function for checking energies against
+# non-constant pH calculations, but cannot perform that comparison on its own.
+#
+proc ::namdcph::testResidueSwitch {segresidname state0 state1} {
+    cphWarnExpt
+    pH 7.0
+    cphForceConstant 0.0
+    # Initialize NAMD and build a constant pH enabled PSF.
+    cphSetResidueState $segresidname $state0
+    initialize
+    finalize
+    $::thermostatTempCmd 0.0
+    outputEnergies 1
+    alchLambdaFreq 0
+    return [runTestSwitch $segresidname $state1]
+}
+
+#
+# FOR ADVANCED USE ONLY!!!
+#
+# ::namdcph::runTestSwitch
+#
+# This is just an internal convenience function for running instantaneous test
+# switches.
+#
+# See checkResidueDefinitions and testResidueSwitch
+#
+proc ::namdcph::runTestSwitch {segresidname state1} {
+    # You can't make lists of arrays or arrays of arrays, so the return type
+    # has to be a dict of arrays (callback only returns arrays).
+    set retVals [dict create]
+    run 0
+    storeEnergies
+    dict set retVals MDEnergies0 [array get ::energyArray]
+    cphSystem set trialState $segresidname $state1
+    alchemify $segresidname
+    alchLambda 0.0
+    run 0
+    storeEnergies
+    dict set retVals SWEnergies0 [array get ::energyArray]
+    alchLambda 1.0
+    run 0
+    storeEnergies
+    dict set retVals SWEnergies1 [array get ::energyArray]
+    dealchemify $segresidname
+    cphSystem update 1 $segresidname
+    run 0
+    storeEnergies
+    dict set retVals MDEnergies1 [array get ::energyArray]
     # Cleanup temporary files
     file delete {*}[glob [getSWBasename].*]
     file delete {*}[glob [getMDBasename].*]
-    return 
+    return $retVals
 }
 
 #
@@ -213,48 +215,56 @@ proc ::namdcph::testResidue {resnames {verbose 0}} {
 #
 # Test one or more residue definitions.
 #
-proc ::namdcph::cphAnalyzeForce {dcdfilename segresid stateList} {
+proc ::namdcph::cphAnalyzeForce {dcdfilename segresidname state0 state1} {
     cphWarnExpt
     pH 7.0
-    lassign $stateList state0 state1
 
-    cphSetResidueState $segresid $state0
+    cphSetResidueState $segresidname $state0
     initialize
-    set nframes 0
-    coorfile open dcd $dcdfilename
-    while {![coorfile read]} {
-        output [format "%s.%d" [getMDBasename] $nframes]
-        incr nframes
-    }
-    coorfile close
     set initialPSF [structure]
     set initialPDB [coordinates]
     finalize
 
-    for {set n 0} {$n < $nframes} {incr n} {
+    set numsteps 500
+    outputEnergies [expr {$numsteps == 0 ? 1 : int($numsteps)}]
+    alchLambdaFreq [expr {$numsteps == 0 ? 0 : 1}]
+
+    set nframes -1
+    coorfile open dcd $dcdfilename
+    while {![coorfile read]} {
+        incr nframes
+
         # We have to do this so that inputs can be correctly loaded...
-        set basename [format "%s.%d" [getMDBasename] $n]
+        set basename [format "%s.%d" [getMDBasename] $nframes]
+        output $basename
         file copy -force $initialPSF "$basename.psf"
         file copy -force $initialPDB "$basename.pdb"
         reloadAndReinit $basename false
         # Assign the correct state and build protons or dummy atoms
-        cphSystem initializeState $segresid $state0
-        cphSystem alchemifypsf $segresid 0.0 0.0
-        cphSystem dealchemifypsf $segresid
-        regenerate angles dihedrals
-        cphSystem update 1 $segresid
-        psfgenWrite [getMDBasename]
-        reloadAndReinit [getMDBasename] false
+        cphSystem initializeState $segresidname $state0
+        alchemify $segresidname
+        dealchemify $segresidname
+        cphSystem update 1 $segresidname
         # Now build the alchemical atoms
-        cphSystem set trialState $segresid $state1
-        alchemify $segresid
-        reloadAndReinit [getSWBasename] true
-        firsttimestep $n
-        run 0
-        dealchemify $segresid 
+        cphSystem set trialState $segresidname $state1
+        alchemify $segresidname
+        firsttimestep 0
+        run $numsteps
+        if {$numsteps} {
+            storeEnergies
+            set DeltaE [cphSystem compute switch $segresidname]
+            set Work [expr {$::energyArray(CUMALCHWORK) + $DeltaE}]
+            set ReducedWork [expr {$Work / [::kBT]}]
+            set tmp [printProposalSummary $segresidname]
+            cphPrint [format "%s WorkCorr % 10.4f CorrWork % 10.4f"\
+                    [join $tmp "/"] $DeltaE $Work]
+        }
+        dealchemify $segresidname
+        file delete {*}[glob $basename.*]
     }
     file delete {*}[glob [getMDBasename].*]
     file delete {*}[glob [getSWBasename].*]
+    coorfile close
     return
 }
 
@@ -321,8 +331,8 @@ proc ::namdcph::cphSetResidueState {args} {
     checkArglistIsMultiple $args 2
     variable ::namdcph::stateInfo
     for {set i 0} {$i < [llength $args]} {incr i 2} {
-        lassign [lrange $args $i [expr {$i+1}]] segresid state
-        dict set stateInfo $segresid state $state
+        lassign [lrange $args $i [expr {$i+1}]] segresidname state
+        dict set stateInfo $segresidname state $state
     }
     return
 }
@@ -336,11 +346,11 @@ proc ::namdcph::cphSetResiduepKai {args} {
     variable ::namdcph::stateInfo
     for {set i 0} {$i < [llength $args]} {incr i 2} {
         #NB pKai may be a list of values - check individually.
-        lassign [lrange $args $i [expr {$i+1}]] segresid pKai
+        lassign [lrange $args $i [expr {$i+1}]] segresidname pKai
         foreach pKa $pKai {
             checkIsPositive pKai $pKa
         }
-        dict set stateInfo $segresid pKai $pKai
+        dict set stateInfo $segresidname pKai $pKai
     }
     return
 }
@@ -427,8 +437,8 @@ proc ::namdcph::cphNumMinSteps {numsteps} {
 
 proc ::namdcph::cphExcludeResidue {args} {
     variable ::namdcph::excludeList
-    foreach segresid $args {
-         lappend excludeList $segresid
+    foreach segresidname $args {
+         lappend excludeList $segresidname
     }
     return
 }
@@ -488,7 +498,7 @@ proc ::namdcph::runMD {args} {
 # ----------
 # numsteps : int
 #   Number of steps in the switch
-# segresidList : list 
+# segresidnameList : list 
 #   One or more "<segid>:<resid>" specifications - this is the same syntax as 
 #   for the regular psfgen patch command.
 #
@@ -497,7 +507,7 @@ proc ::namdcph::runMD {args} {
 # accept : boolean
 #   Result of MC accept/reject test 
 #
-proc ::namdcph::runSwitch {numsteps segresidList} {
+proc ::namdcph::runSwitch {numsteps segresidnameList} {
     # (1) Checkpoint and modify output parameters. 
     #
     storeEnergies
@@ -512,7 +522,7 @@ proc ::namdcph::runSwitch {numsteps segresidList} {
     }
     # (2) Build the alchemical switch inputs.
     #
-    alchemify $segresidList
+    alchemify $segresidnameList
     # (3) Run the switch trajectory with momentum reversal.
     #
     runprpswitch $numsteps
@@ -521,11 +531,11 @@ proc ::namdcph::runSwitch {numsteps segresidList} {
     # (4) Compute the work with state dependent energy shifts.
     #
     storeEnergies
-    set DeltaE [cphSystem compute switch $segresidList]
+    set DeltaE [cphSystem compute switch $segresidnameList]
     set Work [expr {$::energyArray(CUMALCHWORK) + $DeltaE}]
-    set ReducedWork [expr {$Work / ($::BOLTZMANN*[$::thermostatTempCmd])}]
+    set ReducedWork [expr {$Work / [::kBT]}] 
     set accept [metropolisAcceptance $ReducedWork]
-    set tmp [printProposalSummary $segresidList]
+    set tmp [printProposalSummary $segresidnameList]
     cphPrint [format "%s WorkCorr % 10.4f CorrWork % 10.4f"\
             [join $tmp "/"] $DeltaE $Work]
     # (5) Reinitialize for the next MD step based on accept/reject.
@@ -539,7 +549,7 @@ proc ::namdcph::runSwitch {numsteps segresidList} {
 
     if {$accept} {
         cphPrint "Switch accepted!"
-        dealchemify $segresidList
+        dealchemify $segresidnameList
     } else {
         cphPrint "Switch rejected!"
         alch off
@@ -561,7 +571,7 @@ proc ::namdcph::runSwitch {numsteps segresidList} {
 #
 # Arguments:
 # ----------
-# segresidList : list of strings
+# segresidnameList : list of strings
 #   One or more "<segid>:<resid>" specifications - this is the same syntax as 
 #   for the regular psfgen patch command.
 #
@@ -569,7 +579,7 @@ proc ::namdcph::runSwitch {numsteps segresidList} {
 # --------
 # None
 #
-proc ::namdcph::alchemify {segresidList} {  
+proc ::namdcph::alchemify {segresidnameList} {  
     set T [$::thermostatTempCmd]
     set FrcCons [getAlchFrcCons]
     alch on
@@ -579,8 +589,8 @@ proc ::namdcph::alchemify {segresidList} {
     psfgenRead [getMDBasename]
     # (2) Apply patches and build coordinates and velocities.
     #
-    foreach segresid $segresidList {
-        cphSystem alchemifypsf $segresid $FrcCons $T
+    foreach segresidname $segresidnameList {
+        cphSystem alchemifypsf $segresidname $FrcCons $T
     }
     regenerate angles dihedrals
     # (3) Write a new set of inputs and reinitialize.
@@ -591,8 +601,8 @@ proc ::namdcph::alchemify {segresidList} {
     # the atomid queries would all return zero (that would be bad).
     #
     set ExtraBondsFile [open [swFilename extrabonds] "w"]
-    foreach segresid $segresidList {
-        puts $ExtraBondsFile [cphSystem get alchBonds $segresid $FrcCons]
+    foreach segresidname $segresidnameList {
+        puts $ExtraBondsFile [cphSystem get alchBonds $segresidname $FrcCons]
     }
     close $ExtraBondsFile
     reloadAndReinit [getSWBasename] true
@@ -605,7 +615,7 @@ proc ::namdcph::alchemify {segresidList} {
 #
 # Arguments:
 # ----------
-# segresidList : list of strings
+# segresidnameList : list of strings
 #   One or more "<segid>:<resid>" specifications - this is the same syntax as 
 #   for the regular psfgen patch command.
 #
@@ -613,11 +623,11 @@ proc ::namdcph::alchemify {segresidList} {
 # --------
 # None
 #
-proc ::namdcph::dealchemify {segresidList} {
+proc ::namdcph::dealchemify {segresidnameList} {
     output [getSWBasename]
     psfgenRead [getSWBasename]
-    foreach segresid $segresidList {
-        cphSystem dealchemifypsf $segresid
+    foreach segresidname $segresidnameList {
+        cphSystem dealchemifypsf $segresidname
     }
     psfgenWrite [getMDBasename] [swFilename xsc]
     alch off
@@ -771,7 +781,7 @@ proc ::namdcph::openCpHLog {} {
     namdFileBackup $logFilename
     set cphlog [open $logFilename "w"]
     puts $cphlog "#pH [getpH]"
-    puts $cphlog "#[join [cphSystem get reslabel] " "]"
+    puts $cphlog "#[join [cphSystem get segresidnames] " "]"
     return $cphlog 
 }
 
@@ -892,16 +902,17 @@ proc ::namdcph::initialize {} {
     }
     # Use the system topology to make assignments from the restart
     if {[llength $states] && [llength $pKais]} { 
-        foreach segresid [cphSystem get segresids] state $states pKai $pKais {
-            if {![dict exists $stateInfo $segresid]} {
-                dict set stateInfo $segresid state $state
-                dict set stateinfo $segresid pKai $pKai
+        foreach segresidname [cphSystem get segresidnames]\
+                state $states pKai $pKais {
+            if {![dict exists $stateInfo $segresidname]} {
+                dict set stateInfo $segresidname state $state
+                dict set stateinfo $segresidname pKai $pKai
             } else {
-                if {![dict exists $stateInfo $segresid state]} {
-                    dict set stateInfo $segresid state $state
+                if {![dict exists $stateInfo $segresidname state]} {
+                    dict set stateInfo $segresidname state $state
                 }
-                if {![dict exists $stateInfo $segresid pKai]} {
-                    dict set stateInfo $segresid pKai $pKai
+                if {![dict exists $stateInfo $segresidname pKai]} {
+                    dict set stateInfo $segresidname pKai $pKai
                 }
             }
         }
@@ -983,11 +994,7 @@ proc ::namdcph::initializeAlch {} {
     extraBonds on
     extraBondsFile [swFilename extrabonds]
     clearExtraBonds
-    run 0
-    # NB: Because alchLambda is incremented _before_ dynamics steps, if 
-    # alchLambdaFreq were nonzero when "run 0" is called we would get a 
-    # confusing energy log with a fractional alchLambda.
-    #
+    startup
     alchLambdaFreq 1
     alch off
     return
@@ -1032,9 +1039,10 @@ proc ::namdcph::printSystemSummary {} {
     cphPrint "[llength [cphSystem get occupancy]] PROTONATION SITE(S)"
     cphPrint $StarBar
     cphPrint [format "%-19s : %5s : %s" segid:resid:resname state pKai]
-    foreach resLabel [cphSystem get reslabel] state [cphSystem get state]\
+    foreach segresidname [cphSystem get segresidnames]\
+            state [cphSystem get state]\
             pKaiList [cphSystem get pKai] {
-        cphPrint [format "%-19s : % 5s : %-s" $resLabel $state $pKaiList]
+        cphPrint [format "%-19s : % 5s : %-s" $segresidname $state $pKaiList]
     }
     cphPrint $StarBar
     return
@@ -1059,13 +1067,12 @@ proc ::namdcph::printTitratorSummary {} {
 }
 
 # ::namdcph::printProposalSummary
-proc ::namdcph::printProposalSummary {segresidList} {
+proc ::namdcph::printProposalSummary {segresidnameList} {
     set retList [list]
-    foreach segresid $segresidList {
-        set reslabel [cphSystem get reslabel $segresid]
-        set state [cphSystem get state $segresid]
-        set trialState [cphSystem get trialState $segresid]
-        lappend retList "$reslabel:$state:$trialState"
+    foreach segresidname $segresidnameList {
+        set state [cphSystem get state $segresidname]
+        set trialState [cphSystem get trialState $segresidname]
+        lappend retList "$segresidname:$state:$trialState"
     }
     return $retList
 }
