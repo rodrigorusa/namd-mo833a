@@ -45,12 +45,14 @@ The following parameters are used to define these boundary conditions.
 {Like the {\tt DCDfreq} option, controls how often the extended system configuration will be appended to the XST file.}
 
 \item
-\NAMDCONFWDEF{wrapWater}{wrap water coordinates around periodic boundaries?}{on or off}{off}
-{Coordinates are normally output relative to the way they were read in.  Hence, if part of a molecule crosses a periodic boundary it is not translated to the other side of the cell on output.  This option alters this behavior for water molecules only.}
+\NAMDCONFWDEF{wrapAll}{wrap all coordinates around periodic boundaries?}{on or off}{off}
+{Coordinates are normally output relative to the way they were read in.  Hence, if part of a molecule crosses a periodic boundary it is not translated to the other side of the cell on output.  This option applies a translation to the center-of-mass of each molecule or contiguous cluster of bonded atoms to keep it within the periodic unit cell.
+  The translation has usually {\em no effect on the physical trajectory}, because the force field potentials used in NAMD follow the minimum-image convention for interatomic distances.  However, some complex quantities, for example the center of mass of a multimeric protein, will be undefined as a result of this option.
+  If you plan on applying external forces ({\tt SMD}, {\tt tclForces} or {\tt Colvars}) to such quantities, it is recommended to keep this option off, and to possibly replace it with a custom restraint.}
 
 \item
-\NAMDCONFWDEF{wrapAll}{wrap all coordinates around periodic boundaries?}{on or off}{off}
-{Coordinates are normally output relative to the way they were read in.  Hence, if part of a molecule crosses a periodic boundary it is not translated to the other side of the cell on output.  This option alters this behavior for all contiguous clusters of bonded atoms.}
+\NAMDCONFWDEF{wrapWater}{wrap water coordinates around periodic boundaries?}{on or off}{off}
+{This option is similar to the {\tt wrapAll} option, but its effect is restricted to water molecules only.}
 
 \item
 \NAMDCONFWDEF{wrapNearest}{use nearest image to cell origin when wrapping coordinates?}{on or off}{off}
