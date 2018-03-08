@@ -380,7 +380,7 @@ If an odd number number of arguments is specified, then the first such argument
   is assumed to be a default number for all such moves.
 After this (or if an even number of arguments is specified) all remaining
   arguments are assumed to be specific assignments for a given move label
-  of the form \ARG{segid}:\ARG{resid}/\ARG{segid}:\ARG{resid}/\ldots.
+  of the form \ARG{segid}:\ARG{resid}:\ARG{resname}/\ARG{segid}:\ARG{resid}:\ARG{resname}/\ldots.
 }
 \end{itemize}
 
@@ -389,8 +389,7 @@ After this (or if an even number of arguments is specified) all remaining
 \item \NAMDCONF{cphSetResidueState}
 {Set the initial state of one or more titratable residues.}
 {
-\ARG{segid}:\ARG{resid} \ARG{state} 
-  \OARG{\OARG{\ARG{segid}:\ARG{resid} \ARG{state}} \ldots}
+\ARG{segid}:\ARG{resid}:\ARG{resname} \ARG{state} \OARG{\ldots}
 }
 {
 Initial residue states can be assigned in three ways (in descending order of 
@@ -402,8 +401,7 @@ Initial residue states can be assigned in three ways (in descending order of
 \item \NAMDCONF{cphSetResiduepKai}
 {Set the inherent pKa of one or more titratable residues.}
 {
-\ARG{segid}:\ARG{resid} \ARG{pKai} 
-  \OARG{\OARG{\ARG{segid}:\ARG{resid} \ARG{pKai}} \ldots}
+\ARG{segid}:\ARG{resid}:\ARG{resname} \ARG{pKai} \OARG{\ldots} 
 }
 {
 The two step inherent pKa algorithm implemented here permits on-the-fly update
@@ -421,7 +419,7 @@ If an extremely large or extremely small value is assigned, then the residue
 \item \NAMDCONF{cphExcludeResidue}
 {Exclude one or more residues from being titratable}
 {
-\ARG{segid}:\ARG{resid} \OARG{\OARG{\ARG{segid}:\ARG{resid}} \ldots}
+\ARG{segid}:\ARG{resid}:\ARG{resname} \OARG{\ldots}
 }
 {
 By default, any residue that matches a titratable residue type will be allowed
@@ -591,7 +589,7 @@ pH 7.0
 # increases the time for residue 5 of segid PROA to 7500 steps -- multiple
 # residues can be specified 
 #
-cphNumStepsPerSwitch 5000 PROA:5 7500
+cphNumStepsPerSwitch 5000 PROA:5:ASP 7500
 # Run 100 minimization cycles before starting dynamics.
 cphNumMinSteps 100
 # Run 2500 steps of MD between attempted protonation state changes. Run 10
