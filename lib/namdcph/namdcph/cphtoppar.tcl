@@ -537,6 +537,7 @@ proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
                 print "aliasing $segresidname to $realName"
                 psfset resname $segid $resid $realName
                 set resname $realName
+                set segresid [format "%s:%s" $segresid $resname]
             }
             set resIsDefined 0
             if {[lsearch -nocase $definedResidues $resname] >= 0} {
