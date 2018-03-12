@@ -1861,7 +1861,8 @@ void ComputeNonbondedUtil :: NAME
 #if (FAST(1+)0)
     if (doLoweAndersen && p_i.hydrogenGroupSize) {
 	BigReal loweAndersenCutoff = simParams->loweAndersenCutoff;
-	BigReal loweAndersenCutoff2 = (loweAndersenCutoff * loweAndersenCutoff) + r2_delta;
+	NOKNL( BigReal loweAndersenCutoff2 = (loweAndersenCutoff * loweAndersenCutoff) + r2_delta; )
+	KNL( float loweAndersenCutoff2 = (loweAndersenCutoff * loweAndersenCutoff); )
 	BigReal loweAndersenProb = simParams->loweAndersenRate * (simParams->dt * simParams->nonbondedFrequency) * 0.001; // loweAndersenRate is in 1/ps
 	const bool loweAndersenUseCOMvelocity = (simParams->rigidBonds != RIGID_NONE);
 	const BigReal kbT = BOLTZMANN * (simParams->loweAndersenTemp);
@@ -1895,7 +1896,8 @@ void ComputeNonbondedUtil :: NAME
 	//Random rand(CkMyPe()); // ?? OK ?? NO!!!!
 	Random *rand = params->random;
 	for (k = 0; k < npairi; k++) {
-	    if (r2list[k] > loweAndersenCutoff2) { continue; }
+	    NOKNL( if (r2list[k] > loweAndersenCutoff2) { continue; } )
+	    KNL( if (r2list_f[k] > loweAndersenCutoff2) { continue; } )
 		
 	    const int j = pairlisti[k];
 	    const CompAtom& v_j = v_1[j];
