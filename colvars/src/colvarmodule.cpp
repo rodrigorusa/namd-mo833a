@@ -432,13 +432,13 @@ int colvarmodule::parse_biases(std::string const &conf)
 }
 
 
-int colvarmodule::num_variables() const
+size_t colvarmodule::num_variables() const
 {
   return colvars.size();
 }
 
 
-int colvarmodule::num_variables_feature(int feature_id) const
+size_t colvarmodule::num_variables_feature(int feature_id) const
 {
   size_t n = 0;
   for (std::vector<colvar *>::const_iterator cvi = colvars.begin();
@@ -452,13 +452,13 @@ int colvarmodule::num_variables_feature(int feature_id) const
 }
 
 
-int colvarmodule::num_biases() const
+size_t colvarmodule::num_biases() const
 {
   return biases.size();
 }
 
 
-int colvarmodule::num_biases_feature(int feature_id) const
+size_t colvarmodule::num_biases_feature(int feature_id) const
 {
   size_t n = 0;
   for (std::vector<colvarbias *>::const_iterator bi = biases.begin();
@@ -472,7 +472,7 @@ int colvarmodule::num_biases_feature(int feature_id) const
 }
 
 
-int colvarmodule::num_biases_type(std::string const &type) const
+size_t colvarmodule::num_biases_type(std::string const &type) const
 {
   size_t n = 0;
   for (std::vector<colvarbias *>::const_iterator bi = biases.begin();
@@ -1694,40 +1694,59 @@ int cvm::read_index_file(char const *filename)
   return (cvm::get_error() ? COLVARS_ERROR : COLVARS_OK);
 }
 
+
 int cvm::load_atoms(char const *file_name,
                     cvm::atom_group &atoms,
                     std::string const &pdb_field,
-                    double const pdb_field_value)
+                    double pdb_field_value)
 {
   return proxy->load_atoms(file_name, atoms, pdb_field, pdb_field_value);
 }
 
-int cvm::load_coords(char const *file_name,
-                     std::vector<cvm::atom_pos> &pos,
-                     const std::vector<int> &indices,
-                     std::string const &pdb_field,
-                     double const pdb_field_value)
-{
-  // Differentiate between PDB and XYZ files
-  // for XYZ files, use CVM internal parser
-  // otherwise call proxy function for PDB
 
-  std::string const ext(strlen(file_name) > 4 ? (file_name + (strlen(file_name) - 4)) : file_name);
+int cvm::load_coords(char const *file_name,
+                     std::vector<cvm::rvector> *pos,
+                     cvm::atom_group *atoms,
+                     std::string const &pdb_field,
+                     double pdb_field_value)
+{
+  int error_code = COLVARS_OK;
+
+  std::string const ext(strlen(file_name) > 4 ?
+                        (file_name + (strlen(file_name) - 4)) :
+                        file_name);
+
+  atoms->create_sorted_ids();
+
+  std::vector<cvm::rvector> sorted_pos(atoms->size(), cvm::rvector(0.0));
+
+  // Differentiate between PDB and XYZ files
   if (colvarparse::to_lower_cppstr(ext) == std::string(".xyz")) {
-    if ( pdb_field.size() > 0 ) {
-      cvm::error("Error: PDB column may not be specified for XYZ coordinate file.\n", INPUT_ERROR);
-      return COLVARS_ERROR;
+    if (pdb_field.size() > 0) {
+      return cvm::error("Error: PDB column may not be specified "
+                        "for XYZ coordinate files.\n", INPUT_ERROR);
     }
-    return cvm::load_coords_xyz(file_name, pos, indices);
+    // For XYZ files, use internal parser
+    error_code |= cvm::load_coords_xyz(file_name, &sorted_pos, atoms);
   } else {
-    return proxy->load_coords(file_name, pos, indices, pdb_field, pdb_field_value);
+    // Otherwise, call proxy function for PDB
+    error_code |= proxy->load_coords(file_name,
+                                     sorted_pos, atoms->sorted_ids(),
+                                     pdb_field, pdb_field_value);
   }
+
+  std::vector<int> const &map = atoms->sorted_ids_map();
+  for (size_t i = 0; i < atoms->size(); i++) {
+    (*pos)[map[i]] = sorted_pos[i];
+  }
+
+  return error_code;
 }
 
 
 int cvm::load_coords_xyz(char const *filename,
-                         std::vector<atom_pos> &pos,
-                         const std::vector<int> &indices)
+                         std::vector<rvector> *pos,
+                         cvm::atom_group *atoms)
 {
   std::ifstream xyz_is(filename);
   unsigned int natoms;
@@ -1742,12 +1761,12 @@ int cvm::load_coords_xyz(char const *filename,
   cvm::getline(xyz_is, line);
   cvm::getline(xyz_is, line);
   xyz_is.width(255);
-  std::vector<atom_pos>::iterator pos_i = pos.begin();
+  std::vector<atom_pos>::iterator pos_i = pos->begin();
 
-  if (pos.size() != natoms) { // Use specified indices
+  if (pos->size() != natoms) { // Use specified indices
     int next = 0; // indices are zero-based
-    std::vector<int>::const_iterator index = indices.begin();
-    for ( ; pos_i != pos.end() ; pos_i++, index++) {
+    std::vector<int>::const_iterator index = atoms->sorted_ids().begin();
+    for ( ; pos_i != pos->end() ; pos_i++, index++) {
 
       while ( next < *index ) {
         cvm::getline(xyz_is, line);
@@ -1757,7 +1776,7 @@ int cvm::load_coords_xyz(char const *filename,
       xyz_is >> (*pos_i)[0] >> (*pos_i)[1] >> (*pos_i)[2];
     }
   } else {          // Use all positions
-    for ( ; pos_i != pos.end() ; pos_i++) {
+    for ( ; pos_i != pos->end() ; pos_i++) {
       xyz_is >> symbol;
       xyz_is >> (*pos_i)[0] >> (*pos_i)[1] >> (*pos_i)[2];
     }
@@ -1798,17 +1817,13 @@ void cvm::request_total_force()
   proxy->request_total_force(true);
 }
 
-cvm::rvector cvm::position_distance(atom_pos const &pos1,
-                                            atom_pos const &pos2)
+
+cvm::rvector cvm::position_distance(cvm::atom_pos const &pos1,
+                                    cvm::atom_pos const &pos2)
 {
   return proxy->position_distance(pos1, pos2);
 }
 
-cvm::real cvm::position_dist2(cvm::atom_pos const &pos1,
-                                      cvm::atom_pos const &pos2)
-{
-  return proxy->position_dist2(pos1, pos2);
-}
 
 cvm::real cvm::rand_gaussian(void)
 {
