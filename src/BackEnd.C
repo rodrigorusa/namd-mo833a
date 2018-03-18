@@ -218,6 +218,8 @@ void master_init(int argc, char **argv){
   CsdScheduler(-1);
 }
 
+void cuda_affinity_initialize();
+
 char *gNAMDBinaryName = NULL;
 // called by main on one or all procs
 void BackEnd::init(int argc, char **argv) {
@@ -240,6 +242,11 @@ void BackEnd::init(int argc, char **argv) {
       break;
     }
   }
+#endif
+
+#ifdef NAMD_CUDA
+  // launch CUDA runtime threads before affinity is set
+  cuda_affinity_initialize();
 #endif
 
   ConverseInit(argc, argv, slave_init, 1, 1);  // calls slave_init on others

@@ -59,6 +59,7 @@
 #include "ComputePmeMgr.decl.h"
 // #ifdef NAMD_CUDA
 #include "ComputeCUDAMgr.decl.h"
+#include "ComputeCUDAMgr.h"
 #include "ComputePmeCUDAMgr.decl.h"
 #include "ComputePmeCUDAMgr.h"
 // #endif
@@ -738,7 +739,7 @@ void Node::startup() {
 #ifdef NAMD_CUDA
     if ( (simParameters->useCUDA2 || simParameters->bondedCUDA) && CkMyRank()==0 ) {
       CProxy_ComputeCUDAMgr nb(CkpvAccess(BOCclass_group).computeCUDAMgr);
-      nb[CkMyNode()].initialize(new CkQdMsg);
+      nb.ckLocalBranch()->initialize(new CkQdMsg);
     }
 #endif
     break;

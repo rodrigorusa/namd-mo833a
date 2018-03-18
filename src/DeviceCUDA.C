@@ -336,7 +336,8 @@ void DeviceCUDA::initialize() {
   }  // just let CUDA pick a device for us
 
   {
-    cudaCheck(cudaSetDeviceFlags(cudaDeviceMapHost));
+    // if only one device then already initialized in cuda_affinity_initialize()
+    if ( deviceCount > 1 ) cudaCheck(cudaSetDeviceFlags(cudaDeviceMapHost));
 
     int dev;
     cudaCheck(cudaGetDevice(&dev));
@@ -349,6 +350,10 @@ void DeviceCUDA::initialize() {
       cudaDie("device not of compute capability 3.0 or higher");
     if ( ! deviceProp.canMapHostMemory )
       cudaDie("device cannot map host memory");
+
+    // initialize the device on this thread
+    int *dummy;
+    cudaCheck(cudaMalloc(&dummy, 4));
   }
 }
 

@@ -34,6 +34,27 @@ void cudaDie(const char *msg, cudaError_t err) {
 
 void cudaNAMD_bug(const char *msg) {NAMD_bug(msg);}
 
+void cuda_affinity_initialize() {
+  // called before Converse/Charm++ initialization so can't use Cmi/Ck utilities
+  int devcnt = 0;
+  cudaError_t err = cudaGetDeviceCount(&devcnt);
+  if ( devcnt == 1 ) {  // only one device so it must be ours
+    int *dummy;
+    if ( err == cudaSuccess ) err = cudaSetDevice(0);
+    if ( err == cudaSuccess ) err = cudaSetDeviceFlags(cudaDeviceMapHost);
+    if ( err == cudaSuccess ) err = cudaMalloc(&dummy, 4);
+  }
+  if ( err != cudaSuccess ) {
+#ifdef NOHOSTNAME
+    fprintf(stderr,"CUDA initialization error: %s\n", cudaGetErrorString(err));
+#else
+    char host[128];
+    gethostname(host, 128);  host[127] = 0;
+    fprintf(stderr,"CUDA initialization error on %s: %s\n", host, cudaGetErrorString(err));
+#endif
+  }
+}
+
 //----------------------------------------------------------------------------------------
 
 void clear_device_array_async_T(void *data, const int ndata, cudaStream_t stream, const size_t sizeofT) {
