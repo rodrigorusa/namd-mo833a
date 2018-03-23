@@ -1,4 +1,3 @@
-# namdcph.core.tcl
 # 
 # Core utilities for setting up and running constant pH simulations in NAMD.
 #
@@ -14,23 +13,17 @@ namespace eval ::namdcph {
 
     variable TITLE "namdcph)"
     variable SystempH
-    variable configFilename ""
+    variable configFilenames [list]
     variable restartFilename ""
     variable restartFreq 0
     variable outFile ""
     variable numMinSteps 0
     variable excludeList [list]
-    variable AlchFrcCons 100.0
+    variable alchFrcCons 100.0
     variable MDBasename namdcph.md
     variable SWBasename namdcph.sw
-    # cphSystem data and defaults
-    variable stateInfo [dict create]
-    # cphTitrator data and defaults
-    variable moveInfo [dict create]
-    dict set moveInfo maxProposalAttempts 0
-    dict set moveInfo default numsteps 20 
-    dict set moveInfo default weight 1.0
-    dict set moveInfo ptransfer [list]
+    variable stateInfo [dict create] ;# cphSystem data and defaults
+    variable moveInfo [dict create] ;# cphTitrator data and defaults
 
     variable residueAliases [dict create]
     dict set residueAliases HIS {HSD HSE HSP}
@@ -46,18 +39,20 @@ namespace eval ::namdcph {
 # Run a set number of neMD/MC cycles.
 #
 proc ::namdcph::cphRun {numsteps {numcycles 1}} {
+    variable ::namdcph::SystempH
+
     # Initialize NAMD and build a constant pH enabled PSF.
     initialize
     finalize
     if {$::namdcph::numMinSteps > 0} {
-        set tmp [firstTimeStep]
+        set storedFirstTimeStep [firstTimeStep]
         minimize $::namdcph::numMinSteps
         if {[isset temperature]} {
           reinitvels [temperature]
         } else {
           reinitvels [$::thermostatTempCmd]
         }
-        firstTimeStep $tmp
+        firstTimeStep $storedFirstTimeStep
     }
     set cphlog [openCpHLog]
     set firstCycle 1
@@ -69,7 +64,8 @@ proc ::namdcph::cphRun {numsteps {numcycles 1}} {
         runMD {*}$runArgs
         # (2) Propose a move from the full move set.
         #
-        lassign [proposeMove] accept swNumsteps segresidnameList nattempts
+        lassign [cphTitrator propose $SystempH] accept swNumsteps\
+                segresidnameList nattempts
         # (3) At this point we have either selected a switch or rejected a
         # whole bunch of moves. If the former, perform the switch.
         #
@@ -81,7 +77,8 @@ proc ::namdcph::cphRun {numsteps {numcycles 1}} {
             set accept [runSwitch $swNumsteps $segresidnameList]
             set runArgs [list $numsteps]
             # Only accumulate statistics for attempted switches.
-            accumulateAcceptanceRate $accept $segresidnameList
+            set moveLabel [join $segresidnameList "/"]
+            cphTitrator accumulateStats $accept $moveLabel
         }
         cphSystem update $accept $segresidnameList
         # (4) Output cycle information and a checkpoint file if necessary.
@@ -122,7 +119,7 @@ proc ::namdcph::checkResidueDefinitions {resnames} {
     alchLambdaFreq 0
     foreach segresidname [cphSystem get segresidnames] {
         lassign [split $segresidname ":"] segid resid resname
-        if {[lsearch $resnames $resname] < 0} {
+        if {$resname ni $resnames} {
             continue
         } 
         set states [cphSystem get stateList $segresidname]
@@ -293,7 +290,8 @@ proc ::namdcph::pH {pHValue} {
 # Configuration file for constant pH residues.
 #
 proc ::namdcph::cphConfigFile {filename} {
-    variable ::namdcph::configFilename [string trim $filename]
+    variable ::namdcph::configFilenames
+    lappend configFilenames [string trim $filename]
     return
 }
 
@@ -402,7 +400,7 @@ proc ::namdcph::cphProposalWeight {args} {
 proc ::namdcph::cphProposeProtonTransfer {args} {
     variable ::namdcph::moveInfo
     foreach moveLabel $args {
-        dict lappend moveInfo ptransfer $moveLabel
+        dict set moveInfo $moveLabel protonTransfer 1
     }
     return
 }
@@ -452,7 +450,7 @@ proc ::namdcph::cphExcludeResidue {args} {
 #
 proc ::namdcph::cphForceConstant {forceConstant} {
     checkIsNotNegative cphForceConstant $forceConstant
-    variable ::namdcph::AlchFrcCons $forceConstant
+    variable ::namdcph::alchFrcCons $forceConstant
     return
 }
 
@@ -580,8 +578,9 @@ proc ::namdcph::runSwitch {numsteps segresidnameList} {
 # None
 #
 proc ::namdcph::alchemify {segresidnameList} {  
+    variable ::namdcph::alchFrcCons
     set T [$::thermostatTempCmd]
-    set FrcCons [getAlchFrcCons]
+
     alch on
     # (1) Read in the nonalchemical PSF and apply patches.
     #
@@ -590,7 +589,7 @@ proc ::namdcph::alchemify {segresidnameList} {
     # (2) Apply patches and build coordinates and velocities.
     #
     foreach segresidname $segresidnameList {
-        cphSystem alchemifypsf $segresidname $FrcCons $T
+        cphSystem alchemifypsf $segresidname $alchFrcCons $T
     }
     regenerate angles dihedrals
     # (3) Write a new set of inputs and reinitialize.
@@ -602,7 +601,8 @@ proc ::namdcph::alchemify {segresidnameList} {
     #
     set ExtraBondsFile [open [swFilename extrabonds] "w"]
     foreach segresidname $segresidnameList {
-        puts $ExtraBondsFile [cphSystem get alchBonds $segresidname $FrcCons]
+        puts $ExtraBondsFile\
+                [cphSystem get alchBonds $segresidname $alchFrcCons]
     }
     close $ExtraBondsFile
     reloadAndReinit [getSWBasename] true
@@ -640,7 +640,7 @@ proc ::namdcph::dealchemify {segresidnameList} {
 # =============================================================================
 # ::namdcph::readConfig
 #
-# Read a constant pH config file and return template definitions.
+# Read one or more constant pH config files and return template definitions.
 #
 # Arguments:
 # ----------
@@ -652,55 +652,109 @@ proc ::namdcph::dealchemify {segresidnameList} {
 #   A dict conversion of the config file contents from JSON
 #
 proc ::namdcph::readConfig {} {
-    #TODO: permit reading of multiple config files
-    variable ::namdcph::configFilename
-    set ConfigFile [open $configFilename "r"]
-    set templateDefs [json::json2dict [read $ConfigFile]]
-    close $ConfigFile
+    variable ::namdcph::configFilenames
+
+    set templateDefs [dict create]
+    foreach configFilename $configFilenames {
+        set ConfigFile [open $configFilename "r"]
+        set tmpDict [json::json2dict [read $ConfigFile]]
+        # Warn the user about re-definitions, but proceed anyway. Note that
+        # dict merge overwrites values right to left.
+        set oldKeys [dict keys $templateDefs]
+        foreach newKey [dict keys $tmpDict] {
+            if {$newKey in $oldKeys} {
+                cphWarn "Reading and using new definition for residue $newKey"
+            }
+        } 
+        set templateDefs [dict merge $templateDefs $tmpDict] 
+        close $ConfigFile
+    }
     return $templateDefs
 }
 
 # ::namdcph::readRestart
 #
-# Read in a constant pH state from file.
+# Read in a constant pH state from file and _merge_ the data into the namespace
+# variables. That is, give precedence to keyword specifications.
 #
-# Arguments:
-# ----------
-# restartFilename : string
-#   Name of (JSON format) restart file to read
+# NB! This also requires that cphSystem has been built so that the system and
+#     state info can be compared.
 #
-# Returns:
-# --------
-# stateList : list
-#   State codes for each titratable residue
-# pKaiList : list
-#   Latest estimate of the inherent pKa
-#
-proc ::namdcph::readRestart {restartFilename} {
+proc ::namdcph::readRestart {} {
+    variable ::namdcph::restartFilename
+    variable ::namdcph::SystempH
+    variable ::namdcph::stateInfo
+    variable ::namdcph::moveInfo
+
     set RestartFile [open $restartFilename "r"]
     set Restart [json::json2dict [read $RestartFile]]
     close $RestartFile
+
+    if {![info exists SystempH] && [dict exists $Restart pH]} {
+        pH [dict get $Restart pH]
+    }
+
+    # Read state parameters, if present. 
+    #
     if {[dict exists $Restart states]} {
         set stateList [dict get $Restart states]
-    } else {
-        set stateList {}
     }
     if {[dict exists $Restart pKais]} {
         set pKaiList [dict get $Restart pKais]
-    } else {
-        set pKaiList {}
     }
-    if {[llength $stateList] > 0 && [llength $pKaiList] > 0} {
+    if {[info exists stateList] && [info exists pKaiList]} {
+        set segresidnameList [cphSystem get segresidnames]
+
         if {[llength $stateList] != [llength $pKaiList]} {
             cphAbort "mismatch in states/pKais in $restartFilename"
         }
+        if {[llength $stateList] != [llength $segresidnameList]} {
+            cphAbort "Too few/many state/pKai definitions in $restartFilename"
+        }
+
+        foreach segresidname $segresidnameList\
+                state $stateList pKai $pKaiList {
+            if {![dict exists $stateInfo $segresidname]} {
+                dict set stateInfo $segresidname state $state
+                dict set stateInfo $segresidname pKai $pKai
+            } else {
+                if {![dict exists $stateInfo $segresidname state]} {
+                    dict set stateInfo $segresidname state $state
+                }
+                if {![dict exists $stateInfo $segresidname pKai]} {
+                    dict set stateInfo $segresidname pKai $pKai
+                }
+            }
+        }
     }
+
+    # Read MC move parameters, if present. Only reset those values which have
+    # not been set in via keywords.
+    #
     if {[dict exists $Restart MCmoves]} {
-        set MCmoves [dict get $Restart MCmoves]    
-    } else {
-        set MCmoves [dict create]
+        set rstrtMoveInfo [dict get $Restart MCmoves]    
     }
-    return [list $stateList $pKaiList $MCmoves]
+    if {[info exists rstrtMoveInfo]} {
+        # This is a bit kludgy - the global data is not a nested dict, so it
+        # will crash in the dict for loop. Treat these specially and then unset
+        # them...
+        if {[dict exists $rstrtMoveInfo maxProposalAttempts]} {
+            if {![dict exists $moveInfo maxProposalAttempts]} {
+                dict set moveInfo maxProposalAttempts\
+                    [dict get $rstrtMoveInfo maxProposalAttempts]
+            }
+            dict unset rstrtMoveInfo maxProposalAttempts
+        }
+        dict for {moveLabel data} $rstrtMoveInfo {
+            dict for {key value} $data {
+                 if {![dict exists $moveInfo $moveLabel $key]} {
+                     dict set moveInfo $moveLabel $key $value
+                 }
+            }
+        }
+    }
+
+    return
 }
 
 # ::namdcph::writeRestart
@@ -722,6 +776,8 @@ proc ::namdcph::readRestart {restartFilename} {
 #
 proc ::namdcph::writeRestart {args} { 
     variable ::namdcph::restartFreq
+    variable ::namdcph::SystempH
+
     if {[string match [lindex $args 0] force]} {
         set restartFilename [lindex $args 1]
         set cycle [expr {int([lindex $args 2])}]
@@ -737,11 +793,14 @@ proc ::namdcph::writeRestart {args} {
     # TODO: This is god-awful. Is there not a useable json encoder that can do
     # this for us with some guarantee of accuracy?
     set cycleStr "\"cycle\":$cycle"
+    set pHStr "\"pH\":$SystempH"
+
     set stateStr "\"states\":\["
     foreach state [cphSystem get state] {
         set stateStr "$stateStr\"$state\","
     }
     set stateStr "[string trimright $stateStr ","]\]"
+
     set pKaiStr "\"pKais\":\["
     foreach pKaiList [cphSystem get pKai] {
         set pKaiStr "$pKaiStr\["
@@ -751,15 +810,26 @@ proc ::namdcph::writeRestart {args} {
         set pKaiStr "[string trimright $pKaiStr ","]\],"
     }
     set pKaiStr "[string trimright $pKaiStr ","]\]"
-    set MCStr "\"MCmoves\":\{"
-    dict for {moveLabel data} [getMoveSet] {
-        set numsteps [dict get $data numsteps]
-        set weight [dict get $data weight]
-        set MCStr "$MCStr\"$moveLabel\":\{\"numsteps\":$numsteps,\"weight\":$weight\},"
+
+    set maxAttempts [cphTitrator get maxAttempts]
+    set MCStr "\"MCmoves\":\{\"maxProposalAttempts\":$maxAttempts,"
+
+    set defaultNumsteps [cphTitrator get numsteps default]
+    set defaultWeight [cphTitrator get weight default]
+    set MCStr "$MCStr\"default\":\{\"numsteps\":$defaultNumsteps,\"weight\":$defaultWeight\},"
+
+    foreach moveLabel [cphTitrator get moveLabels] {
+        set thisMoveInfo [cphTitrator get nodefaults $moveLabel]
+        if {![dict size $thisMoveInfo]} continue
+        set MCStr "$MCStr\"$moveLabel\":\{"
+        dict for {key value} $thisMoveInfo {
+            set MCStr "$MCStr\"$key\":$value,"
+        }
+        set MCStr "[string trimright $MCStr ","]\},"
     }
     set MCStr "[string trimright $MCStr ","]\}"
 
-    puts $RestartFile "\{$cycleStr,$stateStr,$pKaiStr,$MCStr\}"
+    puts $RestartFile "\{$cycleStr,$pHStr,$stateStr,$pKaiStr,$MCStr\}"
     close $RestartFile
     # Always checkpoint the PSF and PDB when a restart is written.
     file copy -force [mdFilename psf] "[outputName].psf"
@@ -773,6 +843,8 @@ proc ::namdcph::writeRestart {args} {
 #
 proc ::namdcph::openCpHLog {} {
     variable ::namdcph::outFile
+    variable ::namdcph::SystempH
+
     if {[string length $outFile] > 0} {
         set logFilename $outFile
     } else {
@@ -780,7 +852,7 @@ proc ::namdcph::openCpHLog {} {
     }
     namdFileBackup $logFilename
     set cphlog [open $logFilename "w"]
-    puts $cphlog "#pH [getpH]"
+    puts $cphlog "#pH $SystempH"
     puts $cphlog "#[join [cphSystem get segresidnames] " "]"
     return $cphlog 
 }
@@ -830,8 +902,12 @@ proc ::namdcph::reloadAndReinit {basename keepExtraBonds} {
     return
 }
 
-proc ::namdcph::cphPrint {text} {
-    print "$::namdcph::TITLE $text"
+proc ::namdcph::cphPrint {msg} {
+    print "$::namdcph::TITLE $msg"
+}
+
+proc ::namdcph::cphWarn {msg} {
+    print "$::namdcph::TITLE WARNING! $msg"
 }
 
 proc ::namdcph::cphAbort {msg} {
@@ -839,33 +915,13 @@ proc ::namdcph::cphAbort {msg} {
 }
 
 proc ::namdcph::cphWarnExpt {} {
-    cphPrint "WARNING! THIS FEATURE IS EXPERIMENTAL!"
+    cphWarn "THIS FEATURE IS EXPERIMENTAL!"
     cphPrint "RESULTS ARE NOT GUARANTEEED - USE AT YOUR OWN RISK"
 }
 
 # =============================================================================
 # Setup Routines
 # =============================================================================
-# ::namdcph::checkSettings
-#
-# Check the settings from the configuration file and verify that they are
-# compatible with constant pH.
-#
-proc ::namdcph::checkSettings {} {
-    variable ::namdcph::configFilename
-    # Check constant pH specific settings. 
-    if {[string length configFilename] <= 0} {
-        cphAbort "A constant pH configuration file is required."
-    }
-    if {![info exists ::namdcph::SystempH]} {
-        cphAbort "A pH value is required."
-    }
-
-    getThermostat
-    getBarostat
-    return
-}
-
 # ::namdcph::initialize
 #
 # Initialize the system for constant pH. This requires two main things to
@@ -877,61 +933,60 @@ proc ::namdcph::checkSettings {} {
 #
 proc ::namdcph::initialize {} {
     variable ::namdcph::restartFilename
+    variable ::namdcph::configFilenames
     variable ::namdcph::stateInfo
     variable ::namdcph::moveInfo
     variable ::namdcph::residueAliases
     variable ::namdcph::excludeList
-    checkSettings
-    callback energyCallback    
-    # 1) Set up alchemical keywords and run an energy evaluation.
+    variable ::namdcph::SystempH
+
+    getThermostat
+    getBarostat
+    callback energyCallback
+    # 1) Set up alchemical keywords and run startup. 
     #
     initializeAlch
+
     # 2) Rebuild the PSF with dummy protons and modify protonation states as 
     # needed. Build the residue definitions, assign states to each residue, and 
     # rebuild the topology to reflect those states.
     #
     cphPrint "initializing constant pH PSF..."
+    # TODO: integrate aliases into the configfile standard...
+    if {![llength configFilenames]} {
+        cphAbort "At least one constant pH configuration file is required."
+    }
     cphSystem build [readConfig] $residueAliases $excludeList
 
-    if {[string length $restartFilename] > 0} {
-        lassign [readRestart $restartFilename] states pKais MCmoves
+    if {[string length $restartFilename]} {
+        readRestart
         lassign [list 0.0 false] temp buildH
     } else {
-        lassign [list {} {} [dict create]] states pKais MCmoves
         lassign [list [$::thermostatTempCmd] true] temp buildH
     }
-    # Use the system topology to make assignments from the restart
-    if {[llength $states] && [llength $pKais]} { 
-        foreach segresidname [cphSystem get segresidnames]\
-                state $states pKai $pKais {
-            if {![dict exists $stateInfo $segresidname]} {
-                dict set stateInfo $segresidname state $state
-                dict set stateinfo $segresidname pKai $pKai
-            } else {
-                if {![dict exists $stateInfo $segresidname state]} {
-                    dict set stateInfo $segresidname state $state
-                }
-                if {![dict exists $stateInfo $segresidname pKai]} {
-                    dict set stateInfo $segresidname pKai $pKai
-                }
-            }
+
+    if {![info exists SystempH]} {
+        cphAbort "A pH value is required."
+    }
+
+    # All residue state info from all sources is now in stateInfo.
+    # Check that all of the keys are valid.
+    foreach segresidname [dict keys $stateInfo] {
+        if {[cphSystem validate $segresidname]} {
+            cphAbort
         }
     }
-    cphSystem initialize [getpH] $temp $buildH $stateInfo
+    cphSystem initialize $SystempH $temp $buildH $stateInfo
+
     # 3) Build the MC move set (the "titrator").
-    set moveInfo [dict merge $MCmoves $moveInfo]
-    set unusedInfo [buildTitrator [getpH] $moveInfo]
+    #
+    # All neMD/MC move info from all sources is now in moveInfo.
+    cphTitrator build $moveInfo
+
     # 4) Report to stdout.
     printSettingsSummary
     printSystemSummary
     printTitratorSummary
-    if {[dict size [dict remove $unusedInfo default]]} {
-        cphPrint "WARNING! Unused/unrecognized MC move info!"
-        cphPrint [format "%-14s : %-s" "Move Label" "Info"]
-        dict for {moveLabel data} [dict remove $unusedInfo default] {
-            cphPrint [format "%-14s : %-s" $moveLabel $data]
-        }
-    }
     return
 }
 
@@ -1005,18 +1060,24 @@ proc ::namdcph::initializeAlch {} {
 # Print a summary of the constant pH settings.
 #
 proc ::namdcph::printSettingsSummary {} {
-    variable ::namdcph::configFilename
+    variable ::namdcph::configFilenames
     variable ::namdcph::restartFilename
+    variable ::namdcph::SystempH
+    variable ::namdcph::alchFrcCons
+
     set StarBar "***************************************"
     cphPrint $StarBar
     cphPrint "CONSTANT pH MD ACTIVE"
     if {[string length $restartFilename] > 0} {
         cphPrint "RESTART FILENAME $restartFilename"
     }
-    cphPrint "SYSTEM pH [getpH]"
-    cphPrint "CONSTANT pH CONFIGURATION FILE $configFilename"
+    cphPrint "SYSTEM pH $SystempH"
+    cphPrint "CONSTANT pH CONFIGURATION FILE(S)"
+    foreach configFilename $configFilenames {
+        cphPrint "$configFilename"
+    }
     cphPrint "NONEQUILIBRIUM SWITCH PARAMETERS:"
-    cphPrint "ALCHEMICAL FORCE CONSTANT [getAlchFrcCons] kcal/mol-A^2"
+    cphPrint "ALCHEMICAL FORCE CONSTANT $alchFrcCons kcal/mol-A^2"
     cphPrint "neMD/MC CRITERION TEMPERATURE [$::thermostatTempCmd]"
     cphPrint "TEMPORARY FILE INFORMATION:"
     cphPrint "cpH TOPOLOGY FILE BASENAME [getMDBasename]"
@@ -1053,14 +1114,15 @@ proc ::namdcph::printSystemSummary {} {
 # Print a summary of the MC moves.
 #
 proc ::namdcph::printTitratorSummary {} {
-    set StarBar "*******************************************"
+    set StarBar "*************************************************"
     cphPrint $StarBar
     cphPrint "CONSTANT pH neMD/MC MOVES:"
-    cphPrint [format "%-19s : %8s %12s" "move label" numsteps weight]
-    dict for {moveLabel data} [getMoveSet] {
-        set numsteps [dict get $data numsteps]
-        set weight [dict get $data weight]
-        cphPrint [format "%-19s : % 8d % 12.2f" $moveLabel $numsteps $weight]
+    cphPrint "MAX. ATTEMPTS PER CYCLE: [cphTitrator get maxAttempts]"
+    cphPrint [format "%-25s : %8s %12s" "move label" numsteps weight]
+    foreach moveLabel [cphTitrator get moveLabels] {
+        set numsteps [cphTitrator get numsteps $moveLabel]
+        set weight [cphTitrator get weight $moveLabel]
+        cphPrint [format "%-25s : % 8d % 12.2f" $moveLabel $numsteps $weight]
     }
     cphPrint $StarBar
     return
@@ -1082,19 +1144,19 @@ proc ::namdcph::printProposalSummary {segresidnameList} {
 # Print a report of the titration MC statistics.
 #
 proc ::namdcph::printTitratorReport {} {
-    set StarBar "*******************************************"
+    set StarBar "*************************************************"
     cphPrint $StarBar
     cphPrint "CONSTANT pH MD STATISTICS:"
-    cphPrint [format "%-19s : %-8s %-12s" "move label" attempts "accept. rate"]
-    dict for {moveLabel data} [getMoveSet] {
-        set attempts [dict get $data attempts]
-        set successes [dict get $data successes]
+    cphPrint [format "%-25s : %-8s %-12s" "move label" attempts "accept. rate"]
+    foreach moveLabel [cphTitrator get moveLabels] {
+        set attempts [cphTitrator get attempts $moveLabel]
+        set successes [cphTitrator get successes $moveLabel]
         if {$successes && $attempts} {
             set rate [expr {100.*$successes/$attempts}]
         } else {
             set rate 0.0
         }
-        cphPrint [format "%-19s : %8d %12.2f" $moveLabel $attempts $rate] 
+        cphPrint [format "%-25s : %8d %12.2f" $moveLabel $attempts $rate] 
     }
     cphPrint $StarBar
     return
@@ -1105,14 +1167,6 @@ proc ::namdcph::printTitratorReport {} {
 #
 # These are largely unnecessary, but cut down on "variable" declarations.
 # =============================================================================
-proc ::namdcph::getpH {} {
-    return $::namdcph::SystempH
-}
-
-proc ::namdcph::getAlchFrcCons {} {
-    return $::namdcph::AlchFrcCons
-}
-
 proc ::namdcph::getMDBasename {} {
     return $::namdcph::MDBasename
 }

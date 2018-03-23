@@ -56,63 +56,116 @@ namespace eval ::cphSystem {
 # dealchemifypsf   remove patches so the system is no longer alchemical
 # initializeState  set the initial state of a residue
 #
+# Some notes about Tcl switch statements for non-guru types like myself:
+#
+#   These can appear a bit delicate to those who are not familiar with their
+# quirks (compared to C). For one, badly placed comments can break them. Also
+# note that a switch returns the expression it first matches and does NOT use
+# break statements.
+#
 proc ::cphSystem::cphSystem {action args} {
-    if {[string match -nocase $action get]} {
-        # Getters
-        return [cphSystemGet {*}$args] 
-    } elseif {[string match -nocase $action set]} {
-        # Setters
-        return [cphSystemSet {*}$args]
-    } elseif {[string match -nocase $action build]} {
-        # System building - determine system composition and definitions
-        return [buildSystem {*}$args]
-    } elseif {[string match -nocase $action initialize]} {
-        # System initialization - establish initial states and parameters
-        return [initializeSystem {*}$args]
-    } elseif {[string match -nocase $action propose]} {
-        # Proposal - Set new trial state - return 0 if none is found
-        set type [lindex $args 0]
-        set newArgs [lrange $args 1 end]
-        if {[string match -nocase $type titration]} {
-            return [proposeResidueTitration {*}$newArgs]
-        } elseif {[string match -nocase $type tautomerization]} {
-            return [proposeResidueTautomerization {*}$newArgs]
-        } else {
-            abort "Invalid proposal type $type"
+    return [switch -nocase -- $action {
+        get {
+            cphSystemGet {*}$args
         }
-    } elseif {[string match -nocase $action compute]} {
-        # Compute acceptance energy (inherent or switch correction)
-        set type [lindex $args 0]
-        set newArgs [lrange $args 1 end]
-        if {[string match -nocase $type inherent]} {
-            return [computeInherentAcceptance {*}$newArgs]
-        } elseif {[string match -nocase $type inherentWeights]} {
-            return [computeInherentNormedWeights {*}$newArgs]
-        } elseif {[string match -nocase $type switch]} {
-            return [computeSwitchAcceptance {*}$newArgs]
-        } else {
-            abort "Invalid energy type $type"
+        set {
+            cphSystemSet {*}$args
         }
-    } elseif {[string match -nocase $action update]} {
-       # Update states based on an MC result
-       return [updateStates {*}$args]
-    } elseif {[string match -nocase $action alchemifypsf]} {
-       # Alchemify the PSF (in memory) based on trial states
-       return [alchemifyResidue {*}$args]
-    } elseif {[string match -nocase $action dealchemifypsf]} {
-       # Dealchemify the PSF (in memory)
-       return [dealchemifyResidue {*}$args]
-    } elseif {[string match -nocase $action initializeState]} {
-       # Assign a state
-       set method [lindex $args 0]
-       if {[string match -nocase $method random]} {
-           return [randomizeState {*}[lrange $args 1 end]]
-       } else {
-           return [assignState {*}$args]
+        build {
+            buildSystem {*}$args
+        }
+        initialize {
+            initializeSystem {*}$args
+        }
+        propose { ;# return 0 if no valid proposal is found
+            set type [lindex $args 0]
+            set newArgs [lrange $args 1 end]
+            switch -nocase -- $type {
+                titration {
+                    proposeResidueTitration {*}$newArgs
+                }
+                tautomerization {
+                    proposeResidueTautomerization {*}$newArgs
+                }
+                protonTransfer {
+                    proposeProtonTransfer {*}$newArgs
+                }
+                default {
+                    abort "Invalid proposal type $type"
+                }
+            }
+        }
+        compute { ;# acceptance energy (inherent or switch correction)
+            set type [lindex $args 0]
+            set newArgs [lrange $args 1 end]
+            switch -nocase -- $type {
+                inherent {
+                    computeInherentAcceptance {*}$newArgs
+                }
+                inherentWeights {
+                    computeInherentNormedWeights {*}$newArgs
+                }
+                switch {
+                    computeSwitchAcceptance {*}$newArgs
+                }
+                default {
+                    abort "Invalid energy type $type"
+                }
+            }
+        }
+        update { ;# Update states based on an MC result
+            updateStates {*}$args
+        }
+        alchemifypsf { ;#Alchemify the PSF (in memory) based on trial states
+            alchemifyResidue {*}$args
+        }
+        dealchemifypsf { ;# Dealchemify the PSF (in memory)
+            dealchemifyResidue {*}$args
+        }
+        initializeState { ;# Assign a state
+            set method [lindex $args 0]
+            switch -nocase -- $method {
+                random {
+                    randomizeState {*}[lrange $args 1 end]
+                }
+                default {
+                    assignState {*}$args
+                }
+            }
        }
-    } else {
-        abort "Invalid cphSystem action $action."
+       validate { ;# Validate a segresidname
+           validateSegresidname {*}$args
+       }
+       default {
+           abort "Invalid cphSystem action $action."
+       }
+    }]
+}
+
+# ::cphSystem::validateSegresidname
+#
+# Check that a given segresidname is valid. That is:
+#
+# 1) is it in the correct <segid>:<resid>:<resname> format?
+# 2) does it correspond to a known titratable residue?
+#
+# A non-zero error code is returned for each condition.
+#
+# NB! This should only be called _after_ buildSystem.
+#
+proc ::cphSystem::validateSegresidname {segresidname} {
+    lassign [split $segresidname ":"] segid resid resname
+    if {![info exists segid] || ![info exists resid]
+        || ![info exists resname]} {
+        print "segresidname selections must be of form\
+                 <segid>:<resid>:<resname>!"
+        return -1
     }
+    if {$segresidname ni [cphSystem get segresidnames]} {
+        print "Invalid segresidname $segresidname!"
+        return -2
+    }
+    return 0
 }
 
 # =============================================================================
@@ -153,7 +206,7 @@ proc ::cphSystem::proposeResidueTitration {segresidname} {
     set resname [cphSystem get resname $segresidname]
     set numProtons [expr {lsum([cphSystem get occupancy $segresidname])}]
     while {true} {
-        set state [choice $possibleStates]
+        lassign [choice $possibleStates] state
         set occ [dict get $resDefDict $resname states $state]
         set numProtonsTrial [expr {lsum($occ)}]
         if {$numProtons != $numProtonsTrial} {
@@ -170,11 +223,11 @@ proc ::cphSystem::proposeResidueTitration {segresidname} {
 # Propose a new trial state requiring a proton transfer - i.e. a movement of a
 # proton from residue to another.
 #
-# If both residues in the pair have/do not currently have a proton, then a
-# transfer cannot occur and this returns false.
+# This returns true if no proton transfer or else a negative error code.
 #
 proc ::cphSystem::proposeProtonTransfer {segresidname1 segresidname2} {
     variable ::cphSystem::resDefDict
+
     set numProtons1 [expr {lsum([cphSystem get occupancy $segresidname1])}]
     set possibleStates1 [cphSystem get trialStateList $segresidname1]
     set resname1 [cphSystem get resname $segresidname1]
@@ -185,26 +238,25 @@ proc ::cphSystem::proposeProtonTransfer {segresidname1 segresidname2} {
 
     if {$dn == 0.0} {     
         # No proton transfer is possible.
-        return 0
+        return 1
     } 
     # transfer from 1 to 2
     while {true} {
-        set state1 [choice $possibleStates1]
+        lassign [choice $possibleStates1] state1
         set occ1 [dict get $resDefDict $resname1 states $state1]
         set numProtonsTrial1 [expr {lsum($occ1)}]
-        set state2 [choice $possibleStates2]
+        lassign [choice $possibleStates2] state2
         set occ2 [dict get $resDefDict $resname2 states $state2]
         set numProtonsTrial2 [expr {lsum($occ2)}]
         if {$dn == [expr {$numProtonsTrial2 - $numProtonsTrial1}]} {
             cphSystem set trialState $segresidname1 $state1
             cphSystem set trialState $segresidname2 $state2
-            return 1
+            return 0
         }
     }
     # This is an error and should never happen.
     return -1
 }
-
 
 # ::cphSystem::proposeResidueTautomerization
 #
@@ -239,7 +291,7 @@ proc ::cphSystem::proposeResidueTautomerization {segresidname {maxAttempts 10}} 
     set resname [cphSystem get resname $segresidname]
     set numProtons [expr {lsum([cphSystem get occupancy $segresidname])}]
     while {true} {
-        set state [choice $possibleStates]
+        lassign [choice $possibleStates] state
         set occ [dict get $resDefDict $resname states $state]
         set numProtonsTrial [expr {lsum($occ)}]
         if {$numProtonsTrial == $numProtons} {
@@ -531,26 +583,18 @@ proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
             set segresidname [format "%s:%s" $segresid $resname]
             # Perform aliasing to fix residues with multiple names.
             dict for {realName altNames} $resAliases {
-                if {[lsearch -nocase $altNames $resname] < 0} {
+                if {$resname ni $altNames} {
                     continue
                 }
                 print "aliasing $segresidname to $realName"
                 psfset resname $segid $resid $realName
                 set resname $realName
-                set segresid [format "%s:%s" $segresid $resname]
+                set segresidname [format "%s:%s" $segresid $resname]
             }
-            set resIsDefined 0
-            if {[lsearch -nocase $definedResidues $resname] >= 0} {
-                set resIsDefined 1
-            }
-            set resIsSubtyped 0
-            if {[lsearch -nocase $definedSubResidues $resname] >= 0} {
-                set resIsSubtyped 1
-            }
-            set resIsExcluded 0
-            if {[lsearch -nocase $segresExcls $segresidname] >= 0} {
-                set resIsExcluded 1
-            }
+
+            set resIsDefined [expr {$resname in $definedResidues}]          
+            set resIsSubtyped [expr {$resname in $definedSubResidues}]
+            set resIsExcluded [expr {$segresidname in $segresExcls}]
             # Break here if nothing to do.
             if {(!$resIsDefined && !$resIsSubtyped) || $resIsExcluded} {
                 continue
@@ -562,7 +606,6 @@ proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
             }
 
             if {!$resIsSubtyped} continue
-
             # The conditions for subtyping may still not be met...
             set atoms [segment atoms $segid $resid]
             foreach subresname [dict get $subresDefDict $resname] {
@@ -578,14 +621,14 @@ proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
 
                 set allSubatomsExist 1
                 foreach atom $subatoms {
-                    if {[lsearch -nocase $atoms $atom] < 0} {
+                    if {$atom ni $atoms} {
                         set allSubatomsExist 0
                         break
                     }
                 }
                 set allNotSubatomsDoNotExist 1
-                foreach atom $notsubatoms { 
-                    if {[lsearch -nocase $atoms $atom] >= 0} {
+                foreach atom $notsubatoms {
+                    if {$atom in $atoms} {
                         set allNotSubatomsDoNotExist 0
                         break
                     }
@@ -596,7 +639,6 @@ proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
                     dict set resDict $segresidname resname $subresname
                 }
             }
-
         }
     }
     return $resDict
@@ -654,10 +696,10 @@ proc ::cphSystem::checkResDefs {resDefs} {
             #
             set statePatch [format "%s%s" $resname $state]
             set hybridPatch [format "%sH%s" $resname $state]
-            if {[lsearch -nocase [topology patches] $statePatch] < 0} {
+            if {$statePatch ni [topology patches]} {
                 abort "No patch definition in RTFs for $statePatch!"
             }
-            if {[lsearch -nocase [topology patches] $hybridPatch] < 0} {
+            if {$hybridPatch ni [topology patches]} {
                 abort "No patch definition in RTFs for $hybridPatch!"
             }
         }
@@ -723,7 +765,7 @@ proc ::cphSystem::assignState {segresidname state} {
 proc ::cphSystem::randomizeState {segresidname pH} {
     while {true} {
         set states [cphSystem get stateList $segresidname]
-        cphSystem set state $segresidname [choice $states]
+        cphSystem set state $segresidname [lindex [choice $states] 0]
         cphSystem propose titration $segresidname
         set du [cphSystem compute inherent $pH $segresidname]
         if {[metropolisAcceptance $du]} { 
@@ -786,124 +828,138 @@ proc ::cphSystem::cphSystemGet {attr {segresidname {}} args} {
     if {!$getAll && ![dict exists $resDict $segresidname]} {
         abort "cphSystemGet: Invalid segresidname $segresidname"
     }
-    # System attributes - any selection is invalid.
-    #
-    if {[string match -nocase $attr segresidnames]} {
-        return [dict keys $resDict]
-    } elseif {[string match -nocase $attr numresidues]} {
-        return [dict size $resDict]
-    } elseif {[string match -nocase $attr resdefs]} {
-        return [dict keys $resDefDict]
-    } elseif {[string match -nocase $attr numdefs]} {
-        return [dict size $resDefDict]
-    }
-    # Residue attributes - some of these need to be specially computed.
-    #
-    if {[lsearch -nocase {resname state trialState pKai} $attr] > -1} {
-        if {$getAll} {
-            return [getAllResAttr $attr]
-        } else {
-            return [getResAttr $attr $segresidname]
+
+    return [switch -nocase -- $attr {
+        segresidnames {
+            dict keys $resDict
         }
-    } 
-    if {[lsearch -nocase {dG pKa Tref} $attr] > -1} {
-        if {$getAll} {
-            return [getAllResDefAttr $attr]
-        } else {
-            return [getResDefAttr $attr $segresidname]
+        numresidues {
+            dict size $resDict
         }
-    } 
-    if {[string match -nocase $attr occupancy]} {
-        if {$getAll} {
-            return [getAllOccupancy]
-        } else {
-            return [getOccupancy $segresidname]
+        resdefs {
+            dict keys $resDefDict
         }
-    } 
-    if {[string match -nocase $attr trialOccupancy]} {
-        if {$getAll} {
-            cannotGetAll $attr
-        } else {
-            return [getTrialOccupancy $segresidname]
+        numdefs {
+            dict size $resDefDict
         }
-    } 
-    if {[string match -nocase $attr stateList]} {
-        if {$getAll} {
-            cannotGetAll $attr
-        } else {
-            set resname [getResAttr resname $segresidname]
-            return [dict keys [dict get $resDefDict $resname states]] 
-        }
-    }
-    if {[string match -nocase $attr trialStateList]} {
-        if {$getAll} {
-            cannotGetAll $attr
-        } else {
-            set resname [getResAttr resname $segresidname]
-            set state [getResAttr state $segresidname]
-            set states [dict keys [dict get $resDefDict $resname states]]
-            return [lsearch -all -inline -not -nocase $states $state]
-        }
-    }
-    if {[lsearch -nocase {dGPair pKaPair pKaiPair} $attr] > -1} {
-        if {$getAll} {
-            cannotGetAll $attr
-        } else {
-            if {[lsearch -nocase {dGPair pKaPair} $attr] > -1} {
-                return [getResDefAttr $attr $segresidname]
+        resname -
+        state -
+        trialState -
+        pKai {
+            if {$getAll} {
+                getAllResAttr $attr
             } else {
-                return [getResAttr $attr $segresidname]
+                getResAttr $attr $segresidname
             }
         }
-    }
-    if {[string match -nocase $attr statePatch]} {
-        if {$getAll} {
-            cannotGetAll $attr
-        } else {
-            set resname [getResAttr resname $segresidname]
-            set state [getResAttr state $segresidname]
-            return [format "%s%s" $resname $state]
-        }
-    }
-    if {[string match -nocase $attr hybridPatch]} {
-        if {$getAll} {
-            cannotGetAll $attr
-        } else {
-            set resname [getResAttr resname $segresidname]
-            set trialState [getResAttr trialState $segresidname]
-            return [format "%sH%s" $resname $trialState]
-        }
-    }
-    if {[string match -nocase $attr alchAtomLists]} {
-        if {$getAll} {
-            cannotGetAll $attr
-        } else {
-            return [list [getResDefAttr l0atoms $segresidname]\
-                         [getResDefAttr l1atoms $segresidname]]
-        }
-    }
-    if {[string match -nocase $attr alchBonds]} {
-        if {$getAll} {
-            cannotGetAll $attr
-        } else {
-            lassign $args k
-            set bondEntries [list]
-            foreach l0atom [getResDefAttr l0atoms $segresidname]\
-                    l1atom [getResDefAttr l1atoms $segresidname] {
-                lassign [split $segresidname ":"] segid resid
-                # Note that atomid indices start at one, not zero!
-                set i [expr {[segment atomid $segid $resid $l0atom] - 1}]
-                set j [expr {[segment atomid $segid $resid $l1atom] - 1}]
-                lappend bondEntries [format "bond %d %d %f %f" $i $j $k 0]
+        dG -
+        pKa -
+        Tref {
+            if {$getAll} {
+                getAllResDefAttr $attr
+            } else {
+                getResDefAttr $attr $segresidname
             }
-            return [join $bondEntries "\n"]
         }
-    }
-    abort "cphSystemGet: Invalid attribute $attr"
+        occupancy {
+            if {$getAll} {
+                getAllOccupancy
+            } else {
+                getOccupancy $segresidname
+            }
+        }
+        trialOccupancy {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                getTrialOccupancy $segresidname
+            }
+        }
+        stateList {
+            if {$getAll} {
+                cannotGetAll $attr 
+            } else {
+                set resname [getResAttr resname $segresidname]
+                dict keys [dict get $resDefDict $resname states]
+            }
+        }
+        trialStateList {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                set resname [getResAttr resname $segresidname]
+                set state [getResAttr state $segresidname]
+                set states [dict keys [dict get $resDefDict $resname states]]
+                lsearch -all -inline -not -nocase $states $state
+            }
+        }
+        dGPair -
+        pKaPair {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                getResDefAttr $attr $segresidname
+            }
+        }
+        pKaiPair {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                getResAttr $attr $segresidname
+            }
+        }
+        statePatch {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                set resname [getResAttr resname $segresidname]
+                set state [getResAttr state $segresidname]
+                format "%s%s" $resname $state
+            }
+        }
+        hybridPatch {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                set resname [getResAttr resname $segresidname]
+                set trialState [getResAttr trialState $segresidname]
+                format "%sH%s" $resname $trialState
+            }
+        }
+        alchAtomLists {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                list [getResDefAttr l0atoms $segresidname]\
+                     [getResDefAttr l1atoms $segresidname]
+            }
+        }
+        alchBonds {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                lassign $args k
+                set bondEntries [list]
+                foreach l0atom [getResDefAttr l0atoms $segresidname]\
+                        l1atom [getResDefAttr l1atoms $segresidname] {
+                    lassign [split $segresidname ":"] segid resid
+                    # Note that atomid indices start at one, not zero!
+                    set i [expr {[segment atomid $segid $resid $l0atom] - 1}]
+                    set j [expr {[segment atomid $segid $resid $l1atom] - 1}]
+                    lappend bondEntries [format "bond %d %d %f %f" $i $j $k 0]
+                }
+                join $bondEntries "\n"
+            }
+        }
+        default {
+            abort "cphSystemGet: Invalid attribute $attr"
+        }
+    }]
 }
 
 proc ::cphSystem::cannotGetAll {attr} {
     abort "cphSystemGet: Cannot get all $attr - must select a segresidname"
+    return -1
 }
 
 # ------------------------------
@@ -1023,6 +1079,28 @@ proc ::cphSystem::index2flatindex {i j} {
     return [expr {($I*($I - 1) + 2*$J) / 2}]
 }
 
+# Convenience function for assignment of flat, off-diagonal, upper-triangular
+# matrices using 2d indices. Note that not all index combinations are valid!
+#
+# Example:
+#
+# % set myMatrix [lrepeat 3 0.0]
+# 0.0 0.0 0.0
+# % mset myMatrix 0 1 10.0
+# 10.0 0.0 0.0
+#
+proc ::cphSystem::mset {matrix i j value} {
+    upvar 1 $matrix Matrix
+    lset Matrix [index2flatindex $i $j] $value
+    return $Matrix
+}
+
+# Convenience function - inverse of mset.
+#
+proc ::cphSystem::mindex {matrix i j} {
+    return [lindex $matrix [index2flatindex $i $j]]
+}
+
 # =============================================================================
 # Setter Routines
 # =============================================================================
@@ -1043,29 +1121,39 @@ proc ::cphSystem::index2flatindex {i j} {
 proc ::cphSystem::cphSystemSet {attr segresidname value} {
     variable ::cphSystem::resDict
     variable ::cphSystem::resDefDict
+
     if {![dict exists $resDict $segresidname]} {
         abort "cphSystemSet: Invalid segresidname $segresidname"
     }
-    if {[lsearch -nocase {state trialState} $attr] > -1} {
-        set states [cphSystem get stateList $segresidname]
-        if {[lsearch -nocase $states $value] < 0} {
-            if {[string match -nocase $attr trialState] && ![llength $value]} {
-            
-            } else {
-                abort "Invalid state assignment $value for residue $segresidname"
+
+    return [switch -nocase -- $attr {
+        state -
+        trialState {
+            set states [cphSystem get stateList $segresidname]
+            if {$value ni $states} {
+                if {[string match -nocase $attr trialState]
+                    && ![llength $value]} {
+                } else {
+                    abort "Invalid state assignment $value for residue"\
+                            "$segresidname"
+                }
             }
+            dict set resDict $segresidname $attr $value
+            expr {$value}
         }
-        dict set resDict $segresidname $attr $value
-        return $value
-    }
-    if {[string match $attr pKai]} {
-        set resname [cphSystem get resname $segresidname]
-        set resDef [dict get $resDefDict $resname]
-        set pKaiMatrix [resDef2Matrix $resDef $value]
-        dict set resDict $segresidname pKai $value
-        dict set resDict $segresidname pKaiPair $pKaiMatrix 
-        return $pKaiMatrix
-    }
+        pKai {
+            set resname [cphSystem get resname $segresidname]
+            set resDef [dict get $resDefDict $resname]
+            set pKaiMatrix [resDef2Matrix $resDef $value]
+            dict set resDict $segresidname pKai $value
+            dict set resDict $segresidname pKaiPair $pKaiMatrix
+            expr {$pKaiMatrix}
+        }
+        default {
+            abort "cphSystemSet: Invalid attribute $attr"
+            expr {-1}
+        }
+    }]
 }
 
 # ::cphSystem::resDef2Matrix
@@ -1079,8 +1167,10 @@ proc ::cphSystem::cphSystemSet {attr segresidname value} {
 #
 # Arguments:
 # ----------
-# matrix : list
-#   
+# resDef : dict
+#   The residue definition to be assigned
+# data : list
+#   The _minimial_ attribute data needed to fill in the matrix
 #
 # Returns
 # -------
@@ -1109,7 +1199,7 @@ proc ::cphSystem::resDef2Matrix {resDef data} {
     # full set of states (i.e. the size is computed with maxStates, not
     # numStates). The row/column indices are computed as a left-right binary
     # conversion of the occupancy vector to a scalar (see occupancy2Index).
-    #  Just to make things more complicated, many systems have equivalent
+    #   Just to make things more complicated, many systems have equivalent
     # sites such that many fewer pairwise values are needed. For example, a
     # carboxylate formally has two sites and four states, one of which is
     # neglected. The two sites are also equivalent, so this system has, at max
@@ -1140,169 +1230,246 @@ proc ::cphSystem::resDef2Matrix {resDef data} {
     set maxStates [expr {int(pow(2, $numSites))}]
     set numPairs [expr {int($maxStates*($maxStates - 1) / 2)}]
     # Are any protonation counts missing?
-    set nprotonsExists [lrepeat [expr {$numSites+1}] 0]
+    set protCntExists [lrepeat [expr {$numSites+1}] 0]
     dict for {state occ} $states {
-        set nprotons [expr {lsum($occ)}]
-        for {set i 0} {$i <= $numSites} {incr i} {
-            if {$i == $nprotons} {
-                lset nprotonsExists $i 1
-            }
+        lset protCntExists [expr {int(lsum($occ))}] 1
+    }
+    set missingProtCnts [list]
+    set i 0
+    foreach exists $protCntExists {
+        if {!$exists} {
+            lappend missingProtCnts $i
         }
+        incr i
     }
 
     set Matrix [lrepeat $numPairs 0.0]
-    set numValues [llength $data]
+    set numValues [llength $data] 
     set errorCode 0
-    switch -- $numSites 1 {
-        switch -- $numValues 1 {
-            lset Matrix [index2flatindex 1 0] $data
-        } default {
-            set errorCode -1 
-        }
-    } 2 {
-        switch -- $numStates 3 {
-            if {![lindex $nprotonsExists 0]} {;# state (0,0) is deleted
-                switch -- $numValues 1 {
-                    lassign $data attr32
-                    set attr31 $attr32
-                } 2 {;# Ex. HIS
-                    lassign $data attr32 attr31
-                } default {
+    switch -- $numSites {
+        1 {
+            set errorCode [expr {$numStates == 2 ? $errorCode : -1}]
+            set errorCode [expr {$numValues == 1 ? $errorCode : -1}]
+            lassign $data attr10
+            mset Matrix 1 0 $attr10
+        } ;# END 1 site, 1 state
+        2 {
+            switch -- $numStates {
+                3 {
+                    if {0 in $missingProtCnts} {
+                        # state (0,0) is deleted
+                        switch -- $numValues {
+                            1 { ;# Ex. H2O/H3O+
+                                lassign $data attr32
+                                mset Matrix 3 2 $attr32
+                                mset Matrix 3 1 $attr32
+                            }
+                            2 { ;# Ex. HIS
+                                lassign $data attr32 attr31
+                                mset Matrix 3 2 $attr32
+                                mset Matrix 3 1 $attr31
+                            }
+                            default {
+                                set errorCode -1
+                            }
+                        }
+                        if {$errorCode} break
+
+                        mset Matrix 2 1 [expr {[mindex $Matrix 3 1]\
+                                               - [mindex $Matrix 3 2]}]
+                        # END 2 sites, 3 states, no state 0 
+                    } elseif {2 in $missingProtCnts} {
+                        # state (1,1) is deleted
+                        switch -- $numValues {
+                            1 { ;# Ex. carboxylates (ASP, GLU)
+                                lassign $data attr20
+                                mset Matrix 2 0 $attr20
+                                mset Matrix 1 0 $attr20
+                            }
+                            2 { ;# Ex. asymmetric carboxylate?
+                                lassign $data attr20 attr10
+                                mset Matrix 2 0 $attr20
+                                mset Matrix 1 0 $attr10
+                            }
+                            default {
+                                set errorCode -1
+                            }
+                        }
+                        if {$errorCode} break
+
+                        mset Matrix 2 1 [expr {[mindex $Matrix 2 0]\
+                                               - [mindex $Matrix 1 0]}]
+                        # END 2 sites, 3 states, no state 3
+                    } else {
+                        # Why would state (0,1) or (1,0) be missing?
+                        set errorCode -1
+                    }
+                } ;# END 2 sites, 3 states
+                4 {
+                    switch -- $numValues {
+                        4 {
+                            lassign $data attr32 attr31 attr20 attr10
+                            mset Matrix 3 2 $attr32
+                            mset Matrix 3 1 $attr31
+                            mset Matrix 2 0 $attr20
+                            mset Matrix 1 0 $attr10
+                        }
+                        default {
+                            set errorCode -1
+                        }
+                    }
+                    if {$errorCode} break
+
+                    mset Matrix 3 0 [expr {[mindex $Matrix 3 1]\
+                                           + [mindex $Matrix 1 0]}]
+                    mset Matrix 2 1 [expr {[mindex $Matrix 2 0]\
+                                           - [mindex $Matrix 1 0]}]
+
+                    set alt30 [expr {[mindex $Matrix 3 2]\
+                                     + [mindex $Matrix 2 0]}]
+                    if {[mindex $Matrix 3 0] != $alt30} {
+                        set errorCode -2
+                    }
+                    # END 2 sites, 4 states, no states missing
+                } ;# END 2 sites, 4 states
+                default {
                     set errorCode -1
                 }
-                lset Matrix [index2flatindex 3 2] $attr32
-                lset Matrix [index2flatindex 3 1] $attr31
-                lset Matrix [index2flatindex 2 1] [expr {$attr31 - $attr32}]
-            } elseif {![lindex $nprotonsExists 2]} {;# state (1,1) is deleted
-                switch -- $numValues 1 {;# Ex. carboxylates (ASP, GLU)
-                    lassign $data attr20
-                    set attr10 $attr20
-                } 2 {
-                    lassign $data attr20 attr10
-                } default {
+            }
+        } ;# END 2 sites
+        3 {
+            switch -- $numStates {
+                4 {
+                    if {0 in $missingProtCnts && 1 in $missingProtCnts} {
+                        # state (0,0,0) and 1 proton states missing
+                        switch -- $numValues {
+                            1 { ;# Ex. LYS
+                                lassign $data attr76
+                                mset Matrix 7 6 $attr76
+                                mset Matrix 7 5 $attr76
+                                mset Matrix 7 3 $attr76
+                            }
+                            default {
+                                set errorCode -1
+                            }
+                        }
+                        if {$errorCode} break
+
+                        mset Matrix 6 5 [expr {[mindex $Matrix 7 5]\
+                                               - [mindex $Matrix 7 6]}]
+                        mset Matrix 6 3 [expr {[mindex $Matrix 7 3]\
+                                               - [mindex $Matrix 7 6]}]
+                        mset Matrix 5 3 [expr {[mindex $Matrix 7 3]\
+                                               - [mindex $Matrix 7 5]}]
+
+                        set alt53 [expr {[mindex $Matrix 6 3]\
+                                         - [mindex $Matrix 6 5]}]
+                        set alt63 [expr {[mindex $Matrix 5 3]\
+                                         - [mindex $Matrix 6 5]}]
+                        set alt65 [expr {[mindex $Matrix 6 3]\
+                                         - [mindex $Matrix 5 3]}]
+                        if {[mindex $Matrix 5 3] != $alt53
+                            || [mindex $Matrix 6 3] != $alt63
+                            || [mindex $Matrix 6 5] != $alt65} {
+                            set errorCode -2
+                        }
+                        # END 3 sites, 4 states, no state 0, 1, 2, 4
+                    } elseif {2 in $missingProtCnts && 3 in $missingProtCnts} {
+                        # state (1, 1, 1) and 2 proton states missing
+                        switch -- $numValues {
+                            1 { ;# Ex. phosphate monoesters
+                                lassign $data attr40
+                                mset Matrix 4 0 $attr40
+                                mset Matrix 2 0 $attr40
+                                mset Matrix 1 0 $attr40 
+                            } 
+                            default {
+                                set errorCode -1
+                            }
+                        }
+                        if {$errorCode} break
+                        
+                        mset Matrix 4 2 [expr {[mindex $Matrix 4 0]\
+                                               - [mindex $Matrix 2 0]}]
+                        mset Matrix 4 1 [expr {[mindex $Matrix 4 0]\
+                                               - [mindex $Matrix 1 0]}]
+                        mset Matrix 2 1 [expr {[mindex $Matrix 2 0]\
+                                               - [mindex $Matrix 1 0]}]
+                        # END 3 sites, 4 states, no state 3, 5, 6, 7
+                    } else {
+                        set errorCode -1
+                    }
+                } ;# END 3 sites, 4 states
+                7 {
+                    if {3 in $missingProtCnts} {
+                        # state (1, 1, 1) missing
+                        switch -- $numValues {
+                            2 { ;# Ex. PHOsphate w/o H3PO4
+                                lassign $data attr64 attr40
+                                mset Matrix 6 4 $attr64
+                                mset Matrix 6 2 $attr64
+                                mset Matrix 6 1 $attr64
+                                mset Matrix 5 4 $attr64
+                                mset Matrix 5 2 $attr64
+                                mset Matrix 5 1 $attr64
+                                mset Matrix 3 4 $attr64
+                                mset Matrix 3 2 $attr64
+                                mset Matrix 3 1 $attr64
+
+                                mset Matrix 4 0 $attr40
+                                mset Matrix 2 0 $attr40
+                                mset Matrix 1 0 $attr40
+                            }
+                            default {
+                                set errorCode -1
+                            }
+                        }
+                        if {$errorCode} break
+
+                        mset Matrix 6 0 [expr {[mindex $Matrix 6 4]\
+                                               + [mindex $Matrix 4 0]}]
+                        mset Matrix 5 0 [expr {[mindex $Matrix 5 4]\
+                                               + [mindex $Matrix 4 0]}]
+                        mset Matrix 3 0 [expr {[mindex $Matrix 3 1]\
+                                               + [mindex $Matrix 1 0]}]
+                        mset Matrix 6 5 [expr {[mindex $Matrix 6 4]\
+                                               - [mindex $Matrix 5 4]}]
+                        mset Matrix 6 3 [expr {[mindex $Matrix 6 2]\
+                                               - [mindex $Matrix 3 2]}]
+                        mset Matrix 5 3 [expr {[mindex $Matrix 5 1]\
+                                               - [mindex $Matrix 3 1]}]
+                        mset Matrix 4 2 [expr {[mindex $Matrix 4 0]\
+                                               - [mindex $Matrix 2 0]}]
+                        mset Matrix 4 1 [expr {[mindex $Matrix 4 0]\
+                                               - [mindex $Matrix 1 0]}]
+                        mset Matrix 2 1 [expr {[mindex $Matrix 2 0]\
+                                               - [mindex $Matrix 1 0]}]
+                        # END 3 sites, 7 states, no state 7
+                    } else {
+                        set errorCode -1
+                    }
+                } ;# END 3 sites, 7 states
+                default {
                     set errorCode -1
                 }
-                lset Matrix [index2flatindex 2 1] [expr {$attr20 - $attr10}]
-                lset Matrix [index2flatindex 2 0] $attr20
-                lset Matrix [index2flatindex 1 0] $attr10
-            } else {
-                # Why would state (0,1) or (1,0) be missing?
-                set errorCode -1
             }
-        } 4 {
-            switch -- $numValues 4 {
-                lassign $data attr32 attr31 attr20 attr10
-            } default {
-                set errorCode -1
-            }
-            set attr30 [expr {$attr31 + $attr10}]
-            if {$attr30 != [expr {$attr32 + $attr20}]} {
-                set errorCode -2
-            }
-            lset Matrix [index2flatindex 3 2] $attr32
-            lset Matrix [index2flatindex 3 1] $attr31
-            lset Matrix [index2flatindex 3 0] $attr30
-            lset Matrix [index2flatindex 2 1] [expr {$attr20 - $attr10}]
-            lset Matrix [index2flatindex 2 0] $attr20
-            lset Matrix [index2flatindex 1 0] $attr10
-        } default {
+        } ;# END 3 sites
+        default {
             set errorCode -1
         }
-    } 3 {
-        switch -- $numStates 4 {
-            if {![lindex $nprotonsExists 0] && ![lindex $nprotonsExists 1]} {
-                # state (0,0,0) and 1 proton states missing
-                switch -- $numValues 1 {;# Ex. LYS
-                    lassign $data attr76
-                    set attr75 $attr76
-                    set attr73 $attr76
-                } default {
-                    set errorCode -1
-                }
-                set attr53 [expr {$attr73 - $attr75}]
-                set attr63 [expr {$attr73 - $attr76}]
-                set attr65 [expr {$attr75 - $attr76}]
-                if {$attr53 != [expr {$attr63 - $attr65}]
-                    || $attr63 != [expr {$attr53 - $attr65}]
-                    || $attr65 != [expr {$attr63 - $attr53}]} {
-                    set errorCode -2
-                }
-                lset Matrix [index2flatindex 7 6] $attr76
-                lset Matrix [index2flatindex 7 5] $attr75
-                lset Matrix [index2flatindex 7 3] $attr73
-                lset Matrix [index2flatindex 6 5] $attr65
-                lset Matrix [index2flatindex 6 3] $attr63
-                lset Matrix [index2flatindex 5 3] $attr53
-            } elseif {![lindex $nprotonsExists 2]
-                      && ![lindex $nprotonsExists 3]} {
-                # state (1, 1, 1) and 2 proton states missing
-                switch -- $numValues 1 {;# Ex. phosphate monoesters
-                    lassign $data attr10
-                    set attr20 $attr10
-                    set attr40 $attr10
-                } default {
-                    set errorCode -1
-                }
-                lset Matrix [index2flatindex 1 0] $attr10
-                lset Matrix [index2flatindex 2 0] $attr20
-                lset Matrix [index2flatindex 4 0] $attr40
-            } else {
-                set errorCode -1
-            }
-        } 7 {
-            if {![lindex $nprotonsExists 3]} {
-                switch -- $numValues 2 {;# Ex. PHOsphate w/o H3PO4
-                    lassign $data attr64 attr40
-                    set attr62 $attr64
-                    set attr61 $attr64
-                    set attr54 $attr64
-                    set attr52 $attr64
-                    set attr51 $attr64
-                    set attr34 $attr64
-                    set attr32 $attr64
-                    set attr31 $attr64 
-                    set attr20 $attr40
-                    set attr10 $attr40
+    }
 
-                    set attr60 [expr {$attr64 + $attr40}]
-                    set attr50 [expr {$attr54 + $attr40}]
-                    set attr30 [expr {$attr32 + $attr20}]
-                    # All other pairs are zero
-
-                    lset Matrix [index2flatindex 6 4] $attr64
-                    lset Matrix [index2flatindex 6 2] $attr62
-                    lset Matrix [index2flatindex 6 1] $attr61
-                    lset Matrix [index2flatindex 5 4] $attr54
-                    lset Matrix [index2flatindex 5 2] $attr52
-                    lset Matrix [index2flatindex 5 1] $attr51
-                    lset Matrix [index2flatindex 3 4] $attr34
-                    lset Matrix [index2flatindex 3 2] $attr32
-                    lset Matrix [index2flatindex 3 1] $attr31
-                    lset Matrix [index2flatindex 4 0] $attr40
-                    lset Matrix [index2flatindex 2 0] $attr20
-                    lset Matrix [index2flatindex 1 0] $attr10
-                    lset Matrix [index2flatindex 6 0] $attr60
-                    lset Matrix [index2flatindex 5 0] $attr50
-                    lset Matrix [index2flatindex 3 0] $attr30
-                } default {
-                    set errorCode -1
-                }
-            } else {
-                set errorCode -1
-            }
-        # TODO: Add H3PO4 with 8 states total 
-        } default {
-            set errorCode -1
+    # Catch errors here.
+    switch -- $errorCode {
+        -1 {
+            abort "Bad or unimplemented specification of $numValues values for\
+                    $numSites site residue with $numStates states"
         }
-    } default {
-        set errorCode -1
+        -2 {
+            abort "Error in thermodynamic cycle"
+        }
     }
-    switch -- $errorCode -1 {
-        abort "Bad or unimplemented specification of $numValues values for\
-                $numSites site residue with $numStates states"
-    } -2 {
-        abort "Error in thermodynamic cycle"
-    }
+
     return $Matrix
 }
 

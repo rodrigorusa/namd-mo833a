@@ -6,8 +6,7 @@
 #
 #   If cphSystem and cphTitrator were true objects, this would essentially be
 # an object composition. That is, a cphTitrator "contains" a cphSystem and
-# yields information pertaining to it depending on a context (most often, the
-# pH).
+# yields information pertaining to it depending on a context (e.g. the pH).
 #
 package require Tcl 8.5
 
@@ -16,107 +15,151 @@ source [file join [file dirname [info script]] "numtcl.tcl"]
 source [file join [file dirname [info script]] "namdmcmc.tcl"]
 
 namespace eval ::cphTitrator {
+    #   The core information of the cphTitrator is the moveDict, which stores
+    # all possible neMD/MC moves involving one or more titratable residues. The
+    # keys are of the form:
+    #
+    # segresidname[/segresidname..[/segresidname]]
+    #
+    # in analogy to the keys of ::cphSystem::residueDict. Note that a "/" is
+    # used as a syntactic divider between residues. Only _specific_ move
+    # information is kept in moveDict. Another dict, defaultMoveParams is used
+    # to store default information (similar to ::cphSystem::residueDefDict) and
+    # is used to avoid saving copies of redundant information.
+    #
     namespace import ::cphSystem::*
-    variable pH
-    variable MoveSet [dict create]
-    variable WeightSum 0.0
-    variable maxAttempts 0
+
+    variable moveDict [dict create]
+    variable defaultMoveParams [dict create]
+    variable maxAttempts
 
     namespace export cphSystem
-    # These are defined here
-    namespace export buildTitrator proposeMove getMoveSet\
-           accumulateAcceptanceRate
+    namespace export cphTitrator
 }
 
 # =============================================================================
-# "Constructor" Routines 
+# cphTitrator Interface function
 # =============================================================================
-proc ::cphTitrator::buildTitrator {systempH moveInfo} {
-    variable ::cphTitrator::pH $systempH
-    variable ::cphTitrator::maxAttempts
-    variable ::cphTitrator::MoveSet
-    set maxProposalAttempts [dict get $moveInfo maxProposalAttempts]
-    dict unset moveInfo maxProposalAttempts
-    if {$maxProposalAttempts > 0} {
-        set maxAttempts [expr {int($maxProposalAttempts)}]
-    } else {
-        set maxAttempts [cphSystem get numresidues]
-    }
-    #   The default move set is to switch each residue independently (i.e. the
-    # move label is just the segresidname for that residue). Settings from the
-    # restart and config files are discarded as they get used so that only
-    # unused options remain in the moveInfo dict when this is finished (also
-    # the default options, which must also be discarded.
-    #
-    foreach segresidname [cphSystem get segresidnames] {
-        dict set MoveSet $segresidname proposalCmd\
-                "proposeResidueMove $segresidname"
-        dict set MoveSet $segresidname segresidnameList $segresidname
-        dict set MoveSet $segresidname weight\
-                [dictPopOrDefault moveInfo $segresidname weight]
-        dict set MoveSet $segresidname numsteps\
-                [dictPopOrDefault moveInfo $segresidname numsteps]
-        dict set MoveSet $segresidname successes 0
-        dict set MoveSet $segresidname attempts 0
-        if {[dict exists $moveInfo $segresidname]\
-            && ![dict size [dict get $moveInfo $segresidname]]} {
-            dict unset moveInfo $segresidname
-        }
-    }
-    # Build proton transfer moves
-    foreach moveLabel [dict get $moveInfo ptransfer] {
-        lassign [split $moveLabel "/"] segresidname1 segresidname2
-        dict set MoveSet $moveLabel proposalCmd\
-                "proposeProtonTransferMove $moveLabel" 
-        dict set MoveSet $moveLabel segresidnameList\
-                [list $segresidname1 $segresidname2]
-        dict set MoveSet $moveLabel weight\
-                [dictPopOrDefault moveInfo $moveLabel weight]
-        dict set MoveSet $moveLabel numsteps\
-                [dictPopOrDefault moveInfo $moveLabel numsteps]
-        dict set MoveSet $moveLabel successes 0
-        dict set MoveSet $moveLabel attempts 0
-        if {[dict exists $moveInfo $moveLabel]\
-            && ![dict size [dict get $moveInfo $moveLabel]]} {
-            dict unset moveInfo $moveLabel
-        }
-    }
-    dict unset moveInfo ptransfer
-    ###
-    computeWeightSum
-    return $moveInfo
-}
-
-# This is a kludgy shorthand for using dicts that contain setting values. If
-# the dict contains the move label, then any specific settings for that move
-# are assumed to be stored as a nested dict with that label as key. All values
-# are removed after being returned. If no such label or setting is present,
-# then a default setting is assumed to exist with just the setting as the key.
+# ::cphTitrator::cphTitrator
 #
-proc ::cphTitrator::dictPopOrDefault {settingsDict label setting} {
-    upvar 1 $settingsDict SettingsDict
-    if {[dict exists $SettingsDict $label $setting]} {
-        set value [dict get $SettingsDict $label $setting]
-        dict unset SettingsDict $label $setting
-    } else {
-       set value [dict get $SettingsDict default $setting] 
+# This is the only exported function from the cphTitrator namespace and
+# provides a complete interface. The first argument is always an action (e.g.
+# "get" or "set") and the rest are variable arguments.
+#
+# action           description
+# ---------------- -----------
+# get              see cphTitratorGet 
+# set              see cphTitratorSet
+# build            see buildTitrator
+# propose          select and propose a move, return switch information
+# accumulateStats  accumulate mean acceptance rate for the given move
+#
+# Some notes about Tcl switch statements for non-guru types like myself:
+#
+#   These can appear a bit delicate to those who are not familiar with their
+# quirks (compared to C). For one, badly placed comments can break them. Also
+# note that a switch returns the expression it first matches and does NOT use
+# break statements.
+#
+proc ::cphTitrator::cphTitrator {action args} {
+    return [switch -nocase -- $action {
+        get {
+            cphTitratorGet {*}$args
+        }
+        set {
+            cphTitratorSet {*}$args
+        }
+        build {
+            buildTitrator {*}$args 
+        }
+        propose { ;# sample the move set and return the selected move info.
+            proposeMove {*}$args
+        }
+        accumulateStats { ;# accumulate MC statistics
+            accumulateAcceptanceRate {*}$args
+        }
+        default {
+            abort "Invalid cphTitrator action $action"
+        }
+    }]
+}
+
+# ::cphTitrator::validateMoveLabel
+#
+# Check that a given move label is valid. That is:
+#
+# 1) is it in the correct segresidname[/segresidname ...] format?
+# 2) are the component segresidnames valid?
+#
+# A non-zero error code and msg are returned for each condition. Zero is
+# returned for a valid segresidname.
+#
+# NB! This should only be called _after_ buildSystem.
+#
+proc ::cphTitrator::validateMoveLabel {moveLabel} {
+    set segresidnameList [split $moveLabel "/"]
+    if {![llength $segresidnameList]} {
+        print "Move labels should be of the form segresidname/segresidname ...]"
+        return -1
+    }
+    foreach segresidname $segresidnameList { 
+        if {[cphSystem validate $segresidname]} {
+            print "Bad segresidname $segresidname in move label $moveLabel!"
+            return -2
+        }
+    }
+    return 0
+}
+
+# Pop the value from a dict with the corresponding key. If no key exists,
+# return the the default value instead.
+#
+proc ::cphTitrator::dictPopOrDefault {myDict key {defaultValue {}}} {
+    upvar 1 $myDict MyDict
+    if {[dict exists $MyDict $key]} {
+        set value [dict get $MyDict $key]
+        dict unset MyDict $key
+    }
+    if {![info exists value]} {
+        set value $defaultValue
     }
     return $value
-}
-
-# ::cphTitrator::computeWeightSum
-#
-# Compute, store, and return the sum of weights for the MC move set.
-#
-proc ::cphTitrator::computeWeightSum {} {
-    lassign [getMoveWeightsAndSum] weights tmp
-    set ::cphTitrator::WeightSum [expr {lsum($weights)}]
-    return
 }
 
 # =============================================================================
 # Proposal Routines
 # =============================================================================
+# ::cphTitrator::proposeMove
+#
+# Propose a move from all possible moves in the set. This is done by directly
+# sampling the probability mass function of the weighted moves. Once this is
+# done, test the inherent probability of that move given the imposed pH. If
+# rejected, try again up to the given number of "maxAttempts". Always return
+# the information necessary to perform a switch for the given proposal.
+#
+proc ::cphTitrator::proposeMove {pH} {
+    variable ::cphTitrator::maxAttempts
+    variable ::cphTitrator::moveDict
+    set weights [cphTitrator get weight]
+
+    set accept 0
+    set attemptsThisCycle 0
+    while {!$accept && $attemptsThisCycle < $maxAttempts} {
+        incr attemptsThisCycle
+        # Clear the previous trial if it was rejected.
+        if {$attemptsThisCycle > 1} {
+             cphSystem update $accept $segresidnameList
+        }
+
+        lassign [choice [cphTitrator get moveLabels] $weights] moveLabel
+        set proposalCmd [cphTitrator get proposalCmd $moveLabel]
+        set accept [eval $proposalCmd $pH]
+        set segresidnameList [cphTitrator get segresidnameList $moveLabel]
+    }
+    set numsteps [cphTitrator get numsteps $moveLabel]
+    return [list $accept $numsteps $segresidnameList $attemptsThisCycle]
+}
+
 # ::cphTitrator::proposeResidueMove
 #
 # Propose a move involving a single residue via Metropolized independence
@@ -127,17 +170,12 @@ proc ::cphTitrator::computeWeightSum {} {
 # trivial, it's just the other state. For three or more states, this will
 # naturally prefer tautomerization at extreme pKa values.
 #
-proc ::cphTitrator::proposeResidueMove {segresidname} {
-   variable ::cphTitrator::pH
-   lassign [cphSystem compute inherentWeights $pH $segresidname] weights states 
-   # NB: The remaining weights normalize to pic = (1 - pi), NOT 1.
-   #     If you want to see the weights as probabilities, each weight should
-   #     be divided by pic (this is implicit inside weightedChoice).
-   #
-   set pic [expr {1. - [lindex $weights 0]}]
-   set j [weightedChoice [lrange $weights 1 end] $pic]
-   set pj [lindex $weights [expr {$j+1}]] ;# note the index frame due to lrange
-   set du [expr {log((1. - $pj) / $pic)}]
+proc ::cphTitrator::proposeResidueMove {segresidname pH} {
+   lassign [cphSystem compute inherentWeights $pH $segresidname] weights states
+
+   set pi [lindex $weights 0]
+   lassign [choice [lrange $weights 1 end] [lrange $weights 1 end]] pj j
+   set du [expr {log((1. - $pj) / (1. - $pi))}]
    set accept [metropolisAcceptance $du]
    if {$accept} {
        cphSystem set trialState $segresidname [lindex $states $j]
@@ -145,42 +183,312 @@ proc ::cphTitrator::proposeResidueMove {segresidname} {
    return $accept
 }
 
-proc ::cphTitrator::proposeProtonTransferMove {moveLabel} {
-    variable ::cphTitrator::pH
+# ::cphTitrator::proposeProtonTransferMove
+#
+# Propose a move involving two residues in which a proton is moved from one to
+# the other. Return True if such a move was proposed, accepted, and stored.
+#
+# Note that this automatically fails if no proton can be transferred.
+#
+proc ::cphTitrator::proposeProtonTransferMove {moveLabel pH} {
     lassign [split $moveLabel "/"] segresidname1 segresidname2
-    set errCode\
-        [::cphSystem::proposeProtonTransfer $segresidname1 $segresidname2]
-    if {$errCode > 0} {
+
+    if {[cphSystem propose protonTransfer $segresidname1 $segresidname2]} {
+        set accept 0
+    } else {
         set du1 [cphSystem compute inherent $pH $segresidname1]
         set du2 [cphSystem compute inherent $pH $segresidname2]
         set accept [metropolisAcceptance [expr {$du1 + $du2}]]
-    } else {
-        set accept 0
     }
     return $accept
 }
 
-proc ::cphTitrator::proposeMove {} {
+# =============================================================================
+# "Constructor" Routines 
+# =============================================================================
+# ::cphTitrator::buildTitrator
+#
+# Construct the titrator given a set of MC move information.
+#
+proc ::cphTitrator::buildTitrator {moveInfo} {
+    variable ::cphTitrator::moveDict
+    variable ::cphTitrator::defaultMoveParams
     variable ::cphTitrator::maxAttempts
-    variable ::cphTitrator::MoveSet
-    lassign [getMoveWeightsAndSum] weights weightSum
 
-    set accept 0
-    set nattempts 0
-    while {!$accept && $nattempts < $maxAttempts} {
-        incr nattempts
-        # Clear the previous trial if it was rejected.
-        if {$nattempts > 1} {
-             cphSystem update $accept $segresidnameList
-        }
-        set index [weightedChoice $weights $weightSum]
-        set moveLabel [lindex [dict keys $MoveSet] $index]
-        set proposalCmd [dict get $MoveSet $moveLabel proposalCmd]
-        set accept [eval $proposalCmd]
-        set numsteps [dict get $MoveSet $moveLabel numsteps]
-        set segresidnameList [dict get $MoveSet $moveLabel segresidnameList]
+    # 1) Pop off global and default move parameters.
+    #
+    set maxAttempts [dictPopOrDefault moveInfo maxProposalAttempts 0]
+    if {$maxAttempts <= 0} {
+        # This is a reasonable default for most systems.
+        set maxAttempts [cphSystem get numresidues]
     }
-    return [list $accept $numsteps $segresidnameList $nattempts]
+    set defaultMoveParams [dict merge $defaultMoveParams\
+                                      [dictPopOrDefault moveInfo default]]
+    if {![dict exists $defaultMoveParams default weight]} {
+        cphTitrator set weight default 1.0
+    }
+    if {![dict exists $defaultMoveParams default protonTransfer]} {
+        cphTitrator set protonTransfer default 0
+    }
+
+    # 2) Validate all remaining keys - these better be move labels!
+    #
+    dict for {moveLabel data} $moveInfo {
+        if {[validateMoveLabel $moveLabel]} {
+            abort
+        }
+        dict for {attr value} $data {
+            cphTitrator set $attr $moveLabel $value
+        }
+    }
+    set moveDict [dict merge $moveDict $moveInfo]
+
+    # The default move set is to titrate each residue independently.
+    foreach segresidname [cphSystem get segresidnames] {
+        set moveLabel $segresidname
+        cphTitrator set proposalCmd $moveLabel\
+                "proposeResidueMove $segresidname"
+    }
+    # Build proton transfer moves, if present.
+    dict for {moveLabel data} $moveInfo {
+        if {![dict exists $data protonTransfer]
+            || ![dict get $data protonTransfer]} {
+            continue
+        }
+        if {[llength [split $moveLabel "/"]] != 2} {
+            abort "Proton transfer moves must have exactly 2 segresidnames!"
+        }
+        cphTitrator set proposalCmd $moveLabel\
+                "proposeProtonTransferMove $moveLabel"
+    }
+
+    # Initialize statistics for any moves that are new.
+    dict for {moveLabel data} $moveDict {
+        if {![dict exists $data attempts]} {
+            cphTitrator set successes $moveLabel 0
+            cphTitrator set attempts $moveLabel 0
+        }
+    }
+
+    return
+}
+
+# =============================================================================
+# Getter Routines
+# =============================================================================
+# ::Titrator::cphTitratorGet
+#
+# Getter for move attributes, called as:
+#
+#   <attribute> [<moveLabel>]
+#
+# With some specialized exceptions, <attribute> is either the name of a system
+# attribute (usually a list) or else a move attribute.
+#
+# system attributes  description
+# -----------------  -----------
+# moveLabels         list of all the moveLabels
+# maxAttempts        max # of attempts at move proposals
+#
+# move attributes  description
+# ---------------  -----------
+# numsteps         number of steps in a switch after successful proposal
+# weight           weight for consideration in move selection
+# protonTransfer   if 2 residues are involved, can they proton transfer?
+# successes        the number of successful _switches_ for this move
+# attempts         the number of attempted _switches_ for this move
+# proposalCmd      the command needed to set up trial states
+# segresidnameList list of the residues involved (NB: this is just shorthand
+#                  for [split $moveLabel "/"])
+#
+# specialized calls  description
+# -----------------  -----------
+# nodefaults         Return a dictionary of all current move information, but
+#                    suppress entries where a move has the default value. This
+#                    gives a minimal, but full, description of the move set.
+#
+# For now this is _much_ simpler than the analogous cphSystemGet. In the future
+# it may be useful to generalize this though.
+#
+proc ::cphTitrator::cphTitratorGet {attr {moveLabel {}}} {
+    variable ::cphTitrator::moveDict    
+    variable ::cphTitrator::maxAttempts
+
+    set getAll [expr {![llength $moveLabel]}]
+    if {!$getAll && ![dict exists $moveDict $moveLabel]
+        && ![string match -nocase $moveLabel default]} {
+        abort "cphTitratorGet: Invalid moveLabel $moveLabel"
+    }
+
+    return [switch -nocase -- $attr {
+        moveLabels {
+            dict keys $moveDict
+        }
+        maxAttempts {
+            expr {$maxAttempts}
+        }
+        numsteps -
+        weight -
+        protonTransfer -
+        successes -
+        attempts -
+        proposalCmd {
+            if {$getAll} {
+                getAllMoveAttr $attr 
+            } else {
+                getMoveAttr $attr $moveLabel
+            }
+        }
+        segresidnameList {
+            if {$getAll} {
+                getAllSegresidnameLists
+            } else {
+                split $moveLabel "/"
+            }
+        }
+        nodefaults {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                getMoveNoDefaults $moveLabel
+            }
+        }
+        default {
+            abort "cphTitratorGet: Invalid attribute $attr"
+        }
+    }]
+}
+
+proc ::cphTitrator::cannotGetAll {attr} {
+    abort "cphTitratorGet: Cannot get all $attr - must select a moveLabel"
+    return -1
+}
+
+# ---------------------------
+# Getters for move attributes
+# ---------------------------
+# Return the default value if no specific value was set.
+proc ::cphTitrator::getMoveAttr {attr moveLabel} {
+    variable ::cphTitrator::moveDict
+    variable ::cphTitrator::defaultMoveParams
+
+    if {[dict exists $moveDict $moveLabel $attr]} {
+        return [dict get $moveDict $moveLabel $attr]
+    } elseif {[dict exists $defaultMoveParams $attr]} {
+        return [dict get $defaultMoveParams $attr]
+    }
+    abort "cphTitratorGet: Error getting $attr for move $moveLabel"
+    return -1
+}
+
+proc ::cphTitrator::getAllMoveAttr {attr} {
+    set retList [list]
+    foreach moveLabel [cphTitrator get moveLabels] {
+        lappend retList [cphTitrator get $attr $moveLabel]
+    }
+    return $retList
+}
+
+proc ::cphTitrator::getAllSegresidnameLists {} {
+    set retList [list]
+    foreach moveLabel [cphTitrator get moveLabels] {
+        lappend retList [split $moveLabel "/"]
+    }
+    return $retList
+}
+
+# -----------------------------
+# Special getters for archiving
+# -----------------------------
+# Return the dict for a given move label, but strip out default values.
+proc ::cphTitrator::getMoveNoDefaults {moveLabel} {
+    set defaultNumsteps [cphTitrator get numsteps default]
+    set defaultWeight [cphTitrator get weight default]
+    set defaultPT [cphTitrator get protonTransfer default]
+    set numsteps [cphTitrator get numsteps $moveLabel]
+    set weight [cphTitrator get weight $moveLabel]
+    set PT [cphTitrator get protonTransfer $moveLabel]
+
+    set retDict [dict create]
+    if {$numsteps != $defaultNumsteps} {
+        dict set retDict numsteps $numsteps
+    }
+    if {$weight != $defaultWeight} {
+        dict set retDict weight $weight
+    }
+    if {$PT != $defaultPT} {
+        dict set retDict protonTransfer $PT
+    }
+    dict set retDict attempts [cphTitrator get attempts $moveLabel]
+    dict set retDict successes [cphTitrator get successes $moveLabel]
+
+    return $retDict
+}
+
+# =============================================================================
+# Setter Routines
+# =============================================================================
+# ::cphTitrator::cphTitratorSet
+#
+# Setters for move attributes, called as:
+#
+#  <attribute> <moveLabel> <value>
+#
+# <attribute> is the name of a move attribute.
+#
+# move attributes  description
+# ---------------  -----------
+# numsteps         number of steps in a switch after successful proposal
+# weight           weight for consideration in move selection
+# protonTransfer   if 2 residues are involved, can they proton transfer?
+# successes        the number of successful _switches_ for this move
+# attempts         the number of attempted _switches_ for this move
+# proposalCmd      the command needed to set up trial states
+#
+proc ::cphTitrator::cphTitratorSet {attr moveLabel value} {
+    variable ::cphTitrator::moveDict
+    variable ::cphTitrator::defaultMoveParams
+
+    if {[string match -nocase $moveLabel default]} {
+        set setDefault 1
+    } else {
+        if {[validateMoveLabel $moveLabel]} {
+            abort
+        }
+        set setDefault 0
+    }
+
+    return [switch -nocase -- $attr {
+        numsteps -
+        successes -
+        attempts -
+        protonTransfer { ;# Require integer or boolean argument.
+            set value [expr {int($value)}]
+            if {$setDefault} {
+                dict set defaultMoveParams $attr $value
+            } else {
+                dict set moveDict $moveLabel $attr $value
+            }
+            expr {$value}
+        }
+        weight { ;# Require float argument.
+            set value [expr {1.*$value}]
+            if {$setDefault} {
+                dict set defaultMoveParams $attr $value
+            } else {
+                dict set moveDict $moveLabel $attr $value
+            }
+            expr {$value}
+        }
+        proposalCmd { ;# Argument is string or pure list.
+            dict set moveDict $moveLabel $attr $value
+            expr {$value}
+        }
+        default {
+            abort "cphTitratorSet: Invalid attribute $attr"
+            expr {-1}
+        }
+    }]
 }
 
 # =============================================================================
@@ -191,38 +499,13 @@ proc ::cphTitrator::proposeMove {} {
 # Accumulate statistics for the given move.
 #
 proc ::cphTitrator::accumulateAcceptanceRate {accept moveLabel} {
-    variable ::cphTitrator::MoveSet
-    set moveLabel [join $moveLabel "/"]
     # Alas, dict incr does not support nested keys.
-    set successes [dict get $MoveSet $moveLabel successes]
-    set attempts [dict get $MoveSet $moveLabel attempts]
+    set successes [cphTitrator get successes $moveLabel]
+    set attempts [cphTitrator get attempts $moveLabel]
     incr successes $accept
     incr attempts
-    dict set MoveSet $moveLabel successes $successes
-    dict set MoveSet $moveLabel attempts $attempts 
+    cphTitrator set successes $moveLabel $successes
+    cphTitrator set attempts $moveLabel $attempts
     return
-}
-
-# =============================================================================
-# Titrator Getter Routines
-#
-# These all return a list of values describing each move in the titrator.
-# =============================================================================
-proc ::cphTitrator::getMoveSet {} {
-    return $::cphTitrator::MoveSet
-}
-
-# ::cphTitrator::getMoveWeightsAndSum
-#
-# Return the list of MC move weights along with their (precomputed) sum.
-#
-proc ::cphTitrator::getMoveWeightsAndSum {} {
-    variable ::cphTitrator::MoveSet
-    variable ::cphTitrator::WeightSum
-    set weights [list]
-    dict for {moveLabel data} $MoveSet {
-        lappend weights [dict get $data weight]
-    }
-    return [list $weights $WeightSum]
 }
 
