@@ -139,7 +139,6 @@ proc ::cphTitrator::dictPopOrDefault {myDict key {defaultValue {}}} {
 #
 proc ::cphTitrator::proposeMove {pH} {
     variable ::cphTitrator::maxAttempts
-    variable ::cphTitrator::moveDict
     set weights [cphTitrator get weight]
 
     set accept 0
@@ -237,17 +236,17 @@ proc ::cphTitrator::buildTitrator {moveInfo} {
         if {[validateMoveLabel $moveLabel]} {
             abort
         }
-        dict for {attr value} $data {
-            cphTitrator set $attr $moveLabel $value
-        }
     }
-    set moveDict [dict merge $moveDict $moveInfo]
 
     # The default move set is to titrate each residue independently.
     foreach segresidname [cphSystem get segresidnames] {
         set moveLabel $segresidname
         cphTitrator set proposalCmd $moveLabel\
                 "proposeResidueMove $segresidname"
+        if {![dict exists $moveInfo $moveLabel]} continue
+        dict for {attr value} [dict get $moveInfo $moveLabel] {
+            cphTitrator set $attr $moveLabel $value
+        }
     }
     # Build proton transfer moves, if present.
     dict for {moveLabel data} $moveInfo {
@@ -260,6 +259,10 @@ proc ::cphTitrator::buildTitrator {moveInfo} {
         }
         cphTitrator set proposalCmd $moveLabel\
                 "proposeProtonTransferMove $moveLabel"
+        if {![dict exists $moveInfo $moveLabel]} continue
+        dict for {attr value} [dict get $moveInfo $moveLabel] {
+            cphTitrator set $attr $moveLabel $value
+        }
     }
 
     # Initialize statistics for any moves that are new.
