@@ -25,9 +25,6 @@ namespace eval ::namdcph {
     variable stateInfo [dict create] ;# cphSystem data and defaults
     variable moveInfo [dict create] ;# cphTitrator data and defaults
 
-    variable residueAliases [dict create]
-    dict set residueAliases HIS {HSD HSE HSP}
-
     namespace export *
 }
 
@@ -683,7 +680,6 @@ proc ::namdcph::readConfig {} {
 proc ::namdcph::readRestart {} {
     variable ::namdcph::restartFilename
     variable ::namdcph::SystempH
-    variable ::namdcph::stateInfo
     variable ::namdcph::moveInfo
 
     set RestartFile [open $restartFilename "r"]
@@ -694,38 +690,19 @@ proc ::namdcph::readRestart {} {
         pH [dict get $Restart pH]
     }
 
+    if {[dict exists $Restart exclude]} {
+        cphExcludeResidue {*}[dict get $Restart exclude]
+    }
+
     # Read state parameters, if present. 
     #
+    set stateList {}
     if {[dict exists $Restart states]} {
         set stateList [dict get $Restart states]
     }
+    set pKaiList {}
     if {[dict exists $Restart pKais]} {
         set pKaiList [dict get $Restart pKais]
-    }
-    if {[info exists stateList] && [info exists pKaiList]} {
-        set segresidnameList [cphSystem get segresidnames]
-
-        if {[llength $stateList] != [llength $pKaiList]} {
-            cphAbort "mismatch in states/pKais in $restartFilename"
-        }
-        if {[llength $stateList] != [llength $segresidnameList]} {
-            cphAbort "Too few/many state/pKai definitions in $restartFilename"
-        }
-
-        foreach segresidname $segresidnameList\
-                state $stateList pKai $pKaiList {
-            if {![dict exists $stateInfo $segresidname]} {
-                dict set stateInfo $segresidname state $state
-                dict set stateInfo $segresidname pKai $pKai
-            } else {
-                if {![dict exists $stateInfo $segresidname state]} {
-                    dict set stateInfo $segresidname state $state
-                }
-                if {![dict exists $stateInfo $segresidname pKai]} {
-                    dict set stateInfo $segresidname pKai $pKai
-                }
-            }
-        }
     }
 
     # Read MC move parameters, if present. Only reset those values which have
@@ -754,7 +731,7 @@ proc ::namdcph::readRestart {} {
         }
     }
 
-    return
+    return [list $stateList $pKaiList]
 }
 
 # ::namdcph::writeRestart
@@ -777,6 +754,7 @@ proc ::namdcph::readRestart {} {
 proc ::namdcph::writeRestart {args} { 
     variable ::namdcph::restartFreq
     variable ::namdcph::SystempH
+    variable ::namdcph::excludeList
 
     if {[string match [lindex $args 0] force]} {
         set restartFilename [lindex $args 1]
@@ -794,6 +772,15 @@ proc ::namdcph::writeRestart {args} {
     # this for us with some guarantee of accuracy?
     set cycleStr "\"cycle\":$cycle"
     set pHStr "\"pH\":$SystempH"
+
+    set exclusionStr ""
+    if {[llength $excludeList]} {
+        set exclusionStr "\"exclude\":\["
+        foreach segresidname $excludeList {
+            set exclusionStr "$exclusionStr\"$segresidname\","
+        }
+        set exclusionStr "[string trimright $exclusionStr ","]\]"
+    }
 
     set stateStr "\"states\":\["
     foreach state [cphSystem get state] {
@@ -829,7 +816,7 @@ proc ::namdcph::writeRestart {args} {
     }
     set MCStr "[string trimright $MCStr ","]\}"
 
-    puts $RestartFile "\{$cycleStr,$pHStr,$stateStr,$pKaiStr,$MCStr\}"
+    puts $RestartFile "\{$cycleStr,$pHStr,$exclusionStr,$stateStr,$pKaiStr,$MCStr\}"
     close $RestartFile
     # Always checkpoint the PSF and PDB when a restart is written.
     file copy -force [mdFilename psf] "[outputName].psf"
@@ -936,7 +923,6 @@ proc ::namdcph::initialize {} {
     variable ::namdcph::configFilenames
     variable ::namdcph::stateInfo
     variable ::namdcph::moveInfo
-    variable ::namdcph::residueAliases
     variable ::namdcph::excludeList
     variable ::namdcph::SystempH
 
@@ -952,17 +938,44 @@ proc ::namdcph::initialize {} {
     # rebuild the topology to reflect those states.
     #
     cphPrint "initializing constant pH PSF..."
-    # TODO: integrate aliases into the configfile standard...
     if {![llength configFilenames]} {
         cphAbort "At least one constant pH configuration file is required."
     }
-    cphSystem build [readConfig] $residueAliases $excludeList
 
     if {[string length $restartFilename]} {
-        readRestart
+        lassign [readRestart] stateList pKaiList
         lassign [list 0.0 false] temp buildH
     } else {
         lassign [list [$::thermostatTempCmd] true] temp buildH
+    }
+    cphSystem build [readConfig] $excludeList
+
+    # Now that we've built the system, we can allocate the state and pKa
+    # information from the restart (if present).
+    if {[info exists stateList] && [info exists pKaiList]} {
+        set segresidnameList [cphSystem get segresidnames]
+
+        if {[llength $stateList] != [llength $pKaiList]} {
+            cphAbort "mismatch in states/pKais in $restartFilename"
+        }
+        if {[llength $stateList] != [llength $segresidnameList]} {
+            cphAbort "Too few/many state/pKai definitions in $restartFilename"
+        }
+
+        foreach segresidname $segresidnameList\
+                state $stateList pKai $pKaiList {
+            if {![dict exists $stateInfo $segresidname]} {
+                dict set stateInfo $segresidname state $state
+                dict set stateInfo $segresidname pKai $pKai
+            } else {
+                if {![dict exists $stateInfo $segresidname state]} {
+                    dict set stateInfo $segresidname state $state
+                }
+                if {![dict exists $stateInfo $segresidname pKai]} {
+                    dict set stateInfo $segresidname pKai $pKai
+                }
+            }
+        }
     }
 
     if {![info exists SystempH]} {

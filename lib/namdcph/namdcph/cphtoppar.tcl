@@ -531,7 +531,7 @@ proc ::cphSystem::initializeSystem {pH temperature buildH stateInfo} {
 # Build the residue definitions and residue objects for the system based on 
 # the NAMD inputs.
 #
-proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
+proc ::cphSystem::buildSystem {resDefs excludeList} {
     variable ::cphSystem::resDict
     variable ::cphSystem::resDefDict [checkResDefs $resDefs]
 
@@ -561,6 +561,14 @@ proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
             }
             dict lappend subresDefDict $subtypedRes $subresname
         }
+    }
+
+    # Check for residue aliases (i.e. titratable residues whose states may span
+    # multiple residue definitions, such as HIS).
+    set resAliases [dict create]
+    foreach {resname resDef} $resDefDict {
+        if {![dict exists $resDef aliases]} continue
+        dict set resAliases $resname [dict get $resDef aliases]
     }
 
     # Read in whatever files were specified to NAMD.
@@ -594,53 +602,82 @@ proc ::cphSystem::buildSystem {resDefs resAliases segresExcls} {
 
             set resIsDefined [expr {$resname in $definedResidues}]          
             set resIsSubtyped [expr {$resname in $definedSubResidues}]
-            set resIsExcluded [expr {$segresidname in $segresExcls}]
-            # Break here if nothing to do.
+            set resIsExcluded [expr {$segresidname in $excludeList}]
+            # Break here if nothing to do. Be sure to remove successful
+            # exclusions from the list so that we can identify bad selections
+            # later.
+            if {$resIsExcluded} {
+                set excludeList [lsearch -inline -all -not $excludeList\
+                        $segresidname]
+            }
             if {(!$resIsDefined && !$resIsSubtyped) || $resIsExcluded} {
                 continue
             }
 
-            if {$resIsDefined} { 
+            # Add the residue to the system.
+            if {$resIsDefined} {
                 dict set resDict $segresidname [dict create]
                 dict set resDict $segresidname resname $resname
             }
 
+            # If the residue is subtype-able, check that subresidues exist.
+            # Note that this might be true even if the residue itself is not
+            # titratable.
             if {!$resIsSubtyped} continue
-            # The conditions for subtyping may still not be met...
+
             set atoms [segment atoms $segid $resid]
             foreach subresname [dict get $subresDefDict $resname] {
+                # Atoms that MUST exist.
+                set allSubatomsExist 1
                 set subatoms [list]
                 if {[dict exists $resDefDict $subresname subatoms]} {
                     set subatoms [dict get $resDefDict $subresname subatoms]
                 }
-                set notsubatoms [list]
-                if {[dict exists $resDefDict $subresname notsubatoms]} {
-                    set notsubatoms\
-                            [dict get $resDefDict $subresname notsubatoms]
-                }
-
-                set allSubatomsExist 1
-                foreach atom $subatoms {
+                foreach atom $subatoms { 
                     if {$atom ni $atoms} {
                         set allSubatomsExist 0
                         break
                     }
                 }
+
+                # Atoms that must NOT exist.
                 set allNotSubatomsDoNotExist 1
+                set notsubatoms [list]
+                if {[dict exists $resDefDict $subresname notsubatoms]} {
+                    set notsubatoms\
+                            [dict get $resDefDict $subresname notsubatoms]
+                }
                 foreach atom $notsubatoms {
                     if {$atom in $atoms} {
                         set allNotSubatomsDoNotExist 0
                         break
                     }
                 }
-                if {$allSubatomsExist && $allNotSubatomsDoNotExist} {
-                    set segresidname [format "%s:%s" $segresid $subresname]
-                    dict set resDict $segresidname [dict create]
-                    dict set resDict $segresidname resname $subresname
+
+                # Break here if anything doesn't match. 
+                if {!$allSubatomsExist || !$allNotSubatomsDoNotExist} continue
+
+                set segresidname [format "%s:%s" $segresid $subresname]
+                # After all of that, the residue might be excluded!
+                set resIsExcluded [expr {$segresidname in $excludeList}]
+                if {$resIsExcluded} {
+                    set excludeList [lsearch -inline -all -not $excludeList\
+                            $segresidname]
+                    continue
                 }
+
+                # Add the sub-residue to the system.
+                dict set resDict $segresidname [dict create]
+                dict set resDict $segresidname resname $subresname
             }
         }
     }
+    # This is a bit of a hack way to check that all of the selected exclusions
+    # were valid, but it works.
+    if {[llength $excludeList]} {
+        abort "Cannot exclude non-existant residue(s): $excludeList"
+    }
+
     return $resDict
 }
 
