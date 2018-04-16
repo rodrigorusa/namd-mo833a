@@ -247,28 +247,45 @@ proc json::_json2dict {{txtvar txt}} {
     }
 }
 
-proc json::dict2json {dictVal} {
-    # XXX: Currently this API isn't symmetrical, as to create proper
-    # XXX: JSON text requires type knowledge of the input data
-    set json ""
-
+# Convert a Tcl list to a JSON formatted list (i.e. with some notion of type).
+#
+# If ignoreFmt is true, just caste everything as a string.
+#
+proc json::dict2json {dictVal {ignoreFmt 0}} {
+    set FrmtdDict [list]
     dict for {key val} $dictVal {
-	# key must always be a string, val may be a number, string or
-	# bare word (true|false|null)
-	if {0 && ![string is double -strict $val]
-	    && ![regexp {^(?:true|false|null)$} $val]} {
-	    set val "\"$val\""
-	}
-    	append json "\"$key\": $val," \n
+        if {[expr {![catch {dict size $val}]}]} {
+            lappend FrmtdDict "\"$key\":[dict2json $val $ignoreFmt]"
+        } else {
+            lappend FrmtdDict "\"$key\":[list2json $val $ignoreFmt]"
+        }
     }
-
-    return "\{${json}\}"
+    return "\{[join $FrmtdDict ,]\}"
 }
 
-proc json::list2json {listVal} {
-    return "\[[join $listVal ,]\]"
+# Convert a Tcl list to a JSON formatted list (i.e. with some notion of type).
+#
+# If ignoreFmt is true, just caste everything as a string.
+#
+proc json::list2json {listVal {ignoreFmt 0}} {
+    if {[llength $listVal] > 1} {
+        set FrmtdList [list]
+        foreach value $listVal {
+            lappend FrmtdList [list2json $value $ignoreFmt]
+        }
+        return "\[[join $FrmtdList ,]\]"
+    } else {
+        return [string2json $listVal $ignoreFmt]
+    }
 }
 
-proc json::string2json {str} {
+proc json::string2json {str {ignoreFmt 0}} {
+    if {$ignoreFmt} {
+        return "\"$str\""
+    }
+    if {[string is double -strict $str]} {
+        return $str
+    }
     return "\"$str\""
 }
+

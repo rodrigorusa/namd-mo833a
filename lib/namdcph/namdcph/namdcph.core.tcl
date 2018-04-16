@@ -766,58 +766,43 @@ proc ::namdcph::writeRestart {args} {
             return
         }
     }
-    namdFileBackup $restartFilename
-    set RestartFile [open $restartFilename "w"]
-    # TODO: This is god-awful. Is there not a useable json encoder that can do
-    # this for us with some guarantee of accuracy?
-    set cycleStr "\"cycle\":$cycle"
-    set pHStr "\"pH\":$SystempH"
 
-    set exclusionStr ""
+    # Here we write the restart as a dict in JSON format, however, this is NOT
+    # the same as converting a Tcl dict to JSON, because knowledge of types is
+    # lost in the conversion. The easiest (and maybe faster?) way is to build a
+    # list that contains all of the dict key/value pairs and then emulate the
+    # JSON format with commas and curly braces.
+    #
+    set rstrtList [list]
+    lappend rstrtList "\"cycle\":$cycle"
+    lappend rstrtList "\"pH\":$SystempH"
     if {[llength $excludeList]} {
-        set exclusionStr "\"exclude\":\["
-        foreach segresidname $excludeList {
-            set exclusionStr "$exclusionStr\"$segresidname\","
-        }
-        set exclusionStr "[string trimright $exclusionStr ","]\]"
+        lappend rstrtList "\"exclude\":[json::list2json $excludeList 1]"
     }
+    lappend rstrtList "\"states\":[json::list2json [cphSystem get state] 1]"
+    lappend rstrtList "\"pKais\":[json::list2json [cphSystem get pKai]]"
 
-    set stateStr "\"states\":\["
-    foreach state [cphSystem get state] {
-        set stateStr "$stateStr\"$state\","
-    }
-    set stateStr "[string trimright $stateStr ","]\]"
-
-    set pKaiStr "\"pKais\":\["
-    foreach pKaiList [cphSystem get pKai] {
-        set pKaiStr "$pKaiStr\["
-        foreach pKai $pKaiList {
-            set pKaiStr "$pKaiStr$pKai,"
-        }
-        set pKaiStr "[string trimright $pKaiStr ","]\],"
-    }
-    set pKaiStr "[string trimright $pKaiStr ","]\]"
-
-    set maxAttempts [cphTitrator get maxAttempts]
-    set MCStr "\"MCmoves\":\{\"maxProposalAttempts\":$maxAttempts,"
-
-    set defaultNumsteps [cphTitrator get numsteps default]
-    set defaultWeight [cphTitrator get weight default]
-    set MCStr "$MCStr\"default\":\{\"numsteps\":$defaultNumsteps,\"weight\":$defaultWeight\},"
-
+    set minMCDict [dict create]
+    dict set minMCDict MCmoves maxProposalAttempts\
+            [cphTitrator get maxAttempts]
+    dict set minMCDict MCmoves default numsteps\
+            [cphTitrator get numsteps default]
+    dict set minMCDict MCmoves default weight [cphTitrator get weight default]
     foreach moveLabel [cphTitrator get moveLabels] {
         set thisMoveInfo [cphTitrator get nodefaults $moveLabel]
         if {![dict size $thisMoveInfo]} continue
-        set MCStr "$MCStr\"$moveLabel\":\{"
-        dict for {key value} $thisMoveInfo {
-            set MCStr "$MCStr\"$key\":$value,"
-        }
-        set MCStr "[string trimright $MCStr ","]\},"
+        dict set minMCDict MCmoves $moveLabel $thisMoveInfo
     }
-    set MCStr "[string trimright $MCStr ","]\}"
+    # Note that dict2json returns curly braces on either end which need to be
+    # discarded since we are hacking the format into another dict.
+    lappend rstrtList [string range [json::dict2json $minMCDict] 1 end-1] 
 
-    puts $RestartFile "\{$cycleStr,$pHStr,$exclusionStr,$stateStr,$pKaiStr,$MCStr\}"
+    # Write everything to file.
+    namdFileBackup $restartFilename
+    set RestartFile [open $restartFilename "w"]
+    puts $RestartFile "\{[join $rstrtList ,]\}"
     close $RestartFile
+
     # Always checkpoint the PSF and PDB when a restart is written.
     file copy -force [mdFilename psf] "[outputName].psf"
     file copy -force [mdFilename pdb] "[outputName].pdb"
@@ -897,7 +882,7 @@ proc ::namdcph::cphWarn {msg} {
     print "$::namdcph::TITLE WARNING! $msg"
 }
 
-proc ::namdcph::cphAbort {msg} {
+proc ::namdcph::cphAbort {{msg ""}} {
     abort "$::namdcph::TITLE $msg"
 }
 
