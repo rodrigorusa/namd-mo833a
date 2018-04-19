@@ -88,6 +88,8 @@ protected:
     void reinitVelocities(void);
     void rescaleVelocitiesByFactor(BigReal);
     void tcoupleVelocities(BigReal,int);
+    void stochRescaleVelocities(BigReal,int);
+    int stochRescale_count;
     void berendsenPressure(int);
       int berendsenPressure_count;
       int checkpoint_berendsenPressure_count;

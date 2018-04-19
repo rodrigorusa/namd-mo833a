@@ -562,6 +562,11 @@ public:
 					//  active
 	BigReal tCoupleTemp;		//  Temperature for temp coupling
 
+        Bool stochRescaleOn;            //  Flag TRUE-> stochastic velocity rescaling
+        BigReal stochRescaleTemp;       //  Temperature for stochastic velocity rescaling
+        BigReal stochRescalePeriod;     //  Timescale (ps) for stochastic velocity rescaling
+        int stochRescaleFreq;           //  How frequently stochastic velocity rescaling occurs
+
 	int rescaleFreq;		//  Velocity rescale frequency
 	BigReal rescaleTemp;		//  Temperature to rescale to
 

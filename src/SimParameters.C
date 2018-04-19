@@ -1208,6 +1208,23 @@ void SimParameters::config_parser_methods(ParseOptions &opts) {
      "containing the temperature coupling term B(i);\n"
      "default is 'O'", PARSE_STRING);
 
+   opts.optionalB("main", "stochRescale",
+      "Should stochastic velocity rescaling be performed?",
+      &stochRescaleOn, FALSE);
+   opts.require("stochRescale", "stochRescaleTemp",
+      "Temperature for stochastic velocity rescaling",
+       &stochRescaleTemp);
+   opts.range("stochRescaleTemp", NOT_NEGATIVE);
+   opts.units("stochRescaleTemp", N_KELVIN);
+   opts.require("stochRescale", "stochRescalePeriod",
+      "Time scale for stochastic velocity rescaling (ps)",
+       &stochRescalePeriod);
+   opts.range("stochRescalePeriod", POSITIVE);
+   opts.require("stochRescale", "stochRescaleFreq",
+       "Number of steps between stochastic rescalings",
+        &stochRescaleFreq);
+   opts.range("stochRescaleFreq", POSITIVE);
+
    opts.optional("main", "rescaleFreq", "Number of steps between "
     "velocity rescaling", &rescaleFreq);
    opts.range("rescaleFreq", POSITIVE);

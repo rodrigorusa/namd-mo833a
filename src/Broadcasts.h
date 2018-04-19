@@ -45,6 +45,7 @@ enum {
   positionRescaleFactor2Tag,
   // End multigrator
   tcoupleCoefficientTag,
+  stochRescaleCoefficientTag,
   minimizeCoefficientTag,
   momentumCorrectionTag,
 #if USE_BARRIER
@@ -72,6 +73,7 @@ struct ControllerBroadcasts
   SimpleBroadcastObject<Tensor> positionRescaleFactor2;
   // End multigrator
   SimpleBroadcastObject<BigReal> tcoupleCoefficient;
+  SimpleBroadcastObject<BigReal> stochRescaleCoefficient;
   SimpleBroadcastObject<BigReal> minimizeCoefficient;
   SimpleBroadcastObject<Vector> momentumCorrection;
 #if USE_BARRIER
@@ -80,12 +82,12 @@ struct ControllerBroadcasts
   SimpleBroadcastObject<int> scriptBarrier;
   SimpleBroadcastObject<int> traceBarrier;
   SimpleBroadcastObject<Vector> accelMDRescaleFactor;
-  SimpleBroadcastObject<BigReal> adaptTemperature; 
+  SimpleBroadcastObject<BigReal> adaptTemperature;
 #ifdef MEASURE_NAMD_WITH_PAPI
   SimpleBroadcastObject<int> papiMeasureBarrier;
 #endif
 
-  ControllerBroadcasts(const LDObjHandle *ldObjPtr = 0) : 
+  ControllerBroadcasts(const LDObjHandle *ldObjPtr = 0) :
     velocityRescaleFactor(velocityRescaleFactorTag, ldObjPtr),
     positionRescaleFactor(positionRescaleFactorTag, ldObjPtr),
     // For multigrator
@@ -95,13 +97,14 @@ struct ControllerBroadcasts
     positionRescaleFactor2(positionRescaleFactor2Tag, ldObjPtr),
     // End multigrator
     tcoupleCoefficient(tcoupleCoefficientTag, ldObjPtr),
+    stochRescaleCoefficient(stochRescaleCoefficientTag, ldObjPtr),
     minimizeCoefficient(minimizeCoefficientTag, ldObjPtr),
     momentumCorrection(momentumCorrectionTag, ldObjPtr),
 #if USE_BARRIER
     cycleBarrier(cycleBarrierTag, ldObjPtr),
 #endif
     accelMDRescaleFactor(accelMDRescaleFactorTag, ldObjPtr),
-    adaptTemperature(adaptTemperatureTag, ldObjPtr), 
+    adaptTemperature(adaptTemperatureTag, ldObjPtr),
     scriptBarrier(scriptBarrierTag, ldObjPtr),
 #ifdef MEASURE_NAMD_WITH_PAPI
 	papiMeasureBarrier(papiMeasureTag, ldObjPtr),

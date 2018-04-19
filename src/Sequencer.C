@@ -72,6 +72,7 @@ Sequencer::Sequencer(HomePatch *p) :
     random->split(patch->getPatchID()+1,PatchMap::Object()->numPatches()+1);
 
     rescaleVelocities_numTemps = 0;
+    stochRescale_count = 0;
     berendsenPressure_count = 0;
 //    patch->write_tip4_props();
 }
@@ -346,6 +347,7 @@ void Sequencer::integrate(int scriptTask) {
 
       rescaleVelocities(step);
       tcoupleVelocities(timestep,step);
+      stochRescaleVelocities(timestep,step);
       berendsenPressure(step);
 
       if ( ! commOnly ) {
@@ -1667,6 +1669,30 @@ void Sequencer::tcoupleVelocities(BigReal dt_fs, int step)
     {
       BigReal f1 = exp( coefficient * a[i].langevinParam );
       a[i].velocity *= f1;
+    }
+  }
+}
+
+/*
+* Rescale velocities with the scale factor sent from the corresponding Controller method.
+*/
+void Sequencer::stochRescaleVelocities(BigReal dt_fs, int step)
+{
+  if ( simParams->stochRescaleOn )
+  {
+    FullAtom *a = patch->atom.begin();
+    int numAtoms = patch->numAtoms;
+    ++stochRescale_count;
+    if ( stochRescale_count == simParams->stochRescaleFreq )
+    {
+      // Blocking receive for the temperature coupling coefficient.
+      BigReal coefficient = broadcast->stochRescaleCoefficient.get(step);
+      DebugM(4, "stochastically rescaling velocities at step " << step << " by " << coefficient << "\n");
+      for ( int i = 0; i < numAtoms; ++i )
+      {
+        a[i].velocity *= coefficient;
+      }
+      stochRescale_count = 0;
     }
   }
 }

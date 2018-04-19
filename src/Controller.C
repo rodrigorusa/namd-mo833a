@@ -183,7 +183,13 @@ Controller::Controller(NamdState *s) :
     random = new Random(simParams->randomSeed);
     random->split(0,PatchMap::Object()->numPatches()+1);
 
-    rescaleVelocities_sumTemps = 0;  rescaleVelocities_numTemps = 0;
+    rescaleVelocities_sumTemps = 0;  
+    rescaleVelocities_numTemps = 0;
+    if (simParams->stochRescaleOn) {
+      stochRescale_count = 0;
+      stochRescaleTimefactor =\
+        exp(-simParams->stochRescaleFreq*simParams->dt*0.001/simParams->stochRescalePeriod);
+    }
     berendsenPressure_avg = 0; berendsenPressure_count = 0;
     // strainRate tensor is symmetric to avoid rotation
     langevinPiston_strainRate =
@@ -468,6 +474,7 @@ void Controller::integrate(int scriptTask) {
         adaptTempUpdate(step);
         rescaleVelocities(step);
 	tcoupleVelocities(step);
+        stochRescaleVelocities(step);
 	berendsenPressure(step);
 	langevinPiston1(step);
         rescaleaccelMD(step);
@@ -1315,6 +1322,39 @@ void Controller::tcoupleVelocities(int step)
     BigReal coefficient = 1.;
     if ( temperature > 0. ) coefficient = tCoupleTemp/temperature - 1.;
     broadcast->tcoupleCoefficient.publish(step,coefficient);
+  }
+}
+
+/*
+* Generate random numbers and broadcast the velocity rescaling factor.
+*/
+void Controller::stochRescaleVelocities(int step)
+{
+  if ( simParams->stochRescaleOn )
+  {
+    ++stochRescale_count;
+    if ( stochRescale_count == simParams->stochRescaleFreq )
+    { 
+      const BigReal stochRescaleTemp = simParams->stochRescaleTemp;
+
+      BigReal coefficient = 1.;
+      if ( temperature > 0. ) 
+      {
+        BigReal R1 = random->gaussian();
+        BigReal gammaShape = 0.5*(numDegFreedom - 1);
+        // R2sum is the sum of (numDegFreedom - 1) squared normal variables, which is
+        // chi-squared distributed. This is in turn a special case of the Gamma
+        // distribution, which converges to a normal distribution in the limit of a
+        // large shape parameter.
+        BigReal R2sum = 2*(gammaShape + sqrt(gammaShape)*random->gaussian()) + R1*R1;
+        BigReal tempfactor = stochRescaleTemp/(temperature*numDegFreedom);
+
+        coefficient = sqrt(stochRescaleTimefactor + (1 - stochRescaleTimefactor)*tempfactor*R2sum
+                  + 2*R1*sqrt(tempfactor*(1 - stochRescaleTimefactor)*stochRescaleTimefactor)); 
+      }
+      broadcast->stochRescaleCoefficient.publish(step,coefficient);
+      stochRescale_count = 0;
+    }
   }
 }
 

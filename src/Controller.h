@@ -171,6 +171,9 @@ protected:
       int rescaleVelocities_numTemps;
     void reassignVelocities(int);
     void tcoupleVelocities(int);
+    void stochRescaleVelocities(int);
+    int stochRescale_count; 
+    BigReal stochRescaleTimefactor;
     void berendsenPressure(int);
       // Tensor berendsenPressure_avg;
       // int berendsenPressure_count;
