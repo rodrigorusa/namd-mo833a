@@ -171,9 +171,21 @@ protected:
       int rescaleVelocities_numTemps;
     void reassignVelocities(int);
     void tcoupleVelocities(int);
+
+    /**
+     * The Controller routine for stochastic velocity rescaling uses
+     * the most recent temperature reduction to calculate the velocity
+     * rescaling coefficient that is then broadcast to all patches.
+     */
     void stochRescaleVelocities(int);
-    int stochRescale_count; 
+
+    int stochRescale_count;
+    /**< Count time steps until next stochastic velocity rescaling. */ 
+
     BigReal stochRescaleTimefactor;
+    /**< The timefactor for stochastic velocity rescaling depends on
+     * fixed configuration parameters, so can be precomputed. */
+
     void berendsenPressure(int);
       // Tensor berendsenPressure_avg;
       // int berendsenPressure_count;

@@ -185,10 +185,10 @@ Controller::Controller(NamdState *s) :
 
     rescaleVelocities_sumTemps = 0;  
     rescaleVelocities_numTemps = 0;
+    stochRescale_count = 0;
     if (simParams->stochRescaleOn) {
-      stochRescale_count = 0;
-      stochRescaleTimefactor =\
-        exp(-simParams->stochRescaleFreq*simParams->dt*0.001/simParams->stochRescalePeriod);
+      stochRescaleTimefactor = exp(-simParams->stochRescaleFreq *
+          simParams->dt * 0.001 / simParams->stochRescalePeriod);
     }
     berendsenPressure_avg = 0; berendsenPressure_count = 0;
     // strainRate tensor is symmetric to avoid rotation

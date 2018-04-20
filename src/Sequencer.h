@@ -88,8 +88,17 @@ protected:
     void reinitVelocities(void);
     void rescaleVelocitiesByFactor(BigReal);
     void tcoupleVelocities(BigReal,int);
+
+    /**
+     * When doing stochastic velocity rescaling, every stochRescaleFreq
+     * steps we receive the globally computed rescaling coefficient and 
+     * apply it to the velocities of all the atoms in our patch.
+     */
     void stochRescaleVelocities(BigReal,int);
+
     int stochRescale_count;
+    /**< Count time steps until next stochastic velocity rescaling. */
+
     void berendsenPressure(int);
       int berendsenPressure_count;
       int checkpoint_berendsenPressure_count;
