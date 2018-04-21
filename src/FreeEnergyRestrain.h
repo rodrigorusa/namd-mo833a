@@ -92,7 +92,7 @@ public:
 protected:
   double  GetAngle(AVector& A, AVector& B, AVector& C);
   double  GetDihe(AVector& A, AVector& B, AVector& C, AVector& D);
-  void    EarlyExit(char* Str, int AtomID);
+  void    EarlyExit(const char* Str, int AtomID);
 };
 
 

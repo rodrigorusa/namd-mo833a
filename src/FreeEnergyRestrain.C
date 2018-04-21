@@ -61,17 +61,13 @@ ARestraint::~ARestraint() {
 }
 
 
-void ARestraint::EarlyExit(char* Str, int AtomID) {
+void ARestraint::EarlyExit(const char* Str, int AtomID) {
 //-----------------------------------------------------------------
 // unrecoverable error
 //-----------------------------------------------------------------
-  char  NumStr[40];
-
   iout << "FreeEnergy: " << std::endl << endi;
-  sprintf(NumStr, "%d", AtomID);
-  strcat(Str, " for AtomID: ");
-  strcat(Str, NumStr);
   iout << "FreeEnergy: " << Str;
+  iout << " for AtomID: " << AtomID;
   iout << std::endl << endi;
   NAMD_die("FreeEnergy: Fatal Error with Fixed or Forcing Restraints");
 }
