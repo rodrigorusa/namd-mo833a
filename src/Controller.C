@@ -1325,9 +1325,17 @@ void Controller::tcoupleVelocities(int step)
   }
 }
 
-/*
-* Generate random numbers and broadcast the velocity rescaling factor.
-*/
+/** Generate and broadcast the scale factor for stochastic velocity rescaling.
+ *
+ *  Stochastic velocity rescaling couples the system to a heat bath by globally
+ *  scaling the velocites by a single factor. This factor is chosen based on
+ *  the instantaneous and bath temperatures, a user-defined time scale, and a
+ *  stochastic component linked to the number of degrees of freedom in the
+ *  system. All of this information is combined here and sent to the Sequencer
+ *  for the actual rescaling.
+ *  
+ *  \param step the current timestep
+ */
 void Controller::stochRescaleVelocities(int step)
 {
   if ( simParams->stochRescaleOn )
@@ -1341,12 +1349,13 @@ void Controller::stochRescaleVelocities(int step)
       if ( temperature > 0. ) 
       {
         BigReal R1 = random->gaussian();
-        BigReal gammaShape = 0.5*(numDegFreedom - 1);
+        // BigReal gammaShape = 0.5*(numDegFreedom - 1);
         // R2sum is the sum of (numDegFreedom - 1) squared normal variables, which is
         // chi-squared distributed. This is in turn a special case of the Gamma
         // distribution, which converges to a normal distribution in the limit of a
         // large shape parameter.
-        BigReal R2sum = 2*(gammaShape + sqrt(gammaShape)*random->gaussian()) + R1*R1;
+        // BigReal R2sum = 2*(gammaShape + sqrt(gammaShape)*random->gaussian()) + R1*R1;
+        BigReal R2sum = random->sum_of_squared_gaussians(numDegFreedom-1);
         BigReal tempfactor = stochRescaleTemp/(temperature*numDegFreedom);
 
         coefficient = sqrt(stochRescaleTimefactor + (1 - stochRescaleTimefactor)*tempfactor*R2sum

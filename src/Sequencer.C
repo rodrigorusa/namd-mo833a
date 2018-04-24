@@ -1673,9 +1673,11 @@ void Sequencer::tcoupleVelocities(BigReal dt_fs, int step)
   }
 }
 
-/*
-* Rescale velocities with the scale factor sent from the corresponding Controller method.
-*/
+/** Rescale velocities with the scale factor sent from the Controller.
+ *
+ *  \param dt_fs The integration increment, in fs (not currently used)
+ *  \param step The current timestep
+ */
 void Sequencer::stochRescaleVelocities(BigReal dt_fs, int step)
 {
   if ( simParams->stochRescaleOn )

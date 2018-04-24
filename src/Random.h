@@ -135,6 +135,75 @@ public:
     }
   }
 
+ /** \brief Return the sum of i.i.d. squared Gaussians.
+  *
+  *  The sum of k squared standard normal random variables is equivalent to
+  *  drawing a value from a chi-squared distribution with the shape given as
+  *  the number of Gaussians. That is,
+  *
+  *  X ~ sum_n=1^k N(0, 1)^2 ~ chi^2(k).
+  *
+  *  This is in turn a special case of the Gamma distribution with shape k/2
+  *  and scale 2 (we could also use rate = 1/scale)
+  *
+  *  X ~ chi^2(k) ~ Gamma(k/2, 2) ~ 2*Gamma(k/2, 1).
+  *
+  *  The second relation follows from the scaling property of the Gamma
+  *  distribution. Furthermore, when a Gamma distribution has unit scale and a
+  *  large shape, it can be well-approximated by a normal distribution with
+  *  mean and variance equal to the shape. Thus,
+  *
+  *  X ~ 2*Gamma(k/2, 1) ~= 2*N(k/2, sqrt(k/2)).
+  *
+  *  A quick numerical test shows that the mean integrated square error for
+  *  this approximation is <10^-5 for shape >30 and <10^-6 for shape >100.
+  *  We'll be conservative and use the latter cutoff.
+  *
+  *  We thus have three cases for k Gaussians:
+  *
+  *   0 < k <=   2 - just brute force generate and sum the Gaussians
+  *   2 < k <= 200 - use a (slightly modified) version of the Gamma
+  *                  distribution algorithm from Marsaglia and Tsang that is
+  *                  implemented in the GNU Science Library (GSL)
+  *   else         - use a single Gaussian distribution
+  *
+  *   The brute force method is almost certainly the slowest method, even for
+  *   k = 3. The rigorous method takes about 150% as long as the approximate
+  *   method (but this is invariant to the value of k).
+  *
+  *  \param num_gaussians A positive integer number of Gaussians
+  *  \return a random variable equal to the sum of num_gaussians squared
+  *    standard normal variables
+  */
+  BigReal sum_of_squared_gaussians(int num_gaussians) {
+    BigReal z, u, v;
+
+    if (num_gaussians <= 2) {
+        v = 0.0;
+        for(int i=0; i<num_gaussians; ++i) {
+          z = gaussian();
+          v += z*z;
+        }
+        return v;
+    } else if (2 < num_gaussians && num_gaussians <= 200) {
+      const BigReal d = 0.5*num_gaussians - 1./3;
+      const BigReal c = 1. / (3*sqrt(d));
+      const BigReal zmin = -1. / c;
+      do {
+        do {
+          z = gaussian();
+        }
+        while(z <= zmin);
+        u = uniform();
+        v = (1 + c*z); v = v*v*v; // v = (1 + c*z)^3
+      }
+      while(log(u) >= (0.5*z*z + d*(1 - v + log(v))));
+      return 2*d*v;
+    } else {
+      return num_gaussians + sqrt(2*num_gaussians)*gaussian();
+    }
+  }
+
   // return a vector of gaussian random numbers
   Vector gaussian_vector(void) {
     return Vector( gaussian(), gaussian(), gaussian() );

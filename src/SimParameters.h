@@ -575,7 +575,8 @@ public:
   BigReal stochRescalePeriod;
   /**< Timescale (ps) for stochastic velocity rescaling. */
 
-        int stochRescaleFreq;           //  How frequently stochastic velocity rescaling occurs
+  int stochRescaleFreq;
+  /**< How frequently (time steps) stochastic velocity rescaling occurs. */
 
 	int rescaleFreq;		//  Velocity rescale frequency
 	BigReal rescaleTemp;		//  Temperature to rescale to
