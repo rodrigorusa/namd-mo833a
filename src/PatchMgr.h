@@ -153,9 +153,6 @@ public:
   
   void createHomePatch(PatchID pid, FullAtomList &a);
 
-  //atomCnt is the number of atoms patch pid has
-  void preCreateHomePatch(PatchID pid, int atomCnt);
-
   void movePatch(PatchID, NodeID);
   void sendMovePatches();
   void recvMovePatches(MovePatchesMsg *msg);

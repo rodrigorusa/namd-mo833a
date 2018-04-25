@@ -71,12 +71,6 @@ PatchMgr::~PatchMgr()
     delete [] combineMigrationMsgs;
 }
 
-void PatchMgr::preCreateHomePatch(PatchID pid, int atomCnt){
-    HomePatch *patch = new HomePatch(pid, atomCnt);
-    homePatches.load(HomePatchElem(pid, patch));
-    patchMap->registerPatch(pid, patch);
-}
-
 void PatchMgr::createHomePatch(PatchID pid, FullAtomList &a) 
 {
     HomePatch *patch = new HomePatch(pid, a);

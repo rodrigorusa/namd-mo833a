@@ -91,12 +91,8 @@ class HomePatch : public Patch {
   friend class ComputeGlobal;
 
 private: 
-
-  HomePatch(PatchID, int atomCnt);
   // for PatchMgr to use only
   HomePatch(PatchID, FullAtomList&);
-
-//  HomePatch(PatchID, int atomCnt);
 
   void reinitAtoms(FullAtomList&);
   ScaledPosition min, max, center;
