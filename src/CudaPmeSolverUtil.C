@@ -48,8 +48,6 @@ void CudaFFTCompute::plan3D(int *n, int flags) {
   backwardType = CUFFT_C2R;
   cufftCheck(cufftPlan3d(&forwardPlan, n[2], n[1], n[0], CUFFT_R2C));
   cufftCheck(cufftPlan3d(&backwardPlan, n[2], n[1], n[0], CUFFT_C2R));
-  cufftCheck(cufftSetCompatibilityMode(forwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
-  cufftCheck(cufftSetCompatibilityMode(backwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
   setStream();
   // plantype = 3;
 }
@@ -61,8 +59,6 @@ void CudaFFTCompute::plan2D(int *n, int howmany, int flags) {
   int nt[2] = {n[1], n[0]};
   cufftCheck(cufftPlanMany(&forwardPlan, 2, nt, NULL, 1, 0, NULL, 1, 0, CUFFT_R2C, howmany));
   cufftCheck(cufftPlanMany(&backwardPlan, 2, nt, NULL, 1, 0, NULL, 1, 0, CUFFT_C2R, howmany));
-  cufftCheck(cufftSetCompatibilityMode(forwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
-  cufftCheck(cufftSetCompatibilityMode(backwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
   setStream();
   // plantype = 2;
 }
@@ -73,8 +69,6 @@ void CudaFFTCompute::plan1DX(int *n, int howmany, int flags) {
   backwardType = CUFFT_C2R;
   cufftCheck(cufftPlanMany(&forwardPlan, 1, n, NULL, 0, 0, NULL, 0, 0, CUFFT_R2C, howmany));
   cufftCheck(cufftPlanMany(&backwardPlan, 1, n, NULL, 0, 0, NULL, 0, 0, CUFFT_C2R, howmany));
-  cufftCheck(cufftSetCompatibilityMode(forwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
-  cufftCheck(cufftSetCompatibilityMode(backwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
   setStream();
   // plantype = 1;
 }
@@ -85,8 +79,6 @@ void CudaFFTCompute::plan1DY(int *n, int howmany, int flags) {
   backwardType = CUFFT_C2C;
   cufftCheck(cufftPlanMany(&forwardPlan, 1, n, NULL, 0, 0, NULL, 0, 0, CUFFT_C2C, howmany));
   cufftCheck(cufftPlanMany(&backwardPlan, 1, n, NULL, 0, 0, NULL, 0, 0, CUFFT_C2C, howmany));
-  cufftCheck(cufftSetCompatibilityMode(forwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
-  cufftCheck(cufftSetCompatibilityMode(backwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
   setStream();
   // plantype = 1;
 }
@@ -97,8 +89,6 @@ void CudaFFTCompute::plan1DZ(int *n, int howmany, int flags) {
   backwardType = CUFFT_C2C;
   cufftCheck(cufftPlanMany(&forwardPlan, 1, n, NULL, 0, 0, NULL, 0, 0, CUFFT_C2C, howmany));
   cufftCheck(cufftPlanMany(&backwardPlan, 1, n, NULL, 0, 0, NULL, 0, 0, CUFFT_C2C, howmany));
-  cufftCheck(cufftSetCompatibilityMode(forwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
-  cufftCheck(cufftSetCompatibilityMode(backwardPlan, CUFFT_COMPATIBILITY_FFTW_PADDING));
   setStream();
   // plantype = 1;
 }
