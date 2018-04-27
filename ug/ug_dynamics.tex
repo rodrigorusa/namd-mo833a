@@ -565,6 +565,73 @@ A value of $0$ indicates that the atom will remain unaffected.}
 
 \end{itemize}
 
+\subsubsection{Stochastic velocity rescaling parameters}
+
+The stochastic velocity rescaling method originated by
+  \mycite{Bussi, et al}{Bussi_JChemPhys_2007_v126_p014101} can be viewed as an
+  extension (and correction) of the Berendsen method.
+The implementation in \NAMD\ is based on that from GROMACS, with some slight
+  performance modifications during random number generation.
+
+\begin{itemize}
+
+\item
+\NAMDCONFWDEF{stochRescale}{perform stochastic rescaling?}
+{{\tt on} or {\tt off}}
+{{\tt off}}
+{
+Specifies whether or not stochastic rescaling is active.
+If set to {\tt on}, then the parameters {\tt stochRescaleTemp} and
+  {\tt stochRescalePeriod} must be set.
+}
+
+\item
+\NAMDCONF{stochRescaleTemp}
+{temperature for heat bath (K)}
+{positive decimal}
+{
+Temperature to which all atoms will be periodically readjusted toward.
+This temperature will be correctly maintained (in the canonical sense) over all
+  atoms by rescaling the velocities with both deterministic (using the 
+  instantaneous temperature) and stochastic components.
+}
+
+\item
+\NAMDCONF{stochRescalePeriod}
+{time parameter (ps) for temperature coupling}
+{positive decimal}
+{
+The stochastic rescaling algorithm holds for an arbitrary time parameter
+  introduced when solving the Fokker-Planck equation.
+For systems predominantly composed of liquid water a value near 2~ps is
+  appropriate and values between 0.5 and 2~ps are common in the literature for
+  simulations of biomolecules.
+Larger values will generally result in weaker coupling and thus more NVE-like
+  dynamics, but may also lead to slow (i.e.~incorrect) convergence to the
+  correct ensemble.
+}
+
+\item
+\NAMDCONFWDEF{stochRescaleFreq}
+{number of timesteps between rescalings}
+{positive integer}
+{\tt{stepsPerCycle}}
+{
+The stochastic rescaling algorithm is invoked at fixed intervals.
+The effective time parameter is technically the ratio
+  {\tt stochRescaleFreq}/{\tt stochRescalePeriod} (after converting into proper
+  units using the value of {\tt timestep}).
+The default should be adequate for most applications, but a smaller value
+  closer to the frequency at which the nonbonded list is rebuilt would also be
+  appropriate.
+When using multiple time stepping, it is important that rescaling
+  occurs at timesteps that are integer multiples of the slowest interaction
+  type (usually {\tt fullElectFrequency}).
+}
+
+\end{itemize}
+
+
 \subsubsection{Temperature rescaling parameters}
 
 \NAMD\ allows equilibration of a system by means of temperature 
