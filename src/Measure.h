@@ -12,7 +12,6 @@
 #define MEASURE_H
 
 #ifdef NAMD_TCL
-#define USE_COMPAT_CONST
 #include <tcl.h>
 
 class Measure {
@@ -20,7 +19,7 @@ public:
   static void createCommands(Tcl_Interp *);
   static void deleteCommands(Tcl_Interp *);
 private:
-  static int wrapCommand(ClientData, Tcl_Interp*, int, char**);
+  static int wrapCommand(ClientData, Tcl_Interp*, int, const char**);
 };
 
 #endif

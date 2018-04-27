@@ -8,7 +8,6 @@
 #define COMPUTETCLBC_H
 
 #ifdef NAMD_TCL
-#define USE_COMPAT_CONST
 #include <tcl.h>
 #endif
 
@@ -47,8 +46,8 @@ private:
 
 #ifdef NAMD_TCL
   Tcl_Interp *interp;
-  static int Tcl_print(ClientData, Tcl_Interp *, int, char **);
-  static int Tcl_wrapmode(ClientData, Tcl_Interp *, int, char **);
+  static int Tcl_print(ClientData, Tcl_Interp *, int, const char **);
+  static int Tcl_wrapmode(ClientData, Tcl_Interp *, int, const char **);
   static int Tcl_cleardrops(ClientData, Tcl_Interp *, int, Tcl_Obj * const []);
   static int Tcl_dropatom(ClientData, Tcl_Interp *, int, Tcl_Obj * const []);
   static int Tcl_nextatom(ClientData, Tcl_Interp *, int, Tcl_Obj * const []);

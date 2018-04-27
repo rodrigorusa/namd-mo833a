@@ -14,5 +14,18 @@ class Pointer {
   }
 };
 
+class ConstPointer {
+  public:
+
+  const void *data;
+
+  ConstPointer() { }
+  ConstPointer(const void *_data): data(_data) { }
+
+  void pup(PUP::er &p) {
+    pup_bytes(&p,&data,sizeof(data));
+  }
+};
+
 #endif
 

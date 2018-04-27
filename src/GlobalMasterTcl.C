@@ -15,7 +15,6 @@
 #include "GlobalMasterTcl.h"
 
 #ifdef NAMD_TCL
-#define USE_COMPAT_CONST
 #include <tcl.h>
 #endif
 
@@ -26,7 +25,7 @@
 
 #ifdef NAMD_TCL
 int GlobalMasterTcl::Tcl_print(ClientData,
-	Tcl_Interp *, int argc, char *argv[]) {
+	Tcl_Interp *, int argc, const char *argv[]) {
   int arglen = 1;  int ai;
   for (ai=1; ai<argc; ++ai) { arglen += strlen(argv[ai]) + 1; }
   char *buf = new char[arglen];  *buf = 0;
@@ -39,17 +38,17 @@ int GlobalMasterTcl::Tcl_print(ClientData,
 
 
 int GlobalMasterTcl::Tcl_atomid(ClientData clientData,
-	Tcl_Interp *interp, int argc, char *argv[]) {
+	Tcl_Interp *interp, int argc, const char *argv[]) {
   if (argc != 4) {
     Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
-  char *segid = argv[1];
+  const char *segid = argv[1];
   int resid;
   if (Tcl_GetInt(interp,argv[2],&resid) != TCL_OK) {
     return TCL_ERROR;
   }
-  char *aname = argv[3];
+  const char *aname = argv[3];
 
   Molecule *mol = (Molecule *)clientData;
   int atomid = mol->get_atom_from_name(segid,resid,aname);
@@ -68,7 +67,7 @@ int GlobalMasterTcl::Tcl_atomid(ClientData clientData,
 
 
 int GlobalMasterTcl::Tcl_addatom(ClientData clientData,
-	Tcl_Interp *interp, int argc, char *argv[]) {
+	Tcl_Interp *interp, int argc, const char *argv[]) {
   DebugM(2,"Tcl_addatom called\n");
   if (argc != 2) {
     Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
@@ -94,7 +93,7 @@ int GlobalMasterTcl::Tcl_addatom(ClientData clientData,
 
 
 int GlobalMasterTcl::Tcl_addgroup(ClientData clientData,
-	Tcl_Interp *interp, int argc, char *argv[]) {
+	Tcl_Interp *interp, int argc, const char *argv[]) {
   DebugM(2,"Tcl_addgroup called\n");
   if (argc != 2) {
     Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
@@ -109,7 +108,7 @@ int GlobalMasterTcl::Tcl_addgroup(ClientData clientData,
   group_list.resize(gcount);
 
   /* get the list of atoms that go in the group */
-  int listc, i;  char **listv;
+  int listc, i;  const char **listv;
   if (Tcl_SplitList(interp,argv[1],&listc,&listv) != TCL_OK) {
     return TCL_ERROR;
   }
@@ -144,7 +143,7 @@ int GlobalMasterTcl::Tcl_addgroup(ClientData clientData,
 
 /* this function is useless - it reconfigures whenever you add atoms! */
 int GlobalMasterTcl::Tcl_reconfig(ClientData clientData,
-	Tcl_Interp *interp, int argc, char **) {
+	Tcl_Interp *interp, int argc, const char **) {
   DebugM(2,"Tcl_reconfig called\n");
   if (argc != 1) {
     Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
@@ -157,7 +156,7 @@ int GlobalMasterTcl::Tcl_reconfig(ClientData clientData,
 }
 
 int GlobalMasterTcl::Tcl_clearconfig(ClientData clientData,
-	Tcl_Interp *interp, int argc, char **) {
+	Tcl_Interp *interp, int argc, const char **) {
   DebugM(2,"Tcl_reconfig called\n");
   if (argc != 1) {
     Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
@@ -170,7 +169,7 @@ int GlobalMasterTcl::Tcl_clearconfig(ClientData clientData,
 }
 
 int GlobalMasterTcl::Tcl_getstep(ClientData clientData,
-	Tcl_Interp *interp, int argc, char **) {
+	Tcl_Interp *interp, int argc, const char **) {
   DebugM(2,"Tcl_reconfig called\n");
   if (argc != 1) {
     Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
@@ -502,7 +501,7 @@ int GlobalMasterTcl::Tcl_addforce(ClientData clientData,
 
 
 int GlobalMasterTcl::Tcl_addenergy(ClientData clientData,
-	Tcl_Interp *interp, int argc, char *argv[])
+	Tcl_Interp *interp, int argc, const char *argv[])
 {
   double energy;
   

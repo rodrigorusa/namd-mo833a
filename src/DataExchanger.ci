@@ -11,9 +11,9 @@ module DataExchanger {
     entry void recv_red();
     entry void recv_bcast();
 
-    entry void send(Pointer srcPointer, int srcSize, int dstPart, int dst) {
+    entry void send(ConstPointer srcPointer, int srcSize, int dstPart, int dst) {
       serial {
-        packSend(dst,dstPart,(char*)srcPointer.data,srcSize,recv_data_idx);
+        packSend(dst,dstPart,(const char*)srcPointer.data,srcSize,recv_data_idx);
       }
       when recv_ack() serial { 
         CpvAccess(breakScheduler) = 1;
@@ -37,9 +37,9 @@ module DataExchanger {
       }
     };
 
-    entry void sendRecv(Pointer srcPointer, int srcSize, int dstPart, int dst, Pointer recvPointer, int srcPart, int src) {
+    entry void sendRecv(ConstPointer srcPointer, int srcSize, int dstPart, int dst, Pointer recvPointer, int srcPart, int src) {
       serial {
-        packSend(dst,dstPart,(char*)srcPointer.data,srcSize,recv_data_idx);
+        packSend(dst,dstPart,(const char*)srcPointer.data,srcSize,recv_data_idx);
         loop = 1;
       }
       while(loop) {
@@ -59,9 +59,9 @@ module DataExchanger {
       }
     };
 
-    entry void eval(Pointer srcPointer, int srcSize, int dstPart, int dst, Pointer recvPointer) {
+    entry void eval(ConstPointer srcPointer, int srcSize, int dstPart, int dst, Pointer recvPointer) {
       serial {
-        packSend(dst,dstPart,(char*)srcPointer.data,srcSize,recv_eval_command_idx);
+        packSend(dst,dstPart,(const char*)srcPointer.data,srcSize,recv_eval_command_idx);
       }
       when recv_eval_result(Pointer p) serial { 
         DataMessage *dmsg = (DataMessage*)p.data;

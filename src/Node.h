@@ -99,7 +99,7 @@ public:
 
   void reloadGridforceGrid(const char *key);
   void reloadGridforceGrid(int gridnum);
-  void updateGridScale(char* key, Vector scale);
+  void updateGridScale(const char* key, Vector scale);
   void updateGridScale(int gridnum, float sx, float sy, float sz);
 
   void reloadStructure(const char *, const char *);

@@ -12,7 +12,6 @@
 #include "Molecule.h"
 
 #ifdef NAMD_TCL
-#define USE_COMPAT_CONST
 #include <tcl.h>
 #endif
 #include "TclCommands.h"
@@ -126,7 +125,7 @@ void ComputeTclBC::doWork() {
 #ifdef NAMD_TCL
 
 int ComputeTclBC::Tcl_print(ClientData,
-        Tcl_Interp *, int argc, char *argv[]) {
+        Tcl_Interp *, int argc, const char *argv[]) {
   Tcl_DString msg;
   Tcl_DStringInit(&msg);
   for ( int i = 1; i < argc; ++i ) {
@@ -139,7 +138,7 @@ int ComputeTclBC::Tcl_print(ClientData,
 }
 
 int ComputeTclBC::Tcl_wrapmode(ClientData clientData,
-        Tcl_Interp *interp, int argc, char *argv[]) {
+        Tcl_Interp *interp, int argc, const char *argv[]) {
   if (argc != 2) {
     Tcl_SetResult(interp,"usage: wrapmode patch|input|cell|nearest",
 								TCL_VOLATILE);

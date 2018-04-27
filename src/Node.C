@@ -1221,7 +1221,7 @@ void Node::reloadGridforceGrid(const char * key) {
     DebugM(4, "reloadGridforceGrid(const char*) finished\n" << endi);
 }
 
-void Node::updateGridScale(char* key, Vector scale) {
+void Node::updateGridScale(const char* key, Vector scale) {
     DebugM(4, "updateGridScale(char*, Vector) called on node " << CkMyPe() << "\n" << endi);
     
     int gridnum;

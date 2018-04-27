@@ -18,7 +18,6 @@
 #include "strlib.h"		//  For strcasecmp and strncasecmp
 
 #ifdef NAMD_TCL
-#define USE_COMPAT_CONST
 #include <tcl.h>
 #endif
 

@@ -9,7 +9,6 @@
 
 #ifdef NAMD_TCL
 
-#define USE_COMPAT_CONST
 #include <tcl.h>
 
 int tcl_vector_math_init(Tcl_Interp *);

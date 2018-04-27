@@ -12,7 +12,6 @@
 #define COMPUTETCL_H
 
 #ifdef NAMD_TCL
-#define USE_COMPAT_CONST
 #include <tcl.h>
 #endif
 
@@ -28,13 +27,13 @@ class GlobalMasterTcl : public GlobalMaster {
   void initialize();
 #ifdef NAMD_TCL
   Tcl_Interp *interp;
-  static int Tcl_print(ClientData, Tcl_Interp *, int, char **);
-  static int Tcl_atomid(ClientData, Tcl_Interp *, int, char **);
-  static int Tcl_getstep(ClientData, Tcl_Interp *, int, char **);
-  static int Tcl_addatom(ClientData, Tcl_Interp *, int, char **);
-  static int Tcl_addgroup(ClientData, Tcl_Interp *, int, char **);
-  static int Tcl_reconfig(ClientData, Tcl_Interp *, int, char **);
-  static int Tcl_clearconfig(ClientData, Tcl_Interp *, int, char **);
+  static int Tcl_print(ClientData, Tcl_Interp *, int, const char **);
+  static int Tcl_atomid(ClientData, Tcl_Interp *, int, const char **);
+  static int Tcl_getstep(ClientData, Tcl_Interp *, int, const char **);
+  static int Tcl_addatom(ClientData, Tcl_Interp *, int, const char **);
+  static int Tcl_addgroup(ClientData, Tcl_Interp *, int, const char **);
+  static int Tcl_reconfig(ClientData, Tcl_Interp *, int, const char **);
+  static int Tcl_clearconfig(ClientData, Tcl_Interp *, int, const char **);
   static int Tcl_loadcoords(ClientData, Tcl_Interp *, int, Tcl_Obj * const []);
   static int Tcl_loadmasses(ClientData, Tcl_Interp *, int, Tcl_Obj * const []);
   static int Tcl_loadforces(ClientData, Tcl_Interp *, int, Tcl_Obj * const []);
@@ -42,7 +41,7 @@ class GlobalMasterTcl : public GlobalMaster {
   static int Tcl_disabletotalforces(ClientData, Tcl_Interp *, int, Tcl_Obj * const []);
   static int Tcl_loadtotalforces(ClientData, Tcl_Interp *, int, Tcl_Obj * const []);
   static int Tcl_addforce(ClientData, Tcl_Interp *, int, Tcl_Obj * const []); 
-  static int Tcl_addenergy(ClientData, Tcl_Interp *, int, char **);
+  static int Tcl_addenergy(ClientData, Tcl_Interp *, int, const char **);
 #endif
 };
 

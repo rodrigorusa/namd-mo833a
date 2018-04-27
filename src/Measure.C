@@ -13,7 +13,7 @@
 #ifdef NAMD_TCL
 
 int Measure::wrapCommand(ClientData clientData,
-        Tcl_Interp *interp, int argc, char *argv[]) {
+        Tcl_Interp *interp, int argc, const char *argv[]) {
 
 /*
   double (wraped *)(Vector*, Molecule*, Parameters*);
@@ -29,7 +29,7 @@ int Measure::wrapCommand(ClientData clientData,
   return TCL_OK;
 }
 
-static int Tcl_centerOfNumber(ClientData, Tcl_Interp *interp, int argc, char *argv[]) {
+static int Tcl_centerOfNumber(ClientData, Tcl_Interp *interp, int argc, const char *argv[]) {
 
   Node *node = Node::Object();
   Molecule *molecule = node->molecule;
@@ -52,7 +52,7 @@ static int Tcl_centerOfNumber(ClientData, Tcl_Interp *interp, int argc, char *ar
   return TCL_OK;
 }
 
-static int Tcl_centerOfMass(ClientData, Tcl_Interp *interp, int argc, char *argv[]) {
+static int Tcl_centerOfMass(ClientData, Tcl_Interp *interp, int argc, const char *argv[]) {
 
   Node *node = Node::Object();
   Molecule *molecule = node->molecule;
@@ -76,7 +76,7 @@ static int Tcl_centerOfMass(ClientData, Tcl_Interp *interp, int argc, char *argv
   return TCL_OK;
 }
 
-static int Tcl_radiusOfGyration(ClientData, Tcl_Interp *interp, int argc, char *argv[]) {
+static int Tcl_radiusOfGyration(ClientData, Tcl_Interp *interp, int argc, const char *argv[]) {
 
   Node *node = Node::Object();
   Molecule *molecule = node->molecule;

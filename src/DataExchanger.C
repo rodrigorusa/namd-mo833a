@@ -130,12 +130,12 @@ extern "C" {
     CPROXY_DE(CkpvAccess(BOCclass_group).dataExchanger)[CkMyPe()].recv_eval_result(msg);
   }
 
-  void replica_send(char *sndbuf, int sendcount, int destPart, int destPE) {
+  void replica_send(const char *sndbuf, int sendcount, int destPart, int destPE) {
     if ( CpvAccess(inEval) ) {
       packSend(destPE,destPart,sndbuf,sendcount,CkpvAccess(recv_data_idx),1);
       return;
     }
-    Pointer sendPointer(sndbuf);
+    ConstPointer sendPointer(sndbuf);
     CPROXY_DE(CkpvAccess(BOCclass_group).dataExchanger)[CkMyPe()].send(sendPointer,sendcount,destPart,destPE); 
     CpvAccess(breakScheduler) = 0;
     while(!CpvAccess(breakScheduler)) CsdSchedulePoll();
@@ -148,16 +148,16 @@ extern "C" {
     while(!CpvAccess(breakScheduler)) CsdSchedulePoll();
   }
 
-  void replica_sendRecv(char *sndbuf, int sendcount, int destPart, int destPE, DataMessage **precvMsg, int srcPart, int srcPE)  {
-    Pointer sendPointer(sndbuf);
+  void replica_sendRecv(const char *sndbuf, int sendcount, int destPart, int destPE, DataMessage **precvMsg, int srcPart, int srcPE)  {
+    ConstPointer sendPointer(sndbuf);
     Pointer recvPointer((char *) precvMsg);
     CPROXY_DE(CkpvAccess(BOCclass_group).dataExchanger)[CkMyPe()].sendRecv(sendPointer,sendcount,destPart,destPE,recvPointer,srcPart,srcPE);
     CpvAccess(breakScheduler) = 0;
     while(!CpvAccess(breakScheduler)) CsdSchedulePoll();
   }
 
-  void replica_eval(char *cmdbuf, int targPart, int targPE, DataMessage **precvMsg) {
-    Pointer sendPointer(cmdbuf);
+  void replica_eval(const char *cmdbuf, int targPart, int targPE, DataMessage **precvMsg) {
+    ConstPointer sendPointer(cmdbuf);
     Pointer recvPointer((char *) precvMsg);
     int sendcount = strlen(cmdbuf) + 1;
     CPROXY_DE(CkpvAccess(BOCclass_group).dataExchanger)[CkMyPe()].eval(sendPointer,sendcount,targPart,targPE,recvPointer);

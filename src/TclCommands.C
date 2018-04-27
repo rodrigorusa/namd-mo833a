@@ -15,7 +15,6 @@
 
 #ifdef NAMD_TCL
 
-#define USE_COMPAT_CONST
 #include <tcl.h>
 
 #include "Matrix4.C"
