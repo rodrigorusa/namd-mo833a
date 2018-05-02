@@ -192,7 +192,7 @@ colvar::distance_z::distance_z(std::string const &conf)
   // this group is optional
   ref2 = parse_group(conf, "ref2", true);
 
-  if (ref2 && ref2->size()) {
+  if ( ref2 ) {
     cvm::log("Using axis joining the centers of mass of groups \"ref\" and \"ref2\"");
     fixed_axis = false;
     if (key_lookup(conf, "axis"))
@@ -306,7 +306,7 @@ void colvar::distance_z::apply_force(colvarvalue const &force)
   if (!ref1->noforce)
     ref1->apply_colvar_force(force.real_value);
 
-  if (ref2 && ref2->size() && !ref2->noforce)
+  if (ref2 && !ref2->noforce)
     ref2->apply_colvar_force(force.real_value);
 
   if (!main->noforce)
@@ -464,7 +464,7 @@ void colvar::distance_xy::apply_force(colvarvalue const &force)
   if (!ref1->noforce)
     ref1->apply_colvar_force(force.real_value);
 
-  if (ref2 && ref2->size() && !ref2->noforce)
+  if (ref2 && !ref2->noforce)
     ref2->apply_colvar_force(force.real_value);
 
   if (!main->noforce)
