@@ -233,6 +233,7 @@ static int read_js_timestep_pagealign_size(void *v, int *pagealignsz) {
 /* not otherwise prohibited...                                   */
 static void js_blockio_check_and_set(jshandle *js) {
   if ((getenv("VMDJSNOBLOCKIO") == NULL) && 
+      getenv("NAMDJSBLOCKIO") &&
       ((js->natoms > JSBLOCKIO_THRESH) || getenv("VMDJSBLOCKIO"))) {
     js->optflags |= JSOPT_TS_BLOCKIO;
     js->directio_block_size = MOLFILE_DIRECTIO_MIN_BLOCK_SIZE; 
