@@ -10,8 +10,8 @@
  * RCS INFORMATION:
  *
  *      $RCSfile: hash.c,v $
- *      $Author: jim $        $Locker:  $             $State: Exp $
- *      $Revision: 1.5 $      $Date: 2017/03/29 21:38:53 $
+ *      $Author: johns $        $Locker:  $             $State: Exp $
+ *      $Revision: 1.7 $      $Date: 2016/11/28 05:01:54 $
  *
  ***************************************************************************
  * DESCRIPTION:

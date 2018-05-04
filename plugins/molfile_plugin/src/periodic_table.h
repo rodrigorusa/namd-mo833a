@@ -2,8 +2,8 @@
  * RCS INFORMATION:
  *
  *      $RCSfile: periodic_table.h,v $
- *      $Author: jim $       $Locker:  $             $State: Exp $
- *      $Revision: 1.3 $       $Date: 2012/01/27 01:41:54 $
+ *      $Author: johns $       $Locker:  $             $State: Exp $
+ *      $Revision: 1.12 $       $Date: 2009/01/21 17:45:41 $
  *
  ***************************************************************************/
 

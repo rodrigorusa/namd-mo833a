@@ -10,8 +10,8 @@
  * RCS INFORMATION:
  *
  *      $RCSfile: dcdplugin.c,v $
- *      $Author: jim $       $Locker:  $             $State: Exp $
- *      $Revision: 1.8 $       $Date: 2017/03/29 21:38:53 $
+ *      $Author: johns $       $Locker:  $             $State: Exp $
+ *      $Revision: 1.80 $       $Date: 2018/03/06 21:13:36 $
  *
  ***************************************************************************
  * DESCRIPTION:
@@ -485,7 +485,7 @@ static int read_fixed_atoms(fio_fd fd, int N, int num_free, const int *indexes,
 }
   
 static int read_charmm_4dim(fio_fd fd, int charmm, int reverseEndian) {
-  int input_integer[2],rec_scale;
+  int input_integer[2], rec_scale;
 
   if (charmm & DCD_HAS_64BIT_REC) {
     rec_scale=RECSCALE64BIT;
@@ -524,8 +524,9 @@ static int read_dcdstep(fio_fd fd, int N, float *X, float *Y, float *Z,
                         float *unitcell, int num_fixed,
                         int first, int *indexes, float *fixedcoords, 
                         int reverseEndian, int charmm) {
-  int ret_val, rec_scale;   /* Return value from read */
-  
+  int ret_val;    /* Return value from read */
+  long rec_scale;
+ 
   if (charmm & DCD_HAS_64BIT_REC) {
     rec_scale=RECSCALE64BIT;
   } else {
@@ -535,7 +536,7 @@ static int read_dcdstep(fio_fd fd, int N, float *X, float *Y, float *Z,
   if ((num_fixed==0) || first) {
     /* temp storage for reading formatting info */
     /* note: has to be max size we'll ever use  */
-    int tmpbuf[6*RECSCALEMAX]; 
+    int tmpbuf[6L*RECSCALEMAX]; 
 
     fio_iovec iov[7];   /* I/O vector for fio_readv() call          */
     fio_size_t readlen; /* number of bytes actually read            */
@@ -559,18 +560,18 @@ static int read_dcdstep(fio_fd fd, int N, float *X, float *Y, float *Z,
     iov[1].iov_len  = sizeof(float)*N;
 
     iov[2].iov_base = (fio_caddr_t) &tmpbuf[1*rec_scale]; /* read 2 format integers */
-    iov[2].iov_len  = rec_scale*sizeof(int) * 2;
+    iov[2].iov_len  = rec_scale*sizeof(int) * 2L;
 
     iov[3].iov_base = (fio_caddr_t) Y;          /* read Y coordinates     */
     iov[3].iov_len  = sizeof(float)*N;
 
-    iov[4].iov_base = (fio_caddr_t) &tmpbuf[3*rec_scale]; /* read 2 format integers */
-    iov[4].iov_len  = rec_scale*sizeof(int) * 2;
+    iov[4].iov_base = (fio_caddr_t) &tmpbuf[3L*rec_scale]; /* read 2 format integers */
+    iov[4].iov_len  = rec_scale*sizeof(int) * 2L;
 
     iov[5].iov_base = (fio_caddr_t) Z;          /* read Y coordinates     */
     iov[5].iov_len  = sizeof(float)*N;
 
-    iov[6].iov_base = (fio_caddr_t) &tmpbuf[5*rec_scale]; /* read format integer    */
+    iov[6].iov_base = (fio_caddr_t) &tmpbuf[5L*rec_scale]; /* read format integer    */
     iov[6].iov_len  = rec_scale*sizeof(int);
 
 #if 1
@@ -598,26 +599,26 @@ static int read_dcdstep(fio_fd fd, int N, float *X, float *Y, float *Z,
     }
 #else
     readlen = fio_readv(fd, &iov[0], 7);
-    if (readlen != (rec_scale*6*sizeof(int) + 3*N*sizeof(float)))
+    if (readlen != (rec_scale*6L*sizeof(int) + 3L*N*sizeof(float)))
       return DCD_BADREAD;
 #endif
 
     /* convert endianism if necessary */
     if (reverseEndian) {
-      swap4_aligned(&tmpbuf[0], rec_scale*6);
+      swap4_aligned(&tmpbuf[0], rec_scale*6L);
       swap4_aligned(X, N);
       swap4_aligned(Y, N);
       swap4_aligned(Z, N);
     }
 
     /* double-check the fortran format size values for safety */
-    if(rec_scale == 1) {
+    if (rec_scale == 1) {
       for (i=0; i<6; i++) {
         if (tmpbuf[i] != sizeof(float)*N) return DCD_BADFORMAT;
       }
     } else {
       for (i=0; i<6; i++) {
-          if ((tmpbuf[2*i]+tmpbuf[2*i+1]) != sizeof(float)*N) return DCD_BADFORMAT;
+        if ((tmpbuf[2L*i]+tmpbuf[2L*i+1L]) != sizeof(float)*N) return DCD_BADFORMAT;
       }
     }
 
@@ -626,7 +627,7 @@ static int read_dcdstep(fio_fd fd, int N, float *X, float *Y, float *Z,
     if (num_fixed && first) {
       memcpy(fixedcoords, X, N*sizeof(float));
       memcpy(fixedcoords+N, Y, N*sizeof(float));
-      memcpy(fixedcoords+2*N, Z, N*sizeof(float));
+      memcpy(fixedcoords+2L*N, Z, N*sizeof(float));
     }
 
     /* read in the optional charmm 4th array */
@@ -641,13 +642,13 @@ static int read_dcdstep(fio_fd fd, int N, float *X, float *Y, float *Z,
     ret_val = read_charmm_extrablock(fd, charmm, reverseEndian, unitcell);
     if (ret_val) return ret_val;
     ret_val = read_fixed_atoms(fd, N, N-num_fixed, indexes, reverseEndian,
-                               fixedcoords, fixedcoords+3*N, X, charmm);
+                               fixedcoords, fixedcoords+3L*N, X, charmm);
     if (ret_val) return ret_val;
     ret_val = read_fixed_atoms(fd, N, N-num_fixed, indexes, reverseEndian,
-                               fixedcoords+N, fixedcoords+3*N, Y, charmm);
+                               fixedcoords+N, fixedcoords+3L*N, Y, charmm);
     if (ret_val) return ret_val;
     ret_val = read_fixed_atoms(fd, N, N-num_fixed, indexes, reverseEndian,
-                               fixedcoords+2*N, fixedcoords+3*N, Z, charmm);
+                               fixedcoords+2*N, fixedcoords+3L*N, Z, charmm);
     if (ret_val) return ret_val;
     ret_val = read_charmm_4dim(fd, charmm, reverseEndian);
     if (ret_val) return ret_val;
@@ -669,9 +670,8 @@ static int read_dcdstep(fio_fd fd, int N, float *X, float *Y, float *Z,
  *               next timestep.
  */
 static int skip_dcdstep(fio_fd fd, int natoms, int nfixed, int charmm) {
-  
-  int seekoffset = 0;
-  int rec_scale;
+  long seekoffset = 0;
+  long rec_scale;
 
   if (charmm & DCD_HAS_64BIT_REC) {
     rec_scale=RECSCALE64BIT;
@@ -681,15 +681,15 @@ static int skip_dcdstep(fio_fd fd, int natoms, int nfixed, int charmm) {
 
   /* Skip charmm extra block */
   if ((charmm & DCD_IS_CHARMM) && (charmm & DCD_HAS_EXTRA_BLOCK)) {
-    seekoffset += 4*rec_scale + 48 + 4*rec_scale;
+    seekoffset += 4L*rec_scale + 48L + 4L*rec_scale;
   }
 
   /* For each atom set, seek past an int, the free atoms, and another int. */
-  seekoffset += 3 * (2*rec_scale + natoms - nfixed) * 4;
+  seekoffset += 3L * (2L*rec_scale + natoms - nfixed) * 4L;
 
   /* Assume that charmm 4th dim is the same size as the other three. */
   if ((charmm & DCD_IS_CHARMM) && (charmm & DCD_HAS_4DIMS)) {
-    seekoffset += (2*rec_scale + natoms - nfixed) * 4;
+    seekoffset += (2L*rec_scale + natoms - nfixed) * 4L;
   }
  
   if (fio_fseek(fd, seekoffset, FIO_SEEK_CUR)) return DCD_BADEOF;
@@ -916,7 +916,10 @@ static void *open_dcd_read(const char *path, const char *filetype,
     newnsets = trjsize / framesize + 1;
 
     if (dcd->nsets > 0 && newnsets != dcd->nsets) {
-      printf("dcdplugin) Warning: DCD header claims %d frames, file size indicates there are actually %d frames\n", dcd->nsets, newnsets);
+      printf("dcdplugin) Warning: DCD header claims %d frames, but \n"
+             "dcdplugin) file size (%l) indicates there are actually \n"
+             "%d frames of size (%l)\n", 
+             dcd->nsets, trjsize, newnsets, framesize);
     }
 
     dcd->nsets = newnsets; 
@@ -1153,7 +1156,7 @@ VMDPLUGIN_API int VMDPLUGIN_init() {
   plugin.prettyname = "CHARMM,NAMD,XPLOR DCD Trajectory";
   plugin.author = "Axel Kohlmeyer, Justin Gullingsrud, John Stone";
   plugin.majorv = 1;
-  plugin.minorv = 12;
+  plugin.minorv = 13;
   plugin.is_reentrant = VMDPLUGIN_THREADSAFE;
   plugin.filename_extension = "dcd";
   plugin.open_file_read = open_dcd_read;

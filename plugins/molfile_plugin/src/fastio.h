@@ -9,8 +9,8 @@
  * RCS INFORMATION:
  *
  *      $RCSfile: fastio.h,v $
- *      $Author: jim $       $Locker:  $             $State: Exp $
- *      $Revision: 1.9 $       $Date: 2017/03/29 21:38:15 $
+ *      $Author: johns $       $Locker:  $             $State: Exp $
+ *      $Revision: 1.34 $       $Date: 2016/11/28 05:01:53 $
  *
  ***************************************************************************
  * DESCRIPTION:

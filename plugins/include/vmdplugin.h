@@ -10,8 +10,8 @@
  * RCS INFORMATION:
  *
  *      $RCSfile: vmdplugin.h,v $
- *      $Author: jim $       $Locker:  $             $State: Exp $
- *      $Revision: 1.7 $       $Date: 2016/04/25 01:57:28 $
+ *      $Author: johns $       $Locker:  $             $State: Exp $
+ *      $Revision: 1.34 $       $Date: 2018/05/02 03:12:56 $
  *
  ***************************************************************************/
 
@@ -144,7 +144,7 @@ typedef struct {
 /**
  * Use this macro to initialize the abiversion member of each plugin
  */
-#define vmdplugin_ABIVERSION  17
+#define vmdplugin_ABIVERSION  18
 
 /*@{*/
 /** Use this macro to indicate a plugin's thread-safety at registration time */
