@@ -762,7 +762,7 @@ proc ::namdcph::writeRestart {args} {
     } else {
         set restartFilename [lindex $args 0]
         set cycle [expr {int([lindex $args 1])}]
-        if {!($restartFreq) || ![expr {$cycle % $restartFreq}]} {
+        if {!($restartFreq) || !($cycle) || [expr {$cycle % $restartFreq}]} {
             return
         }
     }
