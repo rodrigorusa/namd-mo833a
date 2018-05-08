@@ -1175,7 +1175,8 @@ void ComputePmeMgr::initialize(CkQdMsg *msg) {
       		for ( int icpu=0; icpu<ncpus; ++icpu ) {
         		int ri = WorkDistrib::peDiffuseOrdering[icpu];
         		if ( ri ) { // keep 0 for special case
-          			if ( pmap->numPatchesOnNode(ri) ) patches.add(ri);
+          			// pretend pe 1 has patches to avoid placing extra PME load on node
+          			if ( ri == 1 || pmap->numPatchesOnNode(ri) ) patches.add(ri);
           			else nopatches.add(ri);
         		}
       		}
