@@ -10082,25 +10082,28 @@ void Molecule::compute_LJcorrection() {
 
 // Convenience function to simplify lambda scaling.
 BigReal Molecule::getEnergyTailCorr(const BigReal alchLambda){
+  const BigReal scl = simParams->nonbondedScaling;
   if (simParams->alchOn && simParams->alchVdwLambdaEnd) {
     const BigReal vdw_lambda_1 = simParams->getVdwLambda(alchLambda);
     const BigReal vdw_lambda_2 = simParams->getVdwLambda(1-alchLambda);
-    return vdw_lambda_1*tail_corr_dUdl_1 + vdw_lambda_2*tail_corr_dUdl_2;
+    return scl*(vdw_lambda_1*tail_corr_dUdl_1 + vdw_lambda_2*tail_corr_dUdl_2);
   }
   else {
-    return tail_corr_ener;
+    return scl*tail_corr_ener;
   }
 }
 
 // Convenience function to simplify lambda scaling.
 BigReal Molecule::getVirialTailCorr(const BigReal alchLambda){
+  const BigReal scl = simParams->nonbondedScaling;
   if (simParams->alchOn && simParams->alchVdwLambdaEnd) {
     const BigReal vdw_lambda_1 = simParams->getVdwLambda(alchLambda);
     const BigReal vdw_lambda_2 = simParams->getVdwLambda(1-alchLambda);
-    return vdw_lambda_1*tail_corr_virial_1 + vdw_lambda_2*tail_corr_virial_2;
+    return scl*(vdw_lambda_1*tail_corr_virial_1 +
+                vdw_lambda_2*tail_corr_virial_2);
   }
   else {
-    return tail_corr_virial;
+    return scl*tail_corr_virial;
   }
 }
 #endif
