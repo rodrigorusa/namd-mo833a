@@ -852,7 +852,7 @@ protected:
   int pairlist_freq;
 
   /// Pair list
-  bool *pairlist = NULL;
+  bool *pairlist;
 
 public:
 
@@ -919,7 +919,7 @@ protected:
   int ed;
   cvm::real tolerance;
   int pairlist_freq;
-  bool *pairlist = NULL;
+  bool *pairlist;
 
 public:
 

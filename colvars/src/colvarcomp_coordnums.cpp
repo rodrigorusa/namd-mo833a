@@ -81,7 +81,7 @@ cvm::real colvar::coordnum::switching_function(cvm::real const &r0,
 
 
 colvar::coordnum::coordnum(std::string const &conf)
-  : cvc(conf), b_anisotropic(false), group2_center(NULL)
+  : cvc(conf), b_anisotropic(false), group2_center(NULL), pairlist(NULL)
 
 {
   function_type = "coordnum";
@@ -169,7 +169,7 @@ colvar::coordnum::coordnum(std::string const &conf)
 
 
 colvar::coordnum::coordnum()
-  : b_anisotropic(false), group2_center(NULL)
+  : b_anisotropic(false), group2_center(NULL), pairlist(NULL)
 {
   function_type = "coordnum";
   x.type(colvarvalue::type_scalar);
@@ -332,7 +332,7 @@ simple_scalar_dist_functions(coordnum)
 // h_bond member functions
 
 colvar::h_bond::h_bond(std::string const &conf)
-  : cvc(conf)
+: cvc(conf)
 {
   if (cvm::debug())
     cvm::log("Initializing h_bond object.\n");
@@ -436,7 +436,7 @@ simple_scalar_dist_functions(h_bond)
 
 
 colvar::selfcoordnum::selfcoordnum(std::string const &conf)
-  : cvc(conf)
+  : cvc(conf), pairlist(NULL)
 {
   function_type = "selfcoordnum";
   x.type(colvarvalue::type_scalar);
@@ -476,6 +476,7 @@ colvar::selfcoordnum::selfcoordnum(std::string const &conf)
 
 
 colvar::selfcoordnum::selfcoordnum()
+  : pairlist(NULL)
 {
   function_type = "selfcoordnum";
   x.type(colvarvalue::type_scalar);
@@ -602,7 +603,7 @@ colvar::groupcoordnum::groupcoordnum(std::string const &conf)
 
     if (b_scale) {
       cvm::error("Error: cannot specify \"scale\" and "
-                       "\"scale3\" at the same time.\n");
+                 "\"scale3\" at the same time.\n");
       return;
     }
     b_anisotropic = true;
