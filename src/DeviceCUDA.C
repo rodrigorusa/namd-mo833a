@@ -337,7 +337,12 @@ void DeviceCUDA::initialize() {
 
   {
     // if only one device then already initialized in cuda_affinity_initialize()
-    if ( deviceCount > 1 ) cudaCheck(cudaSetDeviceFlags(cudaDeviceMapHost));
+    cudaError_t cudaSetDeviceFlags_cudaDeviceMapHost = cudaSetDeviceFlags(cudaDeviceMapHost);
+    if ( cudaSetDeviceFlags_cudaDeviceMapHost == cudaErrorSetOnActiveProcess ) {
+      cudaGetLastError();
+    } else {
+      cudaCheck(cudaSetDeviceFlags_cudaDeviceMapHost);
+    }
 
     int dev;
     cudaCheck(cudaGetDevice(&dev));

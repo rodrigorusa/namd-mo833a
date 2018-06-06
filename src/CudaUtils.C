@@ -36,6 +36,11 @@ void cudaNAMD_bug(const char *msg) {NAMD_bug(msg);}
 
 void cuda_affinity_initialize() {
   // called before Converse/Charm++ initialization so can't use Cmi/Ck utilities
+  char *forkstr;
+  forkstr=getenv("CmiMyForks");
+  int forks = 0;
+  if (forkstr) sscanf(forkstr,"%d",&forks);
+  if ( forks ) return;  // CUDA will fail on child if initialized before fork
   int devcnt = 0;
   cudaError_t err = cudaGetDeviceCount(&devcnt);
   if ( devcnt == 1 ) {  // only one device so it must be ours
