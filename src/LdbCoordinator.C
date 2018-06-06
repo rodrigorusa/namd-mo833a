@@ -346,9 +346,10 @@ void LdbCoordinator::initialize(PatchMap *pMap, ComputeMap *cMap, int reinit)
     int i;
     for(i=0;i<nPatches;i++)
       if (patchMap->node(i) == Node::Object()->myid()) {
-	LDObjid elemID;
-	elemID.id[0] = i;
-	elemID.id[1] = -2;
+
+	LdbId elemID;
+	LdbIdField(elemID, 0) = i;
+	LdbIdField(elemID, 1) = PATCH_TYPE;
 
 	if (patch_count >= nLocalPatches) {
     NAMD_bug("LdbCoordinator found too many local patches!");
@@ -401,12 +402,12 @@ void LdbCoordinator::initialize(PatchMap *pMap, ComputeMap *cMap, int reinit)
 		)  {
 	  // Register the object with the load balancer
 	  // Store the depended patch IDs in the rest of the element ID
-	  LDObjid elemID;
-	  elemID.id[0] = i;
+	  LdbId elemID;
+	  LdbIdField(elemID, 0) = i;
 
 	  if (computeMap->numPids(i) > 0)
-	    elemID.id[1] =  computeMap->pid(i,0);
-	  else elemID.id[1] = -1;
+	    LdbIdField(elemID, 1) =  computeMap->pid(i,0);
+	  else LdbIdField(elemID, 1) = NONBONDED_OR_SELF_TYPE;
 
           Compute *c = computeMap->compute(i);
           if ( ! c ) NAMD_bug("LdbCoordinator::initialize() null compute pointer");
@@ -437,10 +438,10 @@ void LdbCoordinator::initialize(PatchMap *pMap, ComputeMap *cMap, int reinit)
                ) {
 	  // Register the object with the load balancer
 	  // Store the depended patch IDs in the rest of the element ID
-	  LDObjid elemID;
-	  elemID.id[0] = i;
+	  LdbId elemID;
+	  LdbIdField(elemID, 0) = i;
 	
-	  elemID.id[1] = -3;
+	  LdbIdField(elemID, 1) = BONDED_TYPE;
 
           Compute *c = computeMap->compute(i);
           if ( ! c ) NAMD_bug("LdbCoordinator::initialize() null compute pointer");
@@ -457,7 +458,7 @@ void LdbCoordinator::initialize(PatchMap *pMap, ComputeMap *cMap, int reinit)
   while ( migrateMsgs ) {
     LdbMigrateMsg *m = migrateMsgs;
     migrateMsgs = m->next;
-    Compute *c = computeMap->compute(m->handle.id.id[0]);
+    Compute *c = computeMap->compute(LdbIdField(m->handle.id, 0));
     if ( ! c ) NAMD_bug("LdbCoordinator::initialize() null compute pointer 2");
     c->ldObjHandle = m->handle;
     delete m;

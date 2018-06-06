@@ -141,7 +141,7 @@ CLBMigrateMsg* NamdCentLB::Strategy(LDStats* stats)
 
    averageLoad = total/numPesAvailable;
    CkPrintf("LDB: Largest compute %d load %f is %.1f%% of average load %f\n",
-            computeArray[maxi].handle.id.id[0],
+            LdbIdField(computeArray[maxi].handle.id, 0),
             maxCompute, 100. * maxCompute / averageLoad, averageLoad);
    CkPrintf("LDB: Average compute %f is %.1f%% of average load %f\n",
             avgCompute, 100. * avgCompute / averageLoad, averageLoad);
@@ -168,7 +168,7 @@ CLBMigrateMsg* NamdCentLB::Strategy(LDStats* stats)
     double maxUnsplit = 0.;
     for (int i=0; i<nMoveableComputes; i++) {
       computeArray[i].processor = computeArray[i].oldProcessor;
-      const int cid = computeArray[i].handle.id.id[0];
+      const int cid = LdbIdField(computeArray[i].handle.id, 0);
       const double load = computeArray[i].load;
       if ( computeMap->numPartitions(cid) == 0 ) {
         if ( load > maxUnsplit ) maxUnsplit = load;
@@ -274,7 +274,7 @@ CLBMigrateMsg* NamdCentLB::Strategy(LDStats* stats)
       migrateInfo.insertAtEnd(migrateMe);
 
       // sneak in updates to ComputeMap
-      computeMap->setNewNode(computeArray[i].handle.id.id[0],
+      computeMap->setNewNode(LdbIdField(computeArray[i].handle.id, 0),
 	 			computeArray[i].processor);
     }
   }
@@ -605,8 +605,8 @@ int NamdCentLB::buildData(LDStats* stats)
         continue;
       }
 
-      if (this_obj.id().id[1] == -2) { // Its a patch
-	const int pid = this_obj.id().id[0];
+      if (LdbIdField(this_obj.id(), 1) == PATCH_TYPE) { // Its a patch
+	const int pid = LdbIdField(this_obj.id(), 0);
 	int neighborNodes[PatchMap::MaxOneAway + PatchMap::MaxTwoAway];
 
 	patchArray[pid].Id = pid;
@@ -626,13 +626,13 @@ int NamdCentLB::buildData(LDStats* stats)
 	  patchArray[pid].proxiesOn.unchecked_insert(&processorArray[neighborNodes[k]]);
 	}
 	processorArray[stats->from_proc[j]].backgroundLoad += this_obj.wallTime;
-      } else if (this_obj.id().id[1] == -3) { // Its a bonded compute
+      } else if (LdbIdField(this_obj.id(), 1) == BONDED_TYPE) { // Its a bonded compute
 	processorArray[stats->from_proc[j]].backgroundLoad += this_obj.wallTime;
       } else if (this_obj.migratable) { // Its a compute
        if ( this_obj.wallTime == 0. ) { // don't migrate idle computes
          ++nIdleComputes;
        } else {
-	const int cid = this_obj.id().id[0];
+	const int cid = LdbIdField(this_obj.id(), 0);
 	const int p0 = computeMap->pid(cid,0);
 
 	// For self-interactions, just return the same pid twice

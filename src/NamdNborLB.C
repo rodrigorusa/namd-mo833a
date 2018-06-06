@@ -156,7 +156,7 @@ NLBMigrateMsg* NamdNborLB::Strategy(NborBaseLB::LDStats* stats, int count)
     for (j=0; j < thisLDStats.n_objs; j++) {
       const LDObjData &this_obj = thisLDStats.objData[j];
       if (this_obj.omID().id.idx != 1) continue;
-      if (this_obj.id().id[1] == -2) continue;
+      if (LdbIdField(this_obj.id(), 1) == PATCH_TYPE) continue;
       if (this_obj.migratable)  nMoveableComputes++;
     }
   }
@@ -270,7 +270,7 @@ int NamdNborLB::buildData(NborBaseLB::LDStats* stats, int count)
       const LDObjData &this_obj = thisLDStats.objData[j];
       // filter out non-NAMD managed objects (like PME array)
       if (this_obj.omID().id.idx != 1) continue;
-      if (this_obj.id().id[1] == -2) { // Its a patch
+      if (LdbIdField(this_obj.id(), 1) == PATCH_TYPE) { // Its a patch
 /*
 	const int pid = this_obj.id.id[0];
 	int neighborNodes[PatchMap::MaxOneAway + PatchMap::MaxTwoAway];
@@ -287,7 +287,7 @@ int NamdNborLB::buildData(NborBaseLB::LDStats* stats, int count)
 	}
 */
       } else if (this_obj.migratable) { // Its a compute
-	const int cid = this_obj.id().id[0];
+	const int cid = LdbIdField(this_obj.id(), 0);
 	const int p0 = computeMap->pid(cid,0);
 
 	// For self-interactions, just return the same pid twice

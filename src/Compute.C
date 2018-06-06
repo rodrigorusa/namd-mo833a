@@ -24,6 +24,8 @@
 #include "Compute.h"
 #include "Priorities.h"
 
+#include "LdbCoordinator.h"
+
 #define MIN_DEBUG_LEVEL 4
 // #define DEBUGM
 #include "Debug.h"
@@ -35,7 +37,7 @@ Compute::Compute(ComputeID c) : gbisPhase(1),basePriority(0), cid(c),
   gbisPhasePriority[2] = 0;
   doAtomUpdate = false;
   computeType = ComputeMap::Object()->type(c);
-  ldObjHandle.id.id[0] = -1;
+  LdbIdField(ldObjHandle.id, 0) = 0;
 }
 
 Compute::~Compute() {

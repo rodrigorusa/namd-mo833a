@@ -188,7 +188,7 @@ void NamdHybridLB::UpdateLocalLBInfo(LocalLBInfoMsg *msg){
 	// traversing the set of moves in msg
 	for(i=0; i<msg->n_moves; i++){
 	    if (msg->moves[i].to_pe != -1)
-		computeMap->setNewNode(msg->moves[i].obj.id.id[0],msg->moves[i].to_pe);	
+		computeMap->setNewNode(LdbIdField(msg->moves[i].obj.id, 0),msg->moves[i].to_pe);
 	}
 
 	// CODING
@@ -350,7 +350,7 @@ CLBMigrateMsg* NamdHybridLB::GrpLevelStrategy(LDStats* stats) {
       if ( load > maxCompute ) { maxCompute = load;  maxi = i; }
    }
    avgCompute = total / nMoveableComputes;
-   maxComputeId = computeArray[maxi].handle.id.id[0];
+   maxComputeId = LdbIdField(computeArray[maxi].handle.id, 0);
 
     int P = stats->nprocs();
    numPesAvailable = 0;
@@ -371,7 +371,7 @@ CLBMigrateMsg* NamdHybridLB::GrpLevelStrategy(LDStats* stats) {
 
   if ( step() == 1 ) {
     for (int i=0; i<nMoveableComputes; i++) {
-      const int cid = computeArray[i].handle.id.id[0];
+      const int cid = LdbIdField(computeArray[i].handle.id, 0);
       if ( computeMap->numPartitions(cid) == 0 ) {
         const double load = computeArray[i].load;
         if ( load > maxUnsplit ) maxUnsplit = load;
@@ -396,7 +396,7 @@ CLBMigrateMsg* NamdHybridLB::GrpLevelStrategy(LDStats* stats) {
       i_split = 0;
       for (int i=0; i<nMoveableComputes; i++) {
         computeArray[i].processor = computeArray[i].oldProcessor;
-        const int cid = computeArray[i].handle.id.id[0];
+        const int cid = LdbIdField(computeArray[i].handle.id, 0);
         if ( computeMap->numPartitions(cid) == 0 ) {
           continue;
         }
@@ -513,7 +513,7 @@ CLBMigrateMsg* NamdHybridLB::GrpLevelStrategy(LDStats* stats) {
 
       // sneak in updates to ComputeMap
       //ERASE CkPrintf("%d setting %d to processor %d\n",CkMyPe(),computeArray[i].handle.id.id[0],computeArray[i].processor);
-      computeMap->setNewNode(computeArray[i].handle.id.id[0],
+      computeMap->setNewNode(LdbIdField(computeArray[i].handle.id, 0),
 				computeArray[i].processor);
     }
   }
@@ -750,14 +750,14 @@ int NamdHybridLB::buildData(LDStats* stats) {
         	continue;
 	}
 
-      	if (this_obj.id().id[1] == -2) { // Its a patch
+	if (LdbIdField(this_obj.id(), 1) == PATCH_TYPE) { // Its a patch
 		// handled above to get required proxies from all patches
 		processorArray[frompe].backgroundLoad += this_obj.wallTime;
-	} else if (this_obj.id().id[1] == -3) { // Its a bonded compute
+	} else if (LdbIdField(this_obj.id(), 1) == BONDED_TYPE) { // Its a bonded compute
 		processorArray[frompe].backgroundLoad += this_obj.wallTime;
 	} else if (this_obj.migratable && this_obj.wallTime != 0.) { // Its a compute
 
-		const int cid = this_obj.id().id[0];
+		const int cid = LdbIdField(this_obj.id(), 0);
 		const int p0 = computeMap->pid(cid,0);
 
 		// For self-interactions, just return the same pid twice

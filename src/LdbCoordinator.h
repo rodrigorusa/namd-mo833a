@@ -23,6 +23,45 @@
 #include "BOCgroup.h"
 #include "LdbCoordinator.decl.h"
 
+/// In the new 64-bit id case defining LdbId as CmiUInt8,
+/// the first 32 bits store the object's index and
+/// the second 32 bits store the type.
+///
+/// In the old int[4] id case defining LdbId as LDObjid,
+/// element 0 stores the object's index, element 1 stores the type,
+/// and elements 2 and 3 are unused.
+#if CMK_LBID_64BIT
+typedef CmiUInt8 LdbId;
+#else
+typedef LDObjid LdbId;
+#endif
+
+inline const int& LdbIdField(const LdbId& id, const int index) {
+#if CMK_LBID_64BIT
+  return *(((int*)&id) + index);
+#else
+  return id.id[index];
+#endif
+}
+
+inline int& LdbIdField(LdbId& id, const int index) {
+#if CMK_LBID_64BIT
+  return *(((int*)&id) + index);
+#else
+  return id.id[index];
+#endif
+}
+
+/// Define the types encoded into the load balancing id.
+/// Use negative numbers because the nonbonded/self types
+/// are represented with the leading patch ID for that compute,
+/// when available.
+enum {
+  NONBONDED_OR_SELF_TYPE = -1,  ///< represents nonbonded or self compute
+  PATCH_TYPE = -2,              ///< represents a patch
+  BONDED_TYPE = -3              ///< represents bonded compute
+};
+
 class PatchMap;
 class ComputeMap;
 class Controller;
