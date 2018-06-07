@@ -348,7 +348,7 @@ void LdbCoordinator::initialize(PatchMap *pMap, ComputeMap *cMap, int reinit)
       if (patchMap->node(i) == Node::Object()->myid()) {
 	LDObjid elemID;
 	elemID.id[0] = i;
-	elemID.id[1] = elemID.id[2] = elemID.id[3] = -2;
+	elemID.id[1] = -2;
 
 	if (patch_count >= nLocalPatches) {
     NAMD_bug("LdbCoordinator found too many local patches!");
@@ -403,14 +403,6 @@ void LdbCoordinator::initialize(PatchMap *pMap, ComputeMap *cMap, int reinit)
 	  // Store the depended patch IDs in the rest of the element ID
 	  LDObjid elemID;
 	  elemID.id[0] = i;
-	
-	  if (computeMap->numPids(i) > 2)
-	    elemID.id[3] = computeMap->pid(i,2);
-	  else elemID.id[3] = -1;
-
-	  if (computeMap->numPids(i) > 1)
-	    elemID.id[2] =  computeMap->pid(i,1);
-	  else elemID.id[2] = -1;
 
 	  if (computeMap->numPids(i) > 0)
 	    elemID.id[1] =  computeMap->pid(i,0);
@@ -448,7 +440,7 @@ void LdbCoordinator::initialize(PatchMap *pMap, ComputeMap *cMap, int reinit)
 	  LDObjid elemID;
 	  elemID.id[0] = i;
 	
-	  elemID.id[1] = elemID.id[2] = elemID.id[3] = -3;
+	  elemID.id[1] = -3;
 
           Compute *c = computeMap->compute(i);
           if ( ! c ) NAMD_bug("LdbCoordinator::initialize() null compute pointer");
