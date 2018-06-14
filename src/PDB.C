@@ -106,7 +106,7 @@ PDB::PDB(molfile_plugin_t *pIOHdl, void *pIOFileHdl, int numAtoms, const float *
 
   //load coordinates to PDB object
   //Note: the PDBAtom structure is very redundant in this case
-  PDBAtom *tmpAtoms = new PDBAtom[numAtoms];
+  PDBAtom *tmpAtoms = atomAlloc = new PDBAtom[numAtoms];
   atomArray = new PDBAtomPtr[numAtoms];
   BigReal tmpCoords[3];
   for(int i=0; i<numAtoms; i++) {
@@ -214,6 +214,7 @@ PDB::PDB( const char *pdbfilename) {
      }
      atomListHead = atomListTail = NULL;
 #else
+  atomAlloc = 0;
   atomArray = new PDBAtomPtr[atomCount];
   if ( atomArray == NULL )
   {
@@ -242,8 +243,8 @@ PDB::~PDB( void )
 {
 #ifndef MEM_OPT_VERSION
 	int i;
-	if ( atomArray[atomCount-1] == atomArray[0] + (atomCount-1) ) {
-	  delete [] atomArray[0];
+	if ( atomAlloc ) {
+	  delete [] atomAlloc;
 	} else {
 	  for (i=atomCount-1; i>=0; i--)
 	    delete atomArray[i];
@@ -571,6 +572,7 @@ PDB::PDB( const char *filename, Ambertoppar *amber_data)
   altlocArray = 0;
   atomArray = new PDBCoreData[atomCount];
 #else
+  atomAlloc = 0;
   atomArray = new PDBAtomPtr[atomCount];
 #endif
 
@@ -649,6 +651,7 @@ PDB::PDB(const char *filename, const GromacsTopFile *topology) {
   altlocArray = 0;
   atomArray = new PDBCoreData[atomCount];
 #else
+  atomAlloc = 0;
   atomArray = new PDBAtomPtr[atomCount];
 #endif
   if ( atomArray == NULL )

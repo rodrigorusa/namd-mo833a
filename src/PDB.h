@@ -41,6 +41,7 @@ class PDB {
     PDBCoreData *atomArray;
 #else
     PDBAtom **atomArray;
+    PDBAtom *atomAlloc;
 #endif
       // this doesn't create a copy 
     void add_atom_element(PDBAtom *newAtom); 
