@@ -337,6 +337,13 @@ static char *FEPTITLE(int X)
   return tmp_string;
 }
 
+static char *FEPTITLE_BACK(int X)
+{
+  static char tmp_string[21];
+  sprintf(tmp_string, "FepE_back: %6d ",X);
+  return tmp_string;
+}
+
 static char *FEPTITLE2(int X)
 {
   static char tmp_string[21];

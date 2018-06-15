@@ -404,7 +404,7 @@ void ComputeNonbondedUtil :: NAME
     BigReal elecLambdaUp = simParams->getElecLambda(lambdaUp);
     BigReal vdwLambdaUp = simParams->getVdwLambda(lambdaUp);
     BigReal vdwShiftUp = alchVdwShiftCoeff*(1 - vdwLambdaUp);
-    FEP(BigReal lambda2Up = ComputeNonbondedUtil::alchLambda2;)
+    FEP(BigReal lambda2Up = simParams->getCurrentLambda2(params->step);)
     FEP(BigReal elecLambda2Up = simParams->getElecLambda(lambda2Up);)
     FEP(BigReal vdwLambda2Up = simParams->getVdwLambda(lambda2Up);)
     FEP(BigReal vdwShift2Up = alchVdwShiftCoeff*(1 - vdwLambda2Up);)
@@ -430,7 +430,7 @@ void ComputeNonbondedUtil :: NAME
     BigReal elecLambdaDown = simParams->getElecLambda(lambdaDown);
     BigReal vdwLambdaDown = simParams->getVdwLambda(lambdaDown);
     BigReal vdwShiftDown = alchVdwShiftCoeff*(1 - vdwLambdaDown);
-    FEP(BigReal lambda2Down = 1 - ComputeNonbondedUtil::alchLambda2;)
+    FEP(BigReal lambda2Down = 1 - simParams->getCurrentLambda2(params->step);)
     FEP(BigReal elecLambda2Down = simParams->getElecLambda(lambda2Down);)
     FEP(BigReal vdwLambda2Down = simParams->getVdwLambda(lambda2Down);)
     FEP(BigReal vdwShift2Down = alchVdwShiftCoeff*(1 - vdwLambda2Down);)

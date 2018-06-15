@@ -356,6 +356,16 @@ total free energy difference may be determined. }
 %\NAMDCONF{alchLambdaMinusDelta}{Backward projected value of the coupling parameter} {positive decimal between 0.0 and 1.0} {The {\tt alchLambdaMinusDelta} value corresponds to the coupling parameter to be used for sampling in the previous window, assuming that a double-wide sampling simulation is being performed, whereby both the forward and the backward transformations are computed explicitly.  The free energy difference between {\tt alchLambdaMinusDelta} and {\tt alchLambda} is calculated.  Through simulations at progressive values of {\tt alchLambda} and {\tt alchLambdaMinusDelta} the total free energy difference may be determined.}
 
 \item
+\NAMDCONF{alchLambdaIDWS}{Backward value of the coupling parameter for Interleaved Double-Wide Sampling}
+{decimal smaller than 1.0}
+{Setting this parameter between 0 and 1 activates Interleaved Double-Wide Sampling (IDWS), whereby the target lambda value alternates between {\tt alchLambda2} and {\tt alchLambdaIDWS}.
+The switch occurs every {\tt fullElectFrequency} steps if defined, or {\tt nonbondedFrequency} otherwise.
+Setting this parameter to a negative value (including between run statements) disables IDWS.
+When IDWS is active, the alchemy output file contains {\tt FepEnergy} line headers for the forward energy differences, and {\tt FepE\_Back} for backward energy differences.
+FEP free energy estimates are based on forward data only.
+This file may be postprocessed with deinterleave\_idws.py to produce separate files for the forward and backwards samples.}
+
+\item
 \NAMDCONFWDEF{alchEquilSteps}{Number of equilibration steps in a window,
 prior to data collection}
 {positive integer less than {\tt numSteps} or {\tt run}}

@@ -1276,11 +1276,15 @@ void Controller::printFepMessage(int step)
       && !simParams->alchLambdaFreq) {
     const BigReal alchLambda = simParams->alchLambda;
     const BigReal alchLambda2 = simParams->alchLambda2;
+    const BigReal alchLambdaIDWS = simParams->alchLambdaIDWS;
     const BigReal alchTemp = simParams->alchTemp;
     const int alchEquilSteps = simParams->alchEquilSteps;
     iout << "FEP: RESETTING FOR NEW FEP WINDOW "
-         << "LAMBDA SET TO " << alchLambda << " LAMBDA2 " << alchLambda2
-         << "\nFEP: WINDOW TO HAVE " << alchEquilSteps
+         << "LAMBDA SET TO " << alchLambda << " LAMBDA2 " << alchLambda2;
+    if ( alchLambdaIDWS >= 0. ) {
+      iout << " LAMBDA_IDWS " << alchLambdaIDWS;
+    }
+    iout << "\nFEP: WINDOW TO HAVE " << alchEquilSteps
          << " STEPS OF EQUILIBRATION PRIOR TO FEP DATA COLLECTION.\n"
          << "FEP: USING CONSTANT TEMPERATURE OF " << alchTemp 
          << " K FOR FEP CALCULATION\n" << endi;
@@ -3586,7 +3590,6 @@ void Controller::outputFepEnergy(int step) {
   const int stepInRun = step - simParams->firstTimestep;
   const int alchEquilSteps = simParams->alchEquilSteps;
   const BigReal alchLambda = simParams->alchLambda;
-  const BigReal alchLambda2 = simParams->alchLambda2;
   const bool alchEnsembleAvg = simParams->alchEnsembleAvg; 
   const bool FepWhamOn = simParams->alchFepWhamOn;
 
@@ -3599,7 +3602,8 @@ void Controller::outputFepEnergy(int step) {
        electEnergy - electEnergySlow - ljEnergy;
   BigReal RT = BOLTZMANN * simParams->alchTemp;
 
-  if (alchEnsembleAvg){
+  if (alchEnsembleAvg && (simParams->alchLambdaIDWS < 0. || (step / simParams->alchIDWSfreq) % 2 == 1 )){
+    // with IDWS, only accumulate stats on those timesteps where target lambda is "forward"
     FepNo++;
     exp_dE_ByRT += exp(-dE/RT);
     net_dE += dE;
@@ -3628,10 +3632,14 @@ void Controller::outputFepEnergy(int step) {
         }
       }
       if(!step){
-        if(!FepWhamOn){ 
+        if(!FepWhamOn){
           fepFile << "#NEW FEP WINDOW: "
                   << "LAMBDA SET TO " << alchLambda << " LAMBDA2 " 
-                  << alchLambda2 << std::endl;
+                  << simParams->alchLambda2;
+          if ( simParams->alchLambdaIDWS >= 0. ) {
+            fepFile << " LAMBDA_IDWS " << simParams->alchLambdaIDWS;
+          }
+          fepFile << std::endl;
         }
       }
     }
@@ -3647,7 +3655,7 @@ void Controller::outputFepEnergy(int step) {
     if (alchEnsembleAvg && (step == simParams->N)) {
       fepSum = fepSum + dG;
       fepFile << "#Free energy change for lambda window [ " << alchLambda
-              << " " << alchLambda2 << " ] is " << dG 
+              << " " << simParams->alchLambda2 << " ] is " << dG 
               << " ; net change until now is " << fepSum << std::endl;
       fepFile.flush();
     }
@@ -3742,7 +3750,7 @@ void Controller::outputTiEnergy(int step) {
 
       if (alchLambdaFreq > 0) {
         tiFile << "#ALCHEMICAL SWITCHING ACTIVE " 
-               << simParams->alchLambda << " --> " << simParams->alchLambda2
+               << simParams->alchLambda << " --> " << simParams->getCurrentLambda2(step)
                << "\n#LAMBDA SCHEDULE: " 
                << "dL: " << simParams->getLambdaDelta() 
                << " Freq: " << alchLambdaFreq;
@@ -3834,7 +3842,13 @@ void Controller::writeFepEnergyData(int step, ofstream_namd &file) {
 
   if(stepInRun){
     if(!FepWhamOn){
-      fepFile << FEPTITLE(step);
+      if ( simParams->alchLambdaIDWS >= 0. && (step / simParams->alchIDWSfreq) % 2 == 0 ) {
+        // IDWS is active and we are on a "backward" timestep
+        fepFile << FEPTITLE_BACK(step);
+      } else {
+        // "forward" timestep
+        fepFile << FEPTITLE(step);
+      }
       fepFile << FORMAT(eeng);
       fepFile << FORMAT(eeng_f);
       fepFile << FORMAT(ljEnergy);

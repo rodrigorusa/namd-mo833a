@@ -120,7 +120,6 @@ Bool      ComputeNonbondedUtil::Fep_Wham;
 BigReal   ComputeNonbondedUtil::WCA_rcut1;
 BigReal   ComputeNonbondedUtil::WCA_rcut2;
 BigReal   ComputeNonbondedUtil::WCA_rcut3;
-BigReal   ComputeNonbondedUtil::alchLambda2;
 BigReal   ComputeNonbondedUtil::alchRepLambda;
 BigReal   ComputeNonbondedUtil::alchDispLambda;
 BigReal   ComputeNonbondedUtil::alchElecLambda;
@@ -300,7 +299,6 @@ void ComputeNonbondedUtil::select(void)
   Fep_ElecOn = simParams->alchFepElecOn;
   Fep_Wham = simParams->alchFepWhamOn;
   alchThermIntOn = simParams->alchThermIntOn;
-  alchLambda2 = 0;
   lesOn = simParams->lesOn;
   lesScaling = lesFactor = 0;
   Bool tabulatedEnergies = simParams->tabulatedEnergies;
@@ -350,7 +348,6 @@ void ComputeNonbondedUtil::select(void)
 #ifdef NAMD_CUDA
     NAMD_die("Alchemical free-energy perturbation is not supported in CUDA version");
 #endif
-    alchLambda2 = simParams->alchLambda2;
     ComputeNonbondedUtil::calcPair = calc_pair_energy_fep;
     ComputeNonbondedUtil::calcPairEnergy = calc_pair_energy_fep;
     ComputeNonbondedUtil::calcSelf = calc_self_energy_fep;
@@ -371,7 +368,6 @@ void ComputeNonbondedUtil::select(void)
 #ifdef NAMD_CUDA
     NAMD_die("Alchemical thermodynamic integration is not supported in CUDA version");
 #endif
-    alchLambda2 = simParams->alchLambda2;
     ComputeNonbondedUtil::calcPair = calc_pair_ti;
     ComputeNonbondedUtil::calcPairEnergy = calc_pair_energy_ti;
     ComputeNonbondedUtil::calcSelf = calc_self_ti;

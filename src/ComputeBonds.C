@@ -46,7 +46,7 @@ void BondElem::computeForce(BondElem *tuples, int ntuple, BigReal *reduction,
  //fepb BKR
  const int step = tuples[0].p[0]->p->flags.step;
  const BigReal alchLambda = simParams->getCurrentLambda(step);
- const BigReal alchLambda2 = simParams->alchLambda2;
+ const BigReal alchLambda2 = simParams->getCurrentLambda2(step);
  const BigReal bond_lambda_1 = simParams->getBondLambda(alchLambda);
  const BigReal bond_lambda_2 = simParams->getBondLambda(1-alchLambda);
  const BigReal bond_lambda_12 = simParams->getBondLambda(alchLambda2);

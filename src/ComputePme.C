@@ -495,6 +495,7 @@ private:
   int qsize, fsize, bsize;
   int offload;
   BigReal alchLambda;  // set on each step in ComputePme::ungridForces()
+  BigReal alchLambda2; // set on each step in ComputePme::ungridForces()
 
   float **q_arr;
   // q_list and q_count not used for offload
@@ -898,6 +899,7 @@ void ComputePmeMgr::initialize(CkQdMsg *msg) {
 #endif
 
   alchLambda = -1.;  // illegal value to catch if not updated
+  alchLambda2 = -1.;
   useBarrier = simParams->PMEBarrier;
 
   if ( numGrids != 1 || simParams->PMEPencils == 0 ) usePencils = 0;
@@ -4052,6 +4054,8 @@ void ComputePme::ungridForces() {
         else {
           BigReal alchLambda = simParams->getCurrentLambda(patch->flags.step);
           myMgr->alchLambda = alchLambda;
+          BigReal alchLambda2 = simParams->getCurrentLambda2(patch->flags.step);
+          myMgr->alchLambda2 = alchLambda2;
 	  elecLambdaUp = simParams->getElecLambda(alchLambda);
 	  elecLambdaDown = simParams->getElecLambda(1. - alchLambda);
         }
@@ -4111,6 +4115,8 @@ void ComputePme::ungridForces() {
 	  else {
             BigReal alchLambda = simParams->getCurrentLambda(patch->flags.step);
             myMgr->alchLambda = alchLambda;
+            BigReal alchLambda2 = simParams->getCurrentLambda2(patch->flags.step);
+            myMgr->alchLambda2 = alchLambda2;
             if ( g == 0 ) scale = alchLambda;
             else if ( g == 1 ) scale = 1. - alchLambda;
 	  }
@@ -4256,8 +4262,8 @@ void ComputePmeMgr::submitReductions() {
           }
         }
         else {
-          elecLambda2Up = simParams->getElecLambda(simParams->alchLambda2);
-          elecLambda2Down = simParams->getElecLambda(1.-simParams->alchLambda2);
+          elecLambda2Up = simParams->getElecLambda(alchLambda2);
+          elecLambda2Down = simParams->getElecLambda(1.-alchLambda2);
         }
         
         if ( g == 0 ) scale2 = elecLambda2Up;

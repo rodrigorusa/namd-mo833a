@@ -47,7 +47,7 @@ void TholeElem::computeForce(TholeElem *tuples, int ntuple, BigReal *reduction,
  SimParameters *const simParams = Node::Object()->simParameters;
  const int step = tuples[0].p[0]->p->flags.step;
  const BigReal alchLambda = simParams->getCurrentLambda(step);
- const BigReal alchLambda2 = simParams->alchLambda2;
+ const BigReal alchLambda2 = simParams->getCurrentLambda2(step);
  const BigReal elec_lambda_1 = simParams->getElecLambda(alchLambda);
  const BigReal elec_lambda_2 = simParams->getElecLambda(1-alchLambda);
  const BigReal elec_lambda_12 = simParams->getElecLambda(alchLambda2);
