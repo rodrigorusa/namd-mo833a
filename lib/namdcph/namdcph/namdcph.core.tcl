@@ -62,15 +62,15 @@ proc ::namdcph::cphRun {numsteps {numcycles 1}} {
         # (2) Propose a move from the full move set.
         #
         lassign [cphTitrator propose $SystempH] accept swNumsteps\
-                segresidnameList nattempts
+                segresidnameList
         # (3) At this point we have either selected a switch or rejected a
         # whole bunch of moves. If the former, perform the switch.
         #
         if {!$accept} {
-            cphPrint "All proposals rejected ($nattempts total)."
+            cphPrint "Proposal rejected."
             set runArgs [list norepeat $numsteps]
         } else {
-            cphPrint "Proposal accepted ($nattempts), attemping a switch."
+            cphPrint "Proposal accepted, attemping a switch."
             set accept [runSwitch $swNumsteps $segresidnameList]
             set runArgs [list $numsteps]
             # Only accumulate statistics for attempted switches.
@@ -153,6 +153,7 @@ proc ::namdcph::checkResidueDefinitions {resnames} {
 proc ::namdcph::testResidueSwitch {segresidname state0 state1} {
     cphWarnExpt
     pH 7.0
+    cphNumstepsPerSwitch 20
     cphForceConstant 0.0
     # Initialize NAMD and build a constant pH enabled PSF.
     cphSetResidueState $segresidname $state0
@@ -394,10 +395,33 @@ proc ::namdcph::cphProposalWeight {args} {
     return
 }
 
+# ::namdcph::cphProposeProtonTransfer
+#
+# Add additional "proton transfer" moves to the move set. These new moves are
+# only attempted if a proton can be swapped between the given residues. The
+# two residues are given by their normal <segid>:<resid>:<resname> designation
+# except that they are further separated by a "/".
+#
 proc ::namdcph::cphProposeProtonTransfer {args} {
     variable ::namdcph::moveInfo
     foreach moveLabel $args {
         dict set moveInfo $moveLabel protonTransfer 1
+    }
+    return
+}
+
+# ::namdcph::cphProposeCotitration
+#
+# Add additional "co-titration" moves to the move set. These new moves are only
+# attempted if two residues are both protonated or deprotonated. They will then
+# attempt to change states concurrently. The two residues are given by their
+# normal <segid>:<resid>:<resname> designation except that they are further
+# separated by a "/".
+#
+proc ::namdcph::cphProposeCotitration {args} {
+    variable ::namdcph::moveInfo
+    foreach moveLabel $args {
+        dict set moveInfo $moveLabel cotitration 1
     }
     return
 }
@@ -414,6 +438,7 @@ proc ::namdcph::cphMaxProposalAttempts {maxAttempts} {
     checkIsNumeric cphMaxProposalAttempts $maxAttempts
     variable ::namdcph::moveInfo
     dict set moveInfo maxProposalAttempts [expr {int($maxAttempts)}]
+    cphWarn "cphMaxProposalAttempts is now deprecated and set to 1!"
     return
 }
 
@@ -528,7 +553,7 @@ proc ::namdcph::runSwitch {numsteps segresidnameList} {
     storeEnergies
     set DeltaE [cphSystem compute switch $segresidnameList]
     set Work [expr {$::energyArray(CUMALCHWORK) + $DeltaE}]
-    set ReducedWork [expr {$Work / [::kBT]}] 
+    set ReducedWork [expr {$Work / [::kBT]}]
     set accept [metropolisAcceptance $ReducedWork]
     set tmp [printProposalSummary $segresidnameList]
     cphPrint [format "%s WorkCorr % 10.4f CorrWork % 10.4f"\
@@ -781,21 +806,7 @@ proc ::namdcph::writeRestart {args} {
     }
     lappend rstrtList "\"states\":[json::list2json [cphSystem get state] 1]"
     lappend rstrtList "\"pKais\":[json::list2json [cphSystem get pKai]]"
-
-    set minMCDict [dict create]
-    dict set minMCDict MCmoves maxProposalAttempts\
-            [cphTitrator get maxAttempts]
-    dict set minMCDict MCmoves default numsteps\
-            [cphTitrator get numsteps default]
-    dict set minMCDict MCmoves default weight [cphTitrator get weight default]
-    foreach moveLabel [cphTitrator get moveLabels] {
-        set thisMoveInfo [cphTitrator get nodefaults $moveLabel]
-        if {![dict size $thisMoveInfo]} continue
-        dict set minMCDict MCmoves $moveLabel $thisMoveInfo
-    }
-    # Note that dict2json returns curly braces on either end which need to be
-    # discarded since we are hacking the format into another dict.
-    lappend rstrtList [string range [json::dict2json $minMCDict] 1 end-1] 
+    lappend rstrtList "\"MCmoves\":[json::dict2json [cphTitrator get archive]]"
 
     # Write everything to file.
     namdFileBackup $restartFilename
@@ -911,12 +922,12 @@ proc ::namdcph::initialize {} {
     variable ::namdcph::excludeList
     variable ::namdcph::SystempH
 
-    getThermostat
-    getBarostat
     callback energyCallback
     # 1) Set up alchemical keywords and run startup. 
     #
     initializeAlch
+    getThermostat
+    getBarostat
 
     # 2) Rebuild the PSF with dummy protons and modify protonation states as 
     # needed. Build the residue definitions, assign states to each residue, and 
@@ -931,13 +942,14 @@ proc ::namdcph::initialize {} {
         lassign [readRestart] stateList pKaiList
         lassign [list 0.0 false] temp buildH
     } else {
-        lassign [list [$::thermostatTempCmd] true] temp buildH
+        lassign [list [$::thermostatTempCmd] false] temp buildH
     }
     cphSystem build [readConfig] $excludeList
 
     # Now that we've built the system, we can allocate the state and pKa
     # information from the restart (if present).
-    if {[info exists stateList] && [info exists pKaiList]} {
+    if {[info exists stateList] && [llength $stateList] &&
+        [info exists pKaiList] && [llength $pKaiList]} {
         set segresidnameList [cphSystem get segresidnames]
 
         if {[llength $stateList] != [llength $pKaiList]} {
@@ -1113,14 +1125,38 @@ proc ::namdcph::printSystemSummary {} {
 #
 proc ::namdcph::printTitratorSummary {} {
     set StarBar "*************************************************"
+    set moveLabels [cphTitrator get moveLabels]
+    set numMoves [llength $moveLabels]
+
     cphPrint $StarBar
     cphPrint "CONSTANT pH neMD/MC MOVES:"
     cphPrint "MAX. ATTEMPTS PER CYCLE: [cphTitrator get maxAttempts]"
-    cphPrint [format "%-25s : %8s %12s" "move label" numsteps weight]
-    foreach moveLabel [cphTitrator get moveLabels] {
+
+    cphPrint "ONE RESIDUE MOVES"
+    cphPrint [format "%-14s : %8s %8s" "move label" numsteps weight]
+    foreach moveLabel $moveLabels {
+        if {[llength [split $moveLabel "/"]] != 1} continue
+        incr numEntries
         set numsteps [cphTitrator get numsteps $moveLabel]
         set weight [cphTitrator get weight $moveLabel]
-        cphPrint [format "%-25s : % 8d % 12.2f" $moveLabel $numsteps $weight]
+        cphPrint [format "%-14s : % 8d % 8.2f" $moveLabel $numsteps $weight]
+    }
+    if {$numEntries == $numMoves} {
+        cphPrint $StarBar
+        return
+    }
+
+    cphPrint "TWO RESIDUE MOVES : proton transfer (PT) : co-titration (CT)"
+    cphPrint [format "%-29s : %8s %8s %2s %2s"\
+            "move label" numsteps weight PT CT]
+    foreach moveLabel $moveLabels {
+        if {[llength [split $moveLabel "/"]] != 2} continue
+        set numsteps [cphTitrator get numsteps $moveLabel]
+        set weight [cphTitrator get weight $moveLabel]
+        set PT [cphTitrator get protonTransfer $moveLabel]
+        set CT [cphTitrator get cotitration $moveLabel]
+        cphPrint [format "%-29s : % 8d % 8.2f %2d %2d"\
+                $moveLabel $numsteps $weight $PT $CT]
     }
     cphPrint $StarBar
     return

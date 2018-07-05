@@ -10,7 +10,7 @@ source [file join [file dirname [info script]] "cphpsfgen.tcl"]
 source [file join [file dirname [info script]] "namdmcmc.tcl"]
 
 namespace eval ::cphSystem {
-    #   The core information of the cphSystem is the residueDict, which stores
+    #   The core information of the cphSystem is the resDict, which stores
     # the unique and mutable information for each instance of a titratable
     # residue. The keys are "segresidnames" of the form:
     #
@@ -18,18 +18,18 @@ namespace eval ::cphSystem {
     #
     # Note the <resname> is a _titratable residue_ name and may or may not be
     # the same as a recognizable residue from the force field. For example,
-    # amino acid termini are titratable residues. The residueDefDict stores
+    # amino acid termini are titratable residues. The resDefDict stores
     # non-unique and immutable information for each residue definition. The
     # keys are residue names (e.g. ASP, HIS, etc.). Generally, when looking up
     # information for a specific residue, one simply needs look up the name in
-    # residueDict and then look up the info in residueDefDict.
+    # resDict and then look up the info in resDefDict.
     #
     # Note that a <segid>:<resid> combination can correspond to _multiple_
     # residue names. This permits non-overlapping "sub-residues," such as amino
     # acid termini, which titrate independently of the sidechain.
     #
-    variable residueDict [dict create]
-    variable residueDefDict [dict create]
+    variable resDict [dict create]
+    variable resDefDict [dict create]
 
     namespace export cphSystem
 }
@@ -89,6 +89,9 @@ proc ::cphSystem::cphSystem {action args} {
                 }
                 protonTransfer {
                     proposeProtonTransfer {*}$newArgs
+                }
+                cotitration {
+                    proposeCotitration {*}$newArgs
                 }
                 default {
                     abort "Invalid proposal type $type"
@@ -201,13 +204,11 @@ proc ::cphSystem::updateStates {accept segresidnameList} {
 # to confirm that a titration was in fact found.
 #
 proc ::cphSystem::proposeResidueTitration {segresidname} {
-    variable ::cphSystem::resDefDict
     set possibleStates [cphSystem get trialStateList $segresidname]
-    set resname [cphSystem get resname $segresidname]
     set numProtons [expr {lsum([cphSystem get occupancy $segresidname])}]
     while {true} {
         lassign [choice $possibleStates] state
-        set occ [dict get $resDefDict $resname states $state]
+        set occ [cphSystem get occupancy $segresidname $state]
         set numProtonsTrial [expr {lsum($occ)}]
         if {$numProtons != $numProtonsTrial} {
             cphSystem set trialState $segresidname $state
@@ -226,16 +227,11 @@ proc ::cphSystem::proposeResidueTitration {segresidname} {
 # This returns true if no proton transfer or else a negative error code.
 #
 proc ::cphSystem::proposeProtonTransfer {segresidname1 segresidname2} {
-    variable ::cphSystem::resDefDict
-
     set numProtons1 [expr {lsum([cphSystem get occupancy $segresidname1])}]
-    set possibleStates1 [cphSystem get trialStateList $segresidname1]
-    set resname1 [cphSystem get resname $segresidname1]
     set numProtons2 [expr {lsum([cphSystem get occupancy $segresidname2])}]
+    set possibleStates1 [cphSystem get trialStateList $segresidname1]
     set possibleStates2 [cphSystem get trialStateList $segresidname2]
-    set resname2 [cphSystem get resname $segresidname2]
     set dn [expr {$numProtons1 - $numProtons2}]
-
     if {$dn == 0.0} {     
         # No proton transfer is possible.
         return 1
@@ -243,15 +239,54 @@ proc ::cphSystem::proposeProtonTransfer {segresidname1 segresidname2} {
     # transfer from 1 to 2
     while {true} {
         lassign [choice $possibleStates1] state1
-        set occ1 [dict get $resDefDict $resname1 states $state1]
+        set occ1 [cphSystem get occupancy $segresidname1 $state1]
         set numProtonsTrial1 [expr {lsum($occ1)}]
         lassign [choice $possibleStates2] state2
-        set occ2 [dict get $resDefDict $resname2 states $state2]
+        set occ2 [cphSystem get occupancy $segresidname2 $state2]
         set numProtonsTrial2 [expr {lsum($occ2)}]
-        if {$dn == [expr {$numProtonsTrial2 - $numProtonsTrial1}]} {
+        set dnTrial [expr {$numProtonsTrial2 - $numProtonsTrial1}]
+        if {$dn == $dnTrial} {
             cphSystem set trialState $segresidname1 $state1
             cphSystem set trialState $segresidname2 $state2
             return 0
+        }
+    }
+    # This is an error and should never happen.
+    return -1
+}
+
+# ::cphSystem::proposeCotitration
+#
+# Propose a new trial state requiring cotitration - i.e. two residues
+# concurrently changing from protonated to deprotonated or vice versa.
+#
+# This returns true if no cotitration or else a negative error code.
+#
+proc ::cphSystem::proposeCotitration {segresidname1 segresidname2} {
+    set maxAttempts 10
+
+    set numProtons1 [expr {lsum([cphSystem get occupancy $segresidname1])}]
+    set numProtons2 [expr {lsum([cphSystem get occupancy $segresidname2])}]
+    set possibleStates1 [cphSystem get trialStateList $segresidname1]
+    set possibleStates2 [cphSystem get trialStateList $segresidname2]
+    while {true} {
+        lassign [choice $possibleStates1] state1
+        set occ1 [cphSystem get occupancy $segresidname1 $state1]
+        set numProtonsTrial1 [expr {lsum($occ1)}]
+        set dn1 [expr {$numProtonsTrial1 - $numProtons1}]
+        lassign [choice $possibleStates2] state2
+        set occ2 [cphSystem get occupancy $segresidname2 $state2]
+        set numProtonsTrial2 [expr {lsum($occ2)}]
+        set dn2 [expr {$numProtonsTrial2 - $numProtons2}]
+        if {$dn1 == $dn2} {
+            cphSystem set trialState $segresidname1 $state1
+            cphSystem set trialState $segresidname2 $state2
+            return 0
+        }
+        incr attempts
+        if {$attempts >= $maxAttempts} {
+            # This probably implies that no cotitration exists.
+            return 1
         }
     }
     # This is an error and should never happen.
@@ -285,14 +320,14 @@ proc ::cphSystem::proposeProtonTransfer {segresidname1 segresidname2} {
 #
 # For P(k>0, N) = 0.999, this gives N ~= 10 (the default).
 #
-proc ::cphSystem::proposeResidueTautomerization {segresidname {maxAttempts 10}} {
-    variable ::cphSystem::resDefDict
+proc ::cphSystem::proposeResidueTautomerization {segresidname} {
+    set maxAttempts 10
+
     set possibleStates [cphSystem get trialStateList $segresidname]
-    set resname [cphSystem get resname $segresidname]
     set numProtons [expr {lsum([cphSystem get occupancy $segresidname])}]
     while {true} {
         lassign [choice $possibleStates] state
-        set occ [dict get $resDefDict $resname states $state]
+        set occ [cphSystem get occupancy $segresidname $state]
         set numProtonsTrial [expr {lsum($occ)}]
         if {$numProtonsTrial == $numProtons} {
             cphSystem set trialState $segresidname $state
@@ -308,99 +343,127 @@ proc ::cphSystem::proposeResidueTautomerization {segresidname {maxAttempts 10}} 
     return -1
 }
 
+# ::cphSystem::computeInherentLogRatio
+#
+# Compute the (common) log ratio* of inherent (i.e. pH-dependent) weights of
+# the given states within the given residue.
+#
+# Because pKa is strictly pairwise, the relative unnormed weights (Q) are most
+# clearly computed as ratios (and as log ratios, for numerical stability).
+# There are two cases: 1) tautomerizations and 2) titrations, the former is not
+# a proper pKa since the pH dependence cancels (i.e. no protons are entering or
+# leaving the bath).
+#
+# case 1, n = n':
+#
+#     P(l')
+#     ----- = 10^[sgn(l, l') pKa_i(l, l')]
+#     P(l)
+#
+# case 2, n != n':
+#     
+#     P(l')
+#     ----- = 10^{-[sgn(n' - n) pKa_i(l, l') - (n' - n)pH]}
+#     P(l)
+#
+# where l and l' are occupation vectors for the given states and n and n' are
+# the number of protons in each state (i.e. the sums of the occupation vector
+# elements). By convention, pKa_i(l, l') = pKa_i(l', l) and the antisymmetry
+# of adding vs deleting protons is accounted for by the sgn function. Note 
+# that, for tautomers, l and l' are converted to indices and the sgn is
+# computed by an arbitrary convention.
+#
+# Arguments:
+# ----------
+# pH : float
+#   The pH value to evaluate the ratio at.
+# segresidname : string
+#   Residue specification as "<segid>:<resid>:<resname>" 
+# statei : string
+#   The state whose weight is in the numerator
+# statej : string
+#   The state whose weight is in the denomenator
+#
+# Returns:
+# --------
+# logRatio : float
+#   The natural log of the ratio Qj/Qi, i.e. ln(Qj/Qi)
+#
+proc ::cphSystem::computeInherentLogRatio {pH segresidname statei statej} {
+    set multij [cphSystem get multiplicity $segresidname $statej]
+    if {$statei == $statej} {
+        # dn = pKai = 0 exactly, but lookup will fail.
+        return [expr {-log($multij)}]
+    }
+
+    set li [cphSystem get occupancy $segresidname $statei]
+    set lj [cphSystem get occupancy $segresidname $statej]
+    set dn [expr {lsum($lj) - lsum($li)}]
+    set si [occupancy2Index $li]
+    set sj [occupancy2Index $lj]
+    set sij [index2flatindex $si $sj]
+    set pKai [lindex [cphSystem get pKaiPair $segresidname] $sij]
+    if {$dn == 0.0} {
+        # tautomerization: "pKa" is positive in direction of lower index
+        set sgn [expr {$sj > $si} ? 1.0 : -1.0]
+    } else {
+        # titration: pKa is positive in direction of fewer protons
+        set sgn [expr {$dn > 0} ? 1.0 : -1.0]
+    }
+    return [expr {$::LN10*($sgn*$pKai - $dn*$pH) - log($multij)}]
+}
+
 # ::cphSystem::computeInherentAcceptance
 #
 # Compute the (reduced) energy difference for a Monte Carlo move based on the 
 # given segresidname, its current and trial state, and the given pH.
 #
-# The proposal energy is based exclusively on the "intrinsic" pKa and the
-# change in the protonation vector. There are two cases: 1) tautomerizations
-# and 2) titrations, the former of which is not a proper pKa as the move does
-# not depend on pH (since no protons are entering or leaving the bath).
+# The Metropolis criterion can be expressed as:
 #
-# case 1, n = n':
+#     P(l --> l') = min{1, Q'/Q} = min{1, e^[-du(l, l')]},
 #
-#     P(s --> s')
-#     ----------- = 10^[sgn(s' - s) pKa_i(s, s')]
-#     P(s' --> s)
+# where
 #
-# case 2, n != n':
-#     
-#     P(s --> s')
-#     ----------- = 10^[sgn(n' - n) pKa_i(s, s') - (n' - n)pH]
-#     P(s' --> s)
-#
-# where s and s' are the current and trial state indices, respectively, with
-# number of protons (i.e. sum of the occupation vector elements) n and n',
-# respectively. By convention, pKa_i(s, s') = pKa_i(s', s) and the antisymmetry
-# of adding vs deleting protons is accounted for by the sgn function. Note
-# that for tautomers, the sgn is computed by the _state index_, not the number
-# of protons - this is also an arbitrary internal convention.
-#
-# The above ratios are correctly sampled by a Metropolis sampling of the form:
-#
-#     P(s --> s') = min{1, e^[-du(s, s')]},
-#
-# where du is either of the the exponents above times -ln(10).
+#     du = -ln(Q'/Q)
 #
 proc ::cphSystem::computeInherentAcceptance {pH segresidname} {
-    set l [cphSystem get occupancy $segresidname]
-    set lp [cphSystem get trialOccupancy $segresidname]
-    set dn [expr {lsum($lp) - lsum($l)}]
-    set s [occupancy2Index $l]
-    set sp [occupancy2Index $lp]
-    set ssp [index2flatindex $s $sp]
-    set pKai [lindex [cphSystem get pKaiPair $segresidname] $ssp]
-    if {$dn == 0.0} {
-        # tautomerization: "pKa" is positive in direction of lower index
-        set sgn [expr {$sp > $s} ? 1.0 : -1.0]
-    } else {
-        # titration: pKa is positive in direction of fewer protons
-        set sgn [expr {$dn > 0} ? 1.0 : -1.0]
-    }
-    return [expr {-$::LN10*($sgn*$pKai - $dn*$pH)}] 
+    set statei [cphSystem get state $segresidname]
+    set statej [cphSystem get trialState $segresidname]
+    set du [computeInherentLogRatio $pH $segresidname $statei $statej]
+    set multij [cphSystem get multiplicity $segresidname $statej]
+    # Note the sign flip for compatibility with Metropolis acceptance!
+    return [expr {-($du + log($multij))}]
 }
 
 # ::cphSystem::computeInherentNormedWeights
 #
-# Compute the normalized inherent pKa weights of all states.
+# Compute the normalized inherent pKa weights (i.e. probability mass function,
+# or PMF) of all states within the given residue at the given pH.
 #
-# This is a bit tricky, bc only the relative unnormed weights are known. This
-# is solved by taking all weights relative to the current state and assigning
-# that state an unnormed weight of one.
-#
-# NB: The order of states is randomly shuffled here, because the current state
-#   is omitted from the stateList and given the index 0 in the list of weights
-#   (hence the weight list is one element longer!).
+# The resulting PMF can be directly sampled in order to choose a new state ala
+# independence sampling. However, this is often not an efficent scheme for
+# Markov chain Monte Carlo and the output can also be used for other approaches
+# such as Metropolized independence sampling.
 #
 proc ::cphSystem::computeInherentNormedWeights {pH segresidname} {
-    set l [cphSystem get occupancy $segresidname]
-    set s [occupancy2Index $l]
-    set resname [cphSystem get resname $segresidname]
-    set stateList [cphSystem get trialStateList $segresidname]
-    # We implicitly reference against the current state, so its unnormed weight
-    # is exactly one.
-    set logQs [list 1.0]
-    set logQMax 1.0
+    set currState [cphSystem get state $segresidname]
+    set stateList [cphSystem get stateList $segresidname] 
+
+    # Note that all ratios are taken wrt the current state and are thus
+    # equivalent to unnormed weights. This would NOT be correct if a different
+    # state were in the denomenator each time.
+    #
+    set logQs [list]
+    set logQMax 0.0
     foreach state $stateList {
-        set lp [state2Occupancy $resname $state]
-        set dn [expr {lsum($lp) - lsum($l)}]
-        set sp [occupancy2Index $lp]
-        set ssp [index2flatindex $s $sp]
-        set pKai [lindex [cphSystem get pKaiPair $segresidname] $ssp]
-        if {$dn == 0.0} {
-            # tautomerization: "pKa" is positive in direction of lower index
-            set sgn [expr {$sp > $s} ? 1.0 : -1.0]
-        } else {
-            # titration: pKa is positive in direction of fewer protons
-            set sgn [expr {$dn > 0} ? 1.0 : -1.0]
-        }
-        lappend logQs [expr {$::LN10*($sgn*$pKai - $dn*$pH)}]
-        if {[lindex $logQs end] > $logQMax} {
-            set logQMax [lindex $logQs end]
+        set logQ [computeInherentLogRatio $pH $segresidname $currState $state]
+        lappend logQs $logQ
+        if {$logQ > $logQMax} {
+            set logQMax $logQ
         }
     }
-    return [list [normalizeLogWeights $logQs $logQMax] $stateList]
+    set normedWeights [normalizeLogWeights $logQs $logQMax]
+    return [list $stateList $normedWeights]
 }
 
 # ::cphSystem::computeSwitchAcceptance
@@ -436,6 +499,7 @@ proc ::cphSystem::computeSwitchAcceptance {segresidnameList} {
         set dG [lindex [cphSystem get dGPair $segresidname] $ssp]
         set pKa [lindex [cphSystem get pKaPair $segresidname] $ssp]
         set pKai [lindex [cphSystem get pKaiPair $segresidname] $ssp]
+        set trialState [cphSystem get trialState $segresidname]
         if {$dn == 0.0} {
             # tautomerization: "pKa" is positive in direction of lower index
             set sgn [expr {$sp > $s} ? 1.0 : -1.0]
@@ -566,7 +630,7 @@ proc ::cphSystem::buildSystem {resDefs excludeList} {
     # Check for residue aliases (i.e. titratable residues whose states may span
     # multiple residue definitions, such as HIS).
     set resAliases [dict create]
-    foreach {resname resDef} $resDefDict {
+    dict for {resname resDef} $resDefDict {
         if {![dict exists $resDef aliases]} continue
         dict set resAliases $resname [dict get $resDef aliases]
     }
@@ -758,8 +822,7 @@ proc ::cphSystem::checkResDefs {resDefs} {
 # Arguments:
 # ----------
 # segresidname : string
-#   residue specification as "<segid>:<resid>" - this is the same syntax as for
-#   the regular psfgen patch command.
+#   residue specification as "<segid>:<resid>:<resname>"
 # state : string
 #   state to assign 
 #
@@ -777,39 +840,34 @@ proc ::cphSystem::assignState {segresidname state} {
 
 # ::cphSystem::randomizeState
 #
-# Assign a protonation state by randomly choosing a state and performing MC 
-# moves based on the pH until a new state is accepted.
-#
-#   This is a bit sneaky. Implementing a proper independence sampling of all of
-# the states seems overkill. Rather, an originating state is chosen uniformly 
-# from all possible states and the state to be assigned is chosen by a pairwise
-# pH/pKai based Metropolis criterion. If this is rejected, then a new 
-# originating state is chosen. This should be equivalent to independence
-# sampling for many such trials. 
+# Assign a protonation state by independence sampling at the given pH.
 #
 # Arguments:
 # ----------
 # segresidname : string
-#   residue specification as "<segid>:<resid>" - this is the same syntax as for
-#   the regular psfgen patch command.
+#   residue specification as "<segid>:<resid>:<resname>"
 # pH : float
-#    pH value at which to assign protonation states
+#   pH value at which to assign protonation states
 #
 # Returns:
 # --------
 # None 
 #
 proc ::cphSystem::randomizeState {segresidname pH} {
-    while {true} {
-        set states [cphSystem get stateList $segresidname]
-        cphSystem set state $segresidname [lindex [choice $states] 0]
-        cphSystem propose titration $segresidname
-        set du [cphSystem compute inherent $pH $segresidname]
-        if {[metropolisAcceptance $du]} { 
-            return 0
-        }
-    }
-    return -1
+    # Note that computeInherentNormedWeights requires a state to be set for
+    # normalization purposes. Therefore choose a random state first and then
+    # rigorously sample the distribution.
+    set states [cphSystem get stateList $segresidname]
+    lassign [choice $states] state
+    cphSystem set state $segresidname $state
+    lassign [computeInherentNormedWeights $pH $segresidname] states weights
+    lassign [choice $states $weights] state
+    cphSystem set state $segresidname $state
+    # Use the same hack as in assignState.
+    cphSystem propose titration $segresidname
+    cphSystem set state $segresidname [cphSystem get trialState $segresidname]
+    cphSystem set trialState $segresidname $state
+    return 0
 }
 
 # =============================================================================
@@ -845,6 +903,7 @@ proc ::cphSystem::randomizeState {segresidname pH} {
 # occupancy          occupancy vector for the current state
 # trialOccupancy     occupancy vector for the trial state
 # stateList          all possible states
+# equivStateList     all states equivalent to the given state
 # trialStateList     all possible trial states (not the current state)
 # dGPair             pair dG for current/trial states
 # pKaPair            pair pKa for current/trial states
@@ -902,7 +961,12 @@ proc ::cphSystem::cphSystemGet {attr {segresidname {}} args} {
             if {$getAll} {
                 getAllOccupancy
             } else {
-                getOccupancy $segresidname
+                if {[llength $args]} {
+                    lassign $args state
+                    getOccupancy $segresidname $state
+                } else {
+                    getCurrOccupancy $segresidname
+                }
             }
         }
         trialOccupancy {
@@ -918,6 +982,32 @@ proc ::cphSystem::cphSystemGet {attr {segresidname {}} args} {
             } else {
                 set resname [getResAttr resname $segresidname]
                 dict keys [dict get $resDefDict $resname states]
+            }
+        }
+        equivStateList {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                if {[llength $args]} {
+                    lassign $args state
+                } else {
+                    # Default to current state.
+                    set state [getResAttr state $segresidname]
+                }
+                getEquivStates $segresidname $state
+            }
+        }
+        multiplicity {
+            if {$getAll} {
+                cannotGetAll $attr
+            } else {
+                if {[llength $args]} {
+                    lassign $args state
+                } else {
+                    # Default to current state.
+                    set state [getResAttr state $segresidname]
+                }
+                llength [getEquivStates $segresidname $state]
             }
         }
         trialStateList {
@@ -1044,20 +1134,22 @@ proc ::cphSystem::state2Occupancy {resname state} {
     return [dict get $::cphSystem::resDefDict $resname states $state]
 }
 
-# NB: When returning all occupancies, only the current state can be used and
-#   the list is flattened.
-proc ::cphSystem::getOccupancy {segresidname} {
+proc ::cphSystem::getOccupancy {segresidname state} {
     variable ::cphSystem::resDict
     set resname [dict get $resDict $segresidname resname]
-    set state [dict get $resDict $segresidname state]
     return [state2Occupancy $resname $state]
+}
+
+proc ::cphSystem::getCurrOccupancy {segresidname} {
+    variable ::cphSystem::resDict
+    set state [dict get $resDict $segresidname state]
+    return [getOccupancy $segresidname $state]
 }
 
 proc ::cphSystem::getTrialOccupancy {segresidname} {
     variable ::cphSystem::resDict
-    set resname [dict get $resDict $segresidname resname]
     set state [dict get $resDict $segresidname trialState]
-    return [state2Occupancy $resname $state]
+    return [getOccupancy $segresidname $state] 
 }
 
 proc ::cphSystem::getAllOccupancy {} {
@@ -1070,6 +1162,34 @@ proc ::cphSystem::getAllOccupancy {} {
         set retList [list {*}$retList {*}[state2Occupancy $resname $state]]
     }
     return $retList
+}
+
+# ::cphSystem::getEquivStates
+#
+# Return the list of states equivalent to the given state of the given residue. # This includes the given state such that the length of the list is exactly the
+# degeneracy.
+#
+proc ::cphSystem::getEquivStates {segresidname testState} {
+    set l [cphSystem get occupancy $segresidname $testState]
+    set s [occupancy2Index $l]
+
+    set equivStateList [list]
+    foreach state [cphSystem get stateList $segresidname] {
+        if {$state == $testState} {
+            lappend equivStateList $state
+            continue
+        }
+
+        set lp [cphSystem get occupancy $segresidname $state]
+        set dn [expr {lsum($lp) - lsum($l)}]
+        set sp [occupancy2Index $lp]
+        set ssp [index2flatindex $s $sp]
+        set pKa [lindex [cphSystem get pKaPair $segresidname] $ssp]
+        if {$dn == 0.0 && $pKa == 0.0} {
+            lappend equivStateList $state
+        }
+    }
+    return $equivStateList
 }
 
 # ----------------------
