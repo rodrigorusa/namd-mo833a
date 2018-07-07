@@ -129,26 +129,30 @@ void NAMD_close(int fd, const char *fname) {
 
 
 static void lattice_to_unitcell(const Lattice *lattice, double *unitcell) {
-   if (lattice && lattice->a_p() && lattice->b_p() && lattice->c_p()) {
-      const Vector &a=lattice->a();
-      const Vector &b=lattice->b();
-      const Vector &c=lattice->c();
-      unitcell[0] = a.length();
-      unitcell[2] = b.length();
-      unitcell[5] = c.length();
-      double cosAB = (a*b)/(unitcell[0]*unitcell[2]);
-      double cosAC = (a*c)/(unitcell[0]*unitcell[5]);
-      double cosBC = (b*c)/(unitcell[2]*unitcell[5]);
-      if (cosAB > 1.0) cosAB = 1.0; else if (cosAB < -1.0) cosAB = -1.0;
-      if (cosAC > 1.0) cosAC = 1.0; else if (cosAC < -1.0) cosAC = -1.0;
-      if (cosBC > 1.0) cosBC = 1.0; else if (cosBC < -1.0) cosBC = -1.0;
-      unitcell[1] = cosAB;
-      unitcell[3] = cosAC;
-      unitcell[4] = cosBC;
-   } else {
-      unitcell[0] = unitcell[2] = unitcell[5] = 1.0;
-      unitcell[1] = unitcell[3] = unitcell[4] = 0.0;
-   }
+
+  unitcell[0] = unitcell[2] = unitcell[5] = 0.0;
+  unitcell[1] = unitcell[3] = unitcell[4] = 0.0;
+
+  if (lattice) {
+    const Vector &a=lattice->a();
+    const Vector &b=lattice->b();
+    const Vector &c=lattice->c();
+    unitcell[0] = (lattice->a_p()) ? a.length() : 0.0;
+    unitcell[2] = (lattice->b_p()) ? b.length() : 0.0;
+    unitcell[5] = (lattice->c_p()) ? c.length() : 0.0;
+    double cosAB = (lattice->a_p() && lattice->b_p() ) ?
+      (a*b)/(unitcell[0]*unitcell[2]) : 0.0;
+    double cosAC = (lattice->a_p() && lattice->c_p() ) ?
+      (a*c)/(unitcell[0]*unitcell[5]) : 0.0;
+    double cosBC = (lattice->b_p() && lattice->c_p() ) ?
+      (b*c)/(unitcell[2]*unitcell[5]) : 0.0;
+    if (cosAB > 1.0) cosAB = 1.0; else if (cosAB < -1.0) cosAB = -1.0;
+    if (cosAC > 1.0) cosAC = 1.0; else if (cosAC < -1.0) cosAC = -1.0;
+    if (cosBC > 1.0) cosBC = 1.0; else if (cosBC < -1.0) cosBC = -1.0;
+    unitcell[1] = cosAB;
+    unitcell[3] = cosAC;
+    unitcell[4] = cosBC;
+  }
 }
 
 
