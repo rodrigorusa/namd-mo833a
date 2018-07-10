@@ -150,17 +150,32 @@ proc lmultiply {list args} {
 # Generate a Gaussian (normal) random variable with the given mean and standard
 # deviation (default to zero and one, respectively). 
 #
-# This uses the standard Box-Muller transformation of two uniform random 
-# variables on (0, 1).
+# This uses a Box-Muller-like transformation by generating two uniform variates
+# within the unit circle. The cost of rejecting some random numbers generally
+# outweighs the cost of the cos() and sin() needed for the standard Box-Muller
+# transformation.
 #
+variable SecondGaussianWaiting 0
+variable SecondGaussian 0.0
 proc tcl::mathfunc::normal {{mu 0.0} {sigma 1.0}} {
-    set two_pi [expr {2*3.141592653589793}]
-    set u1 [expr {rand()}]
-    set u2 [expr {rand()}]
-    # The transformation produces two random variates - either of these can be
-    # used (or both).
-    expr {$mu + $sigma*sqrt(-2*log($u1))*cos($two_pi*$u2)}
-    # expr {$mu + $sigma*sqrt(-2*log($u1))*sin($two_pi*$u2)}
+    if {$::SecondGaussianWaiting} {
+        set ::SecondGaussianWaiting 0
+        expr {$mu + $sigma*$::SecondGaussian}
+    } else {
+        # Pick two variates within the unit circle. The lower bound is from
+        # NAMD Random.h and purportedly ensures "abs result < 6".
+        set r 2.0
+        while {$r >=1. || $r < 1.523e-8} {
+            set u1 [expr {2*rand() - 1}]
+            set u2 [expr {2*rand() - 1}]
+            set r [expr {$u1*$u1 + $u2*$u2}]
+        }
+        # The transformation produces two random variates - store one.
+        set fac [expr sqrt(-2*log($r)/$r)]
+        set ::SecondGaussianWaiting 1
+        set ::SecondGaussian [expr {$fac*$u1}]
+        expr {$mu + $sigma*$fac*$u2}
+    }
 }
 
 # choice
@@ -205,7 +220,18 @@ proc choice {list {weights {}}} {
         }
         incr j
     }
-    # This should never be reached.
-    error "Something bad happened in choice!"
+    # This may be reached if one of the weights is essentially one within
+    # rounding precision. In that case, returning the most probable choice is
+    # likely a good approximation and really the only stable thing to do.
+    set MaxWeight 0.0
+    set i 0
+    foreach Weight $weights {
+        if {$Weight >= $MaxWeight} {
+            set MaxWeight $Weight
+            set j $i
+        }
+        incr i
+    }
+    return [list [lindex $list $j] $j]
 }
 
