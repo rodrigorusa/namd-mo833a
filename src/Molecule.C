@@ -3914,7 +3914,7 @@ void Molecule::setBFactorData(molfile_atom_t *atomarray){
       stripFepExcl();
 
       // DRUDE
-      if (is_lonepairs_psf) {
+      if (is_lonepairs_psf || is_drude_psf) {
         build_inherited_excl(SCALED14 == exclude_flag);
       }
     }
@@ -9340,7 +9340,7 @@ void Molecule::build_atom_status(void) {
       }
     }
     // SWM4 water has lone pair and Drude particles
-    else if ( /* simParams->watmodel == WAT_SWM4 */ is_lonepairs_psf) {
+    else if ( is_lonepairs_psf || is_drude_psf ) {
       if (is_lp(a1) || is_drude(a1)) {
         if (is_hydrogen(a2) || is_lp(a2) || is_drude(a2)) {
           char msg[256];
