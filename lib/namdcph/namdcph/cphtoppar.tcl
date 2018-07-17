@@ -576,7 +576,28 @@ proc ::cphSystem::initializeSystem {pH temperature buildH stateInfo} {
     # Final pass - Apply the patches
     foreach segresidname [cphSystem get segresidnames] {
         lassign [split $segresidname ":"] segid resid
+        lassign [cphSystem get alchAtomLists $segresidname] atoms
+        set masses [list]
+        foreach atom $atoms {
+            if {[catch {eval segment mass $segid $resid $atom}]} {
+                lappend masses -1.0
+            } else {
+                lappend masses [segment mass $segid $resid $atom]
+            }
+        }
+        # The patch statement reassigns all masses based on RTF definitions.
+        # This must be undone in the case of HMR.
         patch [cphSystem get statePatch $segresidname] "$segid:$resid"
+        foreach atom $atoms mass $masses {
+            if {$mass > 0.0} {
+                psfset mass $segid $resid $atom $mass
+            } else {
+                print "WARNING! Building new atom $segid:$resid:$atom with"\
+                      "unknown mass."
+                print "         This may cause issues, for example, with"\
+                      "mass repartitioning."
+            }
+        }
     }
     guesscoord
     foreach segresidname [cphSystem get segresidnames] {
