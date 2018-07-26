@@ -1463,9 +1463,9 @@ charges can be defined through QMCharge or QMChargeFromPSF keywords.\n" << endi;
         }
     } 
     
-    
-    if (simParams->qmCSMD) {
-        qmcSMD = simParams->qmCSMD;
+    // Conditional SMD option
+    qmcSMD = simParams->qmCSMD;
+    if (qmcSMD) {
         read_qm_csdm_file(qmGrpIDMap);
     }
     
