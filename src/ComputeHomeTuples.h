@@ -24,7 +24,6 @@
 #include "SimParameters.h"
 #include "PatchMap.inl"
 #include "AtomMap.h"
-#include "ComputeHomeTuples.h"
 #include "PatchMgr.h"
 #include "ProxyMgr.h"
 #include "HomePatchList.h"

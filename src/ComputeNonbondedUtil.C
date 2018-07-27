@@ -515,6 +515,10 @@ void ComputeNonbondedUtil::select(void)
 //fepe
 
   dielectric_1 = 1.0/simParams->dielectric;
+  if ( simParams->soluteScalingOn ) {
+    delete ljTable;
+    ljTable = 0;
+  }
   if ( ! ljTable ) ljTable = new LJTable;
   mol = Node::Object()->molecule;
   scaling = simParams->nonbondedScaling;

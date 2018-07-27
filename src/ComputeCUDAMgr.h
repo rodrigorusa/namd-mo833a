@@ -13,11 +13,12 @@
 class ComputeCUDAMgr : public CBase_ComputeCUDAMgr {
 public:
   // ComputeCUDAMgr_SDAG_CODE;
-	ComputeCUDAMgr();
-	ComputeCUDAMgr(CkMigrateMessage *);
-	~ComputeCUDAMgr();
-	void initialize(CkQdMsg *msg);
-	void initialize_devices(CkQdMsg *msg);
+  ComputeCUDAMgr();
+  ComputeCUDAMgr(CkMigrateMessage *);
+  ~ComputeCUDAMgr();
+  void initialize(CkQdMsg *msg);
+  void initialize_devices(CkQdMsg *msg);
+  void update();
   static ComputeCUDAMgr* getComputeCUDAMgr();
   CudaComputeNonbonded* createCudaComputeNonbonded(ComputeID c);
   CudaComputeNonbonded* getCudaComputeNonbonded();

@@ -47,9 +47,14 @@ CudaNonbondedTables::~CudaNonbondedTables() {
 }
 
 template <typename T>
-void bindTextureObject(int size, T* h_table, T*& d_table, cudaTextureObject_t& tex) {
+void bindTextureObject(int size, T* h_table, T*& d_table, cudaTextureObject_t& tex, bool update=false) {
   // Copy to device
-  allocate_device<T>(&d_table, size);
+  if ( ! update) {
+    allocate_device<T>(&d_table, size);
+  }
+  else {
+    cudaCheck(cudaDestroyTextureObject(tex));
+  }
   copy_HtoD_sync<T>(h_table, d_table, size);
 
   // Create texture object
@@ -75,7 +80,7 @@ void bindTextureObject(int size, T* h_table, T*& d_table, cudaTextureObject_t& t
 // Builds the VdW Lennard-Jones coefficient table. Swiped from ComputeNonbondedCUDA.C
 // NOTE: Can only be called once
 //
-void CudaNonbondedTables::buildVdwCoefTable() {
+void CudaNonbondedTables::buildVdwCoefTable(bool update/*=false*/) {
 
   const LJTable* const ljTable = ComputeNonbondedUtil:: ljTable;
   const int dim = ljTable->get_table_dim();
@@ -100,8 +105,8 @@ void CudaNonbondedTables::buildVdwCoefTable() {
 
   vdwCoefTableWidth = tsize;
 
-  bindTextureObject<float2>(tsize*tsize, h_vdwCoefTable, vdwCoefTable, vdwCoefTableTex);
-  bindTextureObject<float2>(tsize*tsize, h_exclusionVdwCoefTable, exclusionVdwCoefTable, exclusionVdwCoefTableTex);
+  bindTextureObject<float2>(tsize*tsize, h_vdwCoefTable, vdwCoefTable, vdwCoefTableTex, update);
+  bindTextureObject<float2>(tsize*tsize, h_exclusionVdwCoefTable, exclusionVdwCoefTable, exclusionVdwCoefTableTex, update);
 
   delete [] h_vdwCoefTable;
   delete [] h_exclusionVdwCoefTable;
@@ -109,6 +114,11 @@ void CudaNonbondedTables::buildVdwCoefTable() {
   if ( ! CmiPhysicalNodeID(CkMyPe()) ) {
     CkPrintf("Info: Updated CUDA LJ table with %d x %d elements.\n", dim, dim);
   }
+}
+
+// Update tables from newer CPU values
+void CudaNonbondedTables::updateTables() {
+  buildVdwCoefTable(true);
 }
 
 //

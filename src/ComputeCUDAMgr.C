@@ -67,6 +67,19 @@ void ComputeCUDAMgr::initialize(CkQdMsg *msg) {
   }
 }
 
+//
+// Update nonbonded tables
+// Should be called only on rank 0 of each node
+//
+void ComputeCUDAMgr::update() {
+  if ( CkMyRank() ) NAMD_bug("ComputeCUDAMgr::update() should be called only by rank 0");
+  for (int i=0;  i < deviceCUDA->getNumDevice();  i++) {
+    int deviceID = deviceCUDA->getDeviceIDbyRank(i);
+    // calls update function from CudaNonbondedTables
+    cudaNonbondedTablesList[deviceID]->updateTables();
+  }
+}
+
 ComputeCUDAMgr* ComputeCUDAMgr::getComputeCUDAMgr() {
   // Get pointer to ComputeCUDAMgr on this node
   CProxy_ComputeCUDAMgr computeCUDAMgrProxy = CkpvAccess(BOCclass_group).computeCUDAMgr;

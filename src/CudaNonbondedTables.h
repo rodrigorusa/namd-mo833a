@@ -41,7 +41,7 @@ private:
   cudaTextureObject_t exclusionTableTex;
   cudaTextureObject_t r2_table_tex;
 
-  void buildVdwCoefTable();
+  void buildVdwCoefTable(bool update=false);
   void buildForceAndEnergyTables(int tableSize);
 
 public:
@@ -53,6 +53,8 @@ public:
   cudaTextureObject_t getVdwCoefTableTex() {return vdwCoefTableTex;}
   cudaTextureObject_t getForceTableTex() {return forceTableTex;}
   cudaTextureObject_t getEnergyTableTex() {return energyTableTex;}
+
+  void updateTables();
 
   float2* getExclusionVdwCoefTable() {return exclusionVdwCoefTable;}
   cudaTextureObject_t getExclusionVdwCoefTableTex() {return exclusionVdwCoefTableTex;}
