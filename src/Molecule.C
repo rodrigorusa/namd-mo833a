@@ -10144,6 +10144,16 @@ Molecule::Molecule(SimParameters *simParams, Parameters *param, Ambertoppar *amb
 {
   initialize(simParams,param);
 
+  // This is AMBER file, so it is not a lonepairs PSF.
+  // Needs to be set FALSE to avoid crash.
+  is_lonepairs_psf = 0;
+
+  // General lonepairs flag must also be set FALSE to avoid crash.
+  // TIP4P lonepairs are still supported by setting config watmodel=tip4.
+  // The TIP4P lonepair repositioning is called from rigid bond constraints
+  // routine rattle1old().
+  simParams->lonepairs = 0;
+
   read_parm(amber_data);
 
 #ifndef MEM_OPT_VERSION
