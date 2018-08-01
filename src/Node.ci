@@ -20,17 +20,16 @@ module Node {
   group Node
   {
     entry Node(GroupInitMsg *);
-    entry void startUp(CkQdMsg *);
     entry void startup(void);
 
     entry void mallocTest(int);
-    entry void mallocTestQd(CkQdMsg *);
+    entry void mallocTestQd(void);
 
     // after startup barriers - run simulation
     entry void run(void);
 
     // used to change parameters in mid-run
-    entry void scriptBarrier(CkQdMsg *);
+    entry void scriptBarrier(void);
     entry void scriptParam(ScriptParamMsg *);
 
     // used to change Molecule fields in mid-run
@@ -47,12 +46,12 @@ module Node {
     entry void recvCheckpointAck(CheckpointMsg*);
 
     // exit scheduler to return to front end
-    entry void recvEnableExitScheduler(CkQdMsg *);
-    entry void exitScheduler(CkQdMsg *);
+    entry void recvEnableExitScheduler(void);
+    entry void exitScheduler(void);
 
     // clean early exit after quiescence
-    entry void recvEnableEarlyExit(CkQdMsg *);
-    entry void earlyExit(CkQdMsg *);
+    entry void recvEnableEarlyExit(void);
+    entry void earlyExit(void);
 
     entry void startHPM();
     entry void stopHPM();

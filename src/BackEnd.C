@@ -214,7 +214,7 @@ void master_init(int argc, char **argv){
   msg->group = group;
   CkGroupID node = CProxy_Node::ckNew(msg);
  
-  CkStartQD(CkCallback(CkIndex_Node::exitScheduler((CkQdMsg*)0), CkMyPe(), node));
+  CkStartQD(CkCallback(CkIndex_Node::exitScheduler(), CkMyPe(), node));
   CsdScheduler(-1);
 }
 

@@ -91,7 +91,7 @@ public:
 
   // Change parameters in mid-run
   void enableScriptBarrier();  
-  void scriptBarrier(CkQdMsg *);  
+  void scriptBarrier(void);
   void scriptParam(ScriptParamMsg *);
 
   void reloadCharges(const char *filename);
@@ -111,22 +111,21 @@ public:
   void recvCheckpointAck(CheckpointMsg*);
   
   void sendEnableExitScheduler(void);
-  void recvEnableExitScheduler(CkQdMsg *);
+  void recvEnableExitScheduler(void);
   void enableExitScheduler(void);
-  void exitScheduler(CkQdMsg *);
+  void exitScheduler(void);
 
   void sendEnableEarlyExit(void);
-  void recvEnableEarlyExit(CkQdMsg *);
+  void recvEnableEarlyExit(void);
   void enableEarlyExit(void);
-  void earlyExit(CkQdMsg *);
+  void earlyExit(void);
 
   // Charm Entry point - Read in system data, get all ready to simulate
   static void messageStartUp();
-  void startup();  
-  void startUp(CkQdMsg *);
+  void startup();
 
   void mallocTest(int);
-  void mallocTestQd(CkQdMsg *);
+  void mallocTestQd(void);
   int mallocTest_size;
   
 #ifdef MEM_OPT_VERSION

@@ -401,8 +401,7 @@ void Node::mallocTest(int step) {
   memset(foo,0,size*MB*sizeof(char));
 }
 
-void Node::mallocTestQd(CkQdMsg *qmsg) {
-  delete qmsg;
+void Node::mallocTestQd() {
   if ( mallocTest_size ) {
     CkPrintf("All PEs successfully allocated %d MB.\n", 100*mallocTest_size);
   } else {
@@ -410,7 +409,7 @@ void Node::mallocTestQd(CkQdMsg *qmsg) {
   }
   fflush(stdout);
   ++mallocTest_size;
-  CkStartQD(CkIndex_Node::mallocTestQd((CkQdMsg*)0),&thishandle);
+  CkStartQD(CkIndex_Node::mallocTestQd(), &thishandle);
   (CProxy_Node(CkpvAccess(BOCclass_group).node)).mallocTest(mallocTest_size);
 }
 
@@ -418,11 +417,6 @@ void Node::mallocTestQd(CkQdMsg *qmsg) {
 // Startup Sequence
 
 void Node::messageStartUp() {
-  (CProxy_Node(CkpvAccess(BOCclass_group).node)).startup();
-}
-
-void Node::startUp(CkQdMsg *qmsg) {
-  delete qmsg;
   (CProxy_Node(CkpvAccess(BOCclass_group).node)).startup();
 }
 
@@ -488,7 +482,7 @@ void Node::startup() {
     if ( simParameters->mallocTest ) {
       if (!CkMyPe()) {
         mallocTest_size = 0;
-        CkStartQD(CkIndex_Node::mallocTestQd((CkQdMsg*)0),&thishandle);
+        CkStartQD(CkIndex_Node::mallocTestQd(), &thishandle);
       }
       return;
     }
@@ -932,7 +926,7 @@ void Node::startup() {
   startupPhase++;
   if (!CkMyPe()) {
     if (!gotoRun) {
-      CkStartQD(CkIndex_Node::startUp((CkQdMsg*)0),&thishandle);
+      CkStartQD(CkCallback(CkIndex_Node::startup(), thisgroup));
     } else {
       Node::messageRun();
     }
@@ -1157,11 +1151,10 @@ void Node::run()
 //-----------------------------------------------------------------------
 
 void Node::enableScriptBarrier() {
-  CkStartQD(CkIndex_Node::scriptBarrier((CkQdMsg*)0),&thishandle);
+  CkStartQD(CkIndex_Node::scriptBarrier(), &thishandle);
 }
 
-void Node::scriptBarrier(CkQdMsg *qmsg) {
-  delete qmsg;
+void Node::scriptBarrier() {
   //script->awaken();
 }
 
@@ -1351,14 +1344,12 @@ void Node::recvCheckpointAck(CheckpointMsg *msg) {
 
 void Node::sendEnableExitScheduler(void) {
   //CmiPrintf("sendEnableExitScheduler\n");
-  CkQdMsg *msg = new CkQdMsg;
   CProxy_Node nodeProxy(thisgroup);
-  nodeProxy[0].recvEnableExitScheduler(msg);
+  nodeProxy[0].recvEnableExitScheduler();
 }
 
-void Node::recvEnableExitScheduler(CkQdMsg *msg) {
+void Node::recvEnableExitScheduler(void) {
   //CmiPrintf("recvEnableExitScheduler\n");
-  delete msg;
   enableExitScheduler();
 }
 
@@ -1366,24 +1357,21 @@ void Node::enableExitScheduler(void) {
   if ( CkMyPe() ) {
     sendEnableExitScheduler();
   } else {
-    CkStartQD(CkIndex_Node::exitScheduler((CkQdMsg*)0),&thishandle);
+    CkStartQD(CkIndex_Node::exitScheduler(), &thishandle);
   }
 }
 
-void Node::exitScheduler(CkQdMsg *msg) {
+void Node::exitScheduler(void) {
   //CmiPrintf("exitScheduler %d\n",CkMyPe());
   CsdExitScheduler();
-  delete msg;
 }
 
 void Node::sendEnableEarlyExit(void) {
-  CkQdMsg *msg = new CkQdMsg;
   CProxy_Node nodeProxy(thisgroup);
-  nodeProxy[0].recvEnableEarlyExit(msg);
+  nodeProxy[0].recvEnableEarlyExit();
 }
 
-void Node::recvEnableEarlyExit(CkQdMsg *msg) {
-  delete msg;
+void Node::recvEnableEarlyExit() {
   enableEarlyExit();
 }
 
@@ -1391,15 +1379,14 @@ void Node::enableEarlyExit(void) {
   if ( CkMyPe() ) {
     sendEnableEarlyExit();
   } else {
-    CkStartQD(CkIndex_Node::earlyExit((CkQdMsg*)0),&thishandle);
+    CkStartQD(CkIndex_Node::earlyExit(),&thishandle);
   }
 }
 
-void Node::earlyExit(CkQdMsg *msg) {
+void Node::earlyExit(void) {
   iout << iERROR << "Exiting prematurely; see error messages above.\n" << endi;
   if ( CmiNumPartitions() > 1 ) NAMD_quit("Exiting prematurely; see error messages above.");
   BackEnd::exit();
-  delete msg;
 }
 
 
