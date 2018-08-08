@@ -1298,32 +1298,24 @@ void ParallelIOMgr::sendAtomsToHomePatchProcs()
         int len = procList[i].size();
         if(len==0) continue;
 
-        if ( numAcksOutstanding >= 10 ) {
-          //CkPrintf("Pe %d ParallelIOMgr::sendAtomsToHomePatchProcs suspending at %d of %d pes\n",CkMyPe(),k,pesToSend.size());
-          //fflush(stdout);
-          sendAtomsThread = CthSelf();
-          CthSuspend();
-        }
-        ++numAcksOutstanding;
-
-        //prepare a message to send
-        int patchCnt = len;
-        int totalAtomCnt = 0;
+        // Sending one message per pe can result in very large messages
+        // that break Converse so send one message per patch instead.
         for(int j=0; j<len; j++) {
             int pid = procList[i][j];
             int atomCnt = eachPatchAtomList[pid].size();
-            totalAtomCnt += atomCnt;
-        }
 
-        MovePatchAtomsMsg *msg = new (patchCnt, patchCnt, totalAtomCnt, 0)MovePatchAtomsMsg;
-        msg->from = CkMyPe();
-        msg->patchCnt = patchCnt;
-        int atomIdx = 0;
-        for(int j=0; j<len; j++) {
-            int pid = procList[i][j];
-            int atomCnt = eachPatchAtomList[pid].size();
-            msg->pidList[j] = pid;
-            msg->sizeList[j] = atomCnt;
+            if ( numAcksOutstanding >= 10 ) {
+              sendAtomsThread = CthSelf();
+              CthSuspend();
+            }
+            ++numAcksOutstanding;
+
+            MovePatchAtomsMsg *msg = new (1, 1, atomCnt, 0)MovePatchAtomsMsg;
+            msg->from = CkMyPe();
+            msg->patchCnt = 1;
+            int atomIdx = 0;
+            msg->pidList[0] = pid;
+            msg->sizeList[0] = atomCnt;
             for(int k=0; k<atomCnt; k++, atomIdx++) {
                 int aid = eachPatchAtomList[pid][k];
                 FullAtom one = initAtoms[aid];
@@ -1332,8 +1324,8 @@ void ParallelIOMgr::sendAtomsToHomePatchProcs()
                 one.hydVal = initAtoms[aid].hydList;
                 msg->allAtoms[atomIdx] = one;
             }
+            pIO[i].recvAtomsToHomePatchProcs(msg);
         }
-        pIO[i].recvAtomsToHomePatchProcs(msg);
 
         procList[i].clear();
     }
