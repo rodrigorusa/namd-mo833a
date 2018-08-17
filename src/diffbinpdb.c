@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 int main(int argc, char *argv[]) {
 
@@ -96,22 +97,36 @@ if ( argc == 4 ) {
 imax = 0;
 dmax = 0;
 
-for ( i=0; i<n1; ++i ) {
-  double c1[3];
-  double c2[3];
-  double d;
-  read(fd1,c1,24);
-  read(fd2,c2,24);
+int bufatoms = 1000000;
+if ( bufatoms > n1 ) bufatoms = n1;
 
-  d = 0;
-  for ( j=0; j<3; ++j ) {
-    double dj;
-    dj = c1[j] - c2[j];
-    d += dj*dj;
+double *c1 = malloc(bufatoms*24);
+double *c2 = malloc(bufatoms*24);
+
+if ( ! c1 || ! c2 ) {
+  fprintf(stderr,"Memory allocation failed.\n");
+}
+
+for ( i=0; i<n1; i+=bufatoms ) {
+  if ( i + bufatoms > n1 ) bufatoms = n1 - i;
+  if ( read(fd1,c1,bufatoms*24) != bufatoms*24 ) {
+    fprintf(stderr,"Error reading %s.\n",argv[1]);
+    exit(-1);
   }
-  if ( d > dmax ) { imax = i; dmax = d; }
-  if ( usetol && d > dtol ) {
-    printf("%lg at %d\n",sqrt(d),i);
+  if ( read(fd2,c2,bufatoms*24) != bufatoms*24 ) {
+    fprintf(stderr,"Error reading %s.\n",argv[2]);
+    exit(-1);
+  }
+
+  for ( j=0; j<bufatoms; ++j ) {
+    double dx = c1[3*j+0] - c2[3*j+0];
+    double dy = c1[3*j+1] - c2[3*j+1];
+    double dz = c1[3*j+2] - c2[3*j+2];
+    double d = dx*dx + dy*dy + dz*dz;
+    if ( d > dmax ) { imax = i+j; dmax = d; }
+    if ( usetol && d > dtol ) {
+      printf("%lg at %d\n",sqrt(d),i+j);
+    }
   }
 }
 
