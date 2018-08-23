@@ -21,8 +21,6 @@ PmePencilXYZ::PmePencilXYZ() {
   fftCompute = NULL;
   pmeKSpaceCompute = NULL;
   reduction = ReductionMgr::Object()->willSubmit(REDUCTIONS_BASIC);
-  numSelfEnergyRecv = 0;
-  selfEnergy = 0.0;
   doEnergy = false;
   doVirial = false;
 }
@@ -76,7 +74,7 @@ void PmePencilXYZ::submitReductions() {
   double virial[9];
   double energy = pmeKSpaceCompute->getEnergy();
   pmeKSpaceCompute->getVirial(virial);
-  reduction->item(REDUCTION_ELECT_ENERGY_SLOW) += energy + selfEnergy;
+  reduction->item(REDUCTION_ELECT_ENERGY_SLOW) += energy;
   reduction->item(REDUCTION_VIRIAL_SLOW_XX) += virial[0];
   reduction->item(REDUCTION_VIRIAL_SLOW_XY) += virial[1];
   reduction->item(REDUCTION_VIRIAL_SLOW_XZ) += virial[2];
@@ -372,8 +370,6 @@ PmePencilZ::PmePencilZ() {
   pmeTranspose = NULL;
   pmeKSpaceCompute = NULL;
   reduction = ReductionMgr::Object()->willSubmit(REDUCTIONS_BASIC);
-  numSelfEnergyRecv = 0;
-  selfEnergy = 0.0;
   doEnergy = false;
   doVirial = false;
   numStrayAtoms = 0;
@@ -436,7 +432,7 @@ void PmePencilZ::submitReductions() {
   double energy = pmeKSpaceCompute->getEnergy();
   // fprintf(stderr, "PmePencilZ::submitReductions(), numStrayAtoms %d\n", numStrayAtoms);
   pmeKSpaceCompute->getVirial(virial);
-  reduction->item(REDUCTION_ELECT_ENERGY_SLOW) += energy + selfEnergy;
+  reduction->item(REDUCTION_ELECT_ENERGY_SLOW) += energy;
   reduction->item(REDUCTION_VIRIAL_SLOW_XX) += virial[0];
   reduction->item(REDUCTION_VIRIAL_SLOW_XY) += virial[1];
   reduction->item(REDUCTION_VIRIAL_SLOW_XZ) += virial[2];

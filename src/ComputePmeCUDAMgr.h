@@ -448,7 +448,6 @@ public:
   void recvPencils(CProxy_CudaPmePencilXYZ xyz);
   void recvPencils(CProxy_CudaPmePencilXY xy, CProxy_CudaPmePencilZ z);
   void recvPencils(CProxy_CudaPmePencilX x, CProxy_CudaPmePencilY y, CProxy_CudaPmePencilZ z);
-  void recvSelfEnergy(PmeSelfEnergyMsg *msg);
 
   void createDevicesAndAtomFiler();
   void recvDevices(RecvDeviceMsg* msg);

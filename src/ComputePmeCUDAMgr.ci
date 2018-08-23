@@ -58,7 +58,6 @@ module ComputePmeCUDAMgr {
     entry void recvPencils(CProxy_CudaPmePencilXYZ xyz);
     entry void recvPencils(CProxy_CudaPmePencilXY xy, CProxy_CudaPmePencilZ z);
     entry void recvPencils(CProxy_CudaPmePencilX x, CProxy_CudaPmePencilY y, CProxy_CudaPmePencilZ z);
-    entry void recvSelfEnergy(PmeSelfEnergyMsg *msg);
 
     entry void recvDevices(RecvDeviceMsg* msg);
     entry void recvAtomFiler(CProxy_PmeAtomFiler filer);

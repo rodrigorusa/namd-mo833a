@@ -48,6 +48,7 @@ ComputePmeCUDA::~ComputePmeCUDA() {
     	PatchMap::Object()->patch(patches[i].patchID)->unregisterForceDeposit(this, &patches[i].forceBox);
     }
   }
+  delete reduction;
   CmiDestroyLock(lock);
 }
 
@@ -65,7 +66,7 @@ void ComputePmeCUDA::initialize() {
   if (simParams->pairInteractionOn) NAMD_bug("ComputePmeCUDA::ComputePmeCUDA, pairInteractionOn not yet implemented");
 
   sendAtomsDone = false;
-  selfEnergyDone = false;
+  reduction = ReductionMgr::Object()->willSubmit(REDUCTIONS_BASIC);
   // basePriority = PME_PRIORITY;
   patchCounter = getNumPatches();
 
@@ -123,6 +124,8 @@ int ComputePmeCUDA::noWork() {
 
   if (patches[0].patch->flags.doFullElectrostatics) return 0;
 
+  reduction->submit();
+
   for (int i=0;i < getNumPatches();i++) {
     patches[i].positionBox->skip();
     patches[i].forceBox->skip();
@@ -167,6 +170,8 @@ void ComputePmeCUDA::sendAtoms() {
   double r3y = recip3.y;
   double r3z = recip3.z;
 
+  double selfEnergy = 0.;
+
   for (int i=0;i < getNumPatches();i++) {
     if (patches[i].pmeForceMsg != NULL)
       NAMD_bug("ComputePmeCUDA::sendAtoms, pmeForceMsg is not empty");
@@ -192,14 +197,7 @@ void ComputePmeCUDA::sendAtoms() {
 
     int numAtoms = patches[i].patch->getNumAtoms();
 
-    if (!selfEnergyDone) {
-      double selfEnergy = calcSelfEnergy(numAtoms, x);
-      // Send self-energy to one of the pencils, doesn't matter which one, the self energy is always
-      // delivered to (0,0) pencil
-      PmeSelfEnergyMsg *msg = new PmeSelfEnergyMsg();
-      msg->energy = selfEnergy;
-      computePmeCUDAMgrProxy[patches[i].homePencilNode].recvSelfEnergy(msg);
-    }
+    if ( doEnergy ) selfEnergy += calcSelfEnergy(numAtoms, x);
 
     // const Vector ucenter = patches[i].patch->lattice.unscale(patchMap->center(patches[i].patchID));
     // const BigReal recip11 = patches[i].patch->lattice.a_r().x;
@@ -276,9 +274,8 @@ void ComputePmeCUDA::sendAtoms() {
       patches[i].positionBox->close(&x);
   }
 
-  if (!selfEnergyDone) {
-    selfEnergyDone = true;
-  }
+  reduction->item(REDUCTION_ELECT_ENERGY_SLOW) += selfEnergy;
+  reduction->submit();
 
 }
 

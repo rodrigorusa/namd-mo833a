@@ -1,7 +1,5 @@
 module PmeSolver {
 
-  message PmeSelfEnergyMsg;
-
   message PmeStartMsg;
 
   message PmeRunMsg;
@@ -22,24 +20,12 @@ module PmeSolver {
 
   array[1D] PmePencilXYZ {
     entry PmePencilXYZ();
-    entry void recvSelfEnergy(PmeSelfEnergyMsg *msg) {
-      serial {
-        selfEnergy += msg->energy;
-        delete msg;
-        numSelfEnergyRecv++;
-        if (numSelfEnergyRecv == PatchMap::Object()->numPatches()) {
-          selfEnergyReady();
-        }
-      }
-    };
-    entry void selfEnergyReady();
     entry void chargeGridReady(PmeRunMsg *msg);
     entry void skip();
     entry void start(PmeStartMsg *pmeStartMsg) {
       serial "initFFT" {
         initFFT(pmeStartMsg); 
         delete pmeStartMsg;
-        firstIter = true;
       }
       while (true) {
         when chargeGridReady(PmeRunMsg *msg) serial "forwardFFT" {
@@ -52,12 +38,7 @@ module PmeSolver {
         }
         serial "forwardDone" { forwardDone(); }
         serial "backwardFFT" { backwardFFT(); }
-        if (firstIter) {
-          // On the first iteration, wait until self energy has been received
-          when selfEnergyReady() serial "backwardDoneFirst" { firstIter = false; backwardDone(); }
-        } else {
-          serial "backwardDone" { backwardDone(); }
-        }
+        serial "backwardDone" { backwardDone(); }
       }
     };
   };
@@ -180,19 +161,6 @@ module PmeSolver {
 
   array[3D] PmePencilZ {
     entry PmePencilZ();
-    entry void recvSelfEnergy(PmeSelfEnergyMsg *msg) {
-      serial {
-        if (thisIndex.x != 0 || thisIndex.y != 0 || thisIndex.z != 0)
-          NAMD_bug("PmePencilZ::recvSelfEnergy can only be called on (0,0,0) element");
-        selfEnergy += msg->energy;
-        delete msg;
-        numSelfEnergyRecv++;
-        if (numSelfEnergyRecv == PatchMap::Object()->numPatches()) {
-          selfEnergyReady();
-        }
-      }
-    };
-    entry void selfEnergyReady();
     entry void recvBlock(PmeBlockMsg *msg);
     entry void skip();
     entry void start(PmeStartMsg *pmeStartMsg) {
@@ -200,10 +168,6 @@ module PmeSolver {
         initFFT(pmeStartMsg); 
         delete pmeStartMsg;
         start();
-        if (thisIndex.x == 0 && thisIndex.y == 0)
-          firstIter = true;
-        else
-          firstIter = false;
       }
       while (true) {
         for (imsg=0;imsg < pmeGrid.zBlocks;++imsg) {
@@ -220,12 +184,7 @@ module PmeSolver {
           forwardDone();
         }
         serial "backwardFFT" { backwardFFT(); }
-        if (firstIter) {
-          // On the first iteration on the (0,0) element, wait until self energy has been received
-          when selfEnergyReady() serial "backwardDoneFirst" { firstIter = false; backwardDone(); }
-        } else {
-          serial "backwardDone" { backwardDone(); }
-        }
+        serial "backwardDone" { backwardDone(); }
       }
     };
   };

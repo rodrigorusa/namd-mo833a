@@ -112,11 +112,6 @@ public:
   Lattice lattice;
 };
 
-class PmeSelfEnergyMsg : public CMessage_PmeSelfEnergyMsg {
-public:
-  double energy;
-};
-
 class PmeDoneMsg : public CMessage_PmeDoneMsg {
 public:
   PmeDoneMsg(int i, int j) : i(i), j(j) {}
@@ -155,9 +150,6 @@ private:
   void forwardDone();
   void initFFT(PmeStartMsg *msg);
 
-  int numSelfEnergyRecv;
-  bool firstIter;
-  double selfEnergy;
   SubmitReduction* reduction;
 
 };
@@ -272,9 +264,6 @@ private:
   virtual void recvDataFromY(PmeBlockMsg *msg);
   virtual void start();
 
-  int numSelfEnergyRecv;
-  bool firstIter;
-  double selfEnergy;
   SubmitReduction* reduction;
 
 };

@@ -1702,25 +1702,6 @@ void ComputePmeCUDADevice::sendForcesToPatch(PmeForceMsg *forceMsg) {
     wdProxy[pe].enqueuePme(lmsg);
   }
 }
-
-//
-// Received self energy from ComputePmeCUDA computes
-// NOTE: This should only happen once at the start of the simulation since self energy is constant
-//
-void ComputePmeCUDAMgr::recvSelfEnergy(PmeSelfEnergyMsg *msg) {
-  // NOTE: msg is deleted in PmePencilXYZ / PmePencilX
-  switch(pmePencilType) {
-    case 1:
-    pmePencilZ(0,0,0).recvSelfEnergy(msg);
-    break;
-    case 2:
-    pmePencilZ(0,0,0).recvSelfEnergy(msg);
-    break;
-    case 3:
-    pmePencilXYZ[0].recvSelfEnergy(msg);
-    break;
-  }  
-}
 #endif // NAMD_CUDA
 
 #include "ComputePmeCUDAMgr.def.h"

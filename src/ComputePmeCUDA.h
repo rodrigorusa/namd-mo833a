@@ -59,7 +59,7 @@ private:
 
   std::vector<PatchRecord> patches;
 
-  bool selfEnergyDone;
+  SubmitReduction *reduction;
 
   bool sendAtomsDone;
 
