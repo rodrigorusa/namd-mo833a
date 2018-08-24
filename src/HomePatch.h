@@ -396,7 +396,10 @@ private:
   BigReal settle_mOrmT; BigReal settle_mHrmT; BigReal settle_ra;
   BigReal settle_rb; BigReal settle_rc; BigReal settle_rra;
 
-  // Drude lone pairs
+  /**
+   * Redistribute all lonepair forces (of any kind). This may include a direct
+   * correction to the virial.
+   */
   void redistrib_lonepair_forces(const int, Tensor *);
 
   // PLF -- for TIP4P
@@ -410,20 +413,49 @@ private:
   void swm4_omrepos(Vector*, Vector*, Vector*, BigReal);
   void init_swm4();
 
-  // reposition a lone pair using its host atoms and additional parameters
-  void reposition_lonepair(
+  /**
+   * Reposition lonepair i in a colinear fashion relative to its hosts j and k
+   * and according to a fixed distance and scaled vector magnitude between the
+   * two hosts.
+   */
+  void reposition_colinear_lonepair(
+      Vector& ri, const Vector& rj, const Vector& rk, Real distance,
+      Real scale);
+
+  /**
+   * Reposition a lonepair i relative to its hosts j, k, and l according to a
+   * given distance, angle, and dihedral formed with the three hosts.
+   */
+  void reposition_relative_lonepair(
       Vector& ri, const Vector& rj, const Vector& rk, const Vector& rl,
       Real distance, Real angle, Real dihedral);
 
+  /**
+   * Reposition all lonepairs (of any kind).
+   */
   void reposition_all_lonepairs(void);
 
-  // general redistribution of lone pair forces to host atoms
-  void redistrib_lp_force(
+  /**
+   * Redistribute the force on a colinear lonepair onto its hosts.
+   */
+  void redistrib_colinear_lp_force(
+       Vector& fi, Vector& fj, Vector& fk,
+       const Vector& ri, const Vector& rj, const Vector& rk,
+       Real distance, Real scale);
+
+  /**
+   * Redistribute the force on a relative lonepair onto its hosts.
+   */
+  void redistrib_relative_lp_force(
       Vector& fi, Vector& fj, Vector& fk, Vector& fl,
       const Vector& ri, const Vector& rj, const Vector& rk, const Vector& rl,
       Tensor *virial, int midpt);
 
-  // use for both TIP4P and SWM4 water
+  /**
+   * Redistribute the force on a water (TIP4P, SWM4) lonepair onto its hosts.
+   * This is similar to redistrib_relative_lp_force but specialized for the
+   * bisector case.
+   */
   void redistrib_lp_water_force(
       Vector& f_ox, Vector& f_h1, Vector& f_h2, Vector& f_lp,
       const Vector& p_ox, const Vector& p_h1, const Vector& p_h2,

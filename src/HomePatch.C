@@ -1274,7 +1274,37 @@ void HomePatch::saveForce(const int ftag)
 #undef DEBUG_REDISTRIB_FORCE 
 #undef DEBUG_REDISTRIB_FORCE_VERBOSE
 //#define DEBUG_REDISTRIB_FORCE
-/*
+
+/**
+ * Redistribute forces from lone pair site onto its colinear host atoms.
+ *
+ * /param fi the force vector on lonepair i
+ * /param fj the force vector on the first host j
+ * /param fk the force vector on the second host k
+ * /param ri the position vector of the lone pair i
+ * /param rj the position vector of the first host j
+ * /param rk the position vector of the second host k
+ * /param distance the distance to be placed from the reference point along the
+ *     vector from k to j
+ * /param scale the reference point is placed using a scaled value of the
+ *     vector from k to j.
+ */
+void HomePatch::redistrib_colinear_lp_force(
+    Vector& fi, Vector& fj, Vector& fk,
+    const Vector& ri, const Vector& rj, const Vector& rk,
+    Real distance_f, Real scale_f) {
+  BigReal distance = distance_f;
+  BigReal scale = scale_f;
+  Vector r_jk = rj - rk;
+  // TODO: Add a check for small distances?
+  BigReal r_jk_rlength = r_jk.rlength();
+  distance *= r_jk_rlength;
+  BigReal fdot = distance*(fi*r_jk)*r_jk_rlength*r_jk_rlength;
+  fj += (1. + scale + distance)*fi - r_jk*fdot;
+  fk -= (scale + distance)*fi + r_jk*fdot;
+}
+
+/**
  * Redistribute forces from lone pair site onto its host atoms.
  *
  * Atoms are "labeled" i, j, k, l, where atom i is the lone pair.
@@ -1300,7 +1330,7 @@ void HomePatch::saveForce(const int ftag)
  * the cross(r,s) zero.
  */
 #define FIX_FOR_WATER
-void HomePatch::redistrib_lp_force(
+void HomePatch::redistrib_relative_lp_force(
     Vector& fi, Vector& fj, Vector& fk, Vector& fl,
     const Vector& ri, const Vector& rj, const Vector& rk, const Vector& rl,
     Tensor *virial, int midpt) {
@@ -1535,7 +1565,54 @@ void HomePatch::redistrib_lp_water_force(
 #endif /* DEBUG */
 }
 
-void HomePatch::reposition_lonepair(
+/**
+ * Reposition lonepair i in a colinear fashion relative to its hosts j and k.
+ *
+ * The lonepair is placed at a fixed (possibly negative) distance along the
+ * vector from k to j relative to a reference point. The reference point is
+ * computed by multiplying the vector from k to j by a (possibly negative)
+ * scale factor. For example, a scale value of 0 (the default) sets the
+ * reference point as rj, while a value of -1 sets the reference point as rk.
+ * A scale value of -0.5 would use the center of the two hosts.
+ *
+ * /param ri the position vector of the lonepair, i
+ * /param rj the position vector of the first host, j
+ * /param rk the position vector of the second host, k
+ * /param distance the distance to be placed from the reference point along the
+ *     vector from k to j
+ * /param scale the reference point is placed using a scaled value of the
+ *     vector from k to j.
+ */
+void HomePatch::reposition_colinear_lonepair(
+    Vector& ri, const Vector& rj, const Vector& rk,
+    Real distance_f, Real scale_f)
+{
+  BigReal distance = distance_f;
+  BigReal scale = scale_f;
+  Vector r_jk = rj - rk;
+  BigReal r2 = r_jk.length2();
+  if (r2 < 1e-10 || 100. < r2) { // same low tolerance as used in CHARMM
+    iout << iWARN << "Large/small distance between lonepair reference atoms: ("
+         << rj << ") (" << rk << ")\n" << endi;
+  }
+  ri = rj + (scale + distance*r_jk.rlength())*r_jk;
+}
+
+/**
+ * Reposition lonepair i relative to its hosts j, k, and l.
+ *
+ * The lonepair is placed in a bond-angle-torsion coordinate frame. An angle
+ * and torsion of 0 corresponds to a bisector placement, as in TIP4P water.
+ *
+ * /param ri the position vector of the lonepair, i
+ * /param rj the position vector of the first host, j
+ * /param rk the position vector of the second host, k
+ * /param rl the position vector of the third host, j
+ * /param distance the negative distance from j
+ * /param angle the angle made by i-j-k
+ * /param dihedral the dihedral made by i-j-k-l
+ */
+void HomePatch::reposition_relative_lonepair(
     Vector& ri, const Vector& rj, const Vector& rk, const Vector& rl,
     Real distance, Real angle, Real dihedral)
 {
@@ -1600,9 +1677,15 @@ void HomePatch::reposition_all_lonepairs(void) {
         NAMD_die(errmsg);
       }
       // reposition this lone pair
-      reposition_lonepair(atom[i].position, atom[j.index].position,
-          atom[k.index].position, atom[l.index].position,
-          lph->distance, lph->angle, lph->dihedral);
+      if (lph->numhosts == 2) {
+        reposition_colinear_lonepair(atom[i].position, atom[j.index].position,
+            atom[k.index].position, lph->distance, lph->angle);
+      }
+      else if (lph->numhosts == 3) {
+        reposition_relative_lonepair(atom[i].position, atom[j.index].position,
+            atom[k.index].position, atom[l.index].position,
+            lph->distance, lph->angle, lph->dihedral);
+      }
     }
   }
 }
@@ -1670,11 +1753,18 @@ void HomePatch::redistrib_lonepair_forces(const int ftag, Tensor *virial) {
         NAMD_die(errmsg);
       }
       // redistribute forces from this lone pair
-      int midpt = (lph->distance < 0);
-      redistrib_lp_force(f_mod[ftag][i], f_mod[ftag][j.index],
-          f_mod[ftag][k.index], f_mod[ftag][l.index],
-          atom[i].position, atom[j.index].position,
-          atom[k.index].position, atom[l.index].position, virial, midpt);
+      if (lph->numhosts == 2) {
+        redistrib_colinear_lp_force(f_mod[ftag][i], f_mod[ftag][j.index],
+            f_mod[ftag][k.index], atom[i].position, atom[j.index].position,
+            atom[k.index].position, lph->distance, lph->angle);
+      }
+      else if (lph->numhosts == 3) {
+        int midpt = (lph->distance < 0);
+        redistrib_relative_lp_force(f_mod[ftag][i], f_mod[ftag][j.index],
+            f_mod[ftag][k.index], f_mod[ftag][l.index],
+            atom[i].position, atom[j.index].position,
+            atom[k.index].position, atom[l.index].position, virial, midpt);
+      }
     }
   }
 }

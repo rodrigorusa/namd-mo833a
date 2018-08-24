@@ -2354,50 +2354,79 @@ void Molecule::read_exclusions(int* atom_i, int* atom_j, int num_exclusion)
 }
 /*      END OF FUNCTION read_exclusions      */
 
-/************************************************************************/
-/*                  */
-/*        FUNCTION read_lphosts    */
-/*                  */
-/*   INPUTS:                */
-/*  fd - file pointer to the .psf file        */
-/*                  */
-/*  this function reads in the lone pair host section of the .psf file. */
-/*                  */
+/************************************************************************
+ *
+ *        FUNCTION read_lphosts
+ *
+ *   INPUTS:
+ *  fd - file pointer to the .psf file
+ *
+ *  This function reads in the lone pair host section of the .psf file.
+ *  Each lone pair is supported by 2 or 3 host atoms.
+ *
+ *  All lonepair specifications in a PSF are expected to have three
+ *  associated values.  However, the meaning of these values depends
+ *  on the lonepair type.  Nonetheless, for simplicity with the old
+ *  code, the struct values are still called "distance", "angle",
+ *  and "dihedral", even when this is not what the value signifies.
+ *
+ ************************************************************************/
 void Molecule::read_lphosts(FILE *fd)
 {
   char buffer[512];  // Buffer for reading from file
-  char lptype[8];
-  int numhosts, index, i, read_count;
-  Real distance, angle, dihedral;
+  char weight[8];    // Weighting type identified by string --
+                     // unused/unsupported outside of CHARMM RTF
+                     // so we read it, but ignore it.
+  int numhosts;  // Refers to the number of atoms that support the
+                 // given lone pair, either 2 or 3.
+  int index;  // 1-based index into the stream of numbers (8 per line)
+              // that indicates the start of each LP host record.
+  int next_index = 1;  // Forecast next index value as an error check.
+  int i, read_count;
+  Real value1, value2, value3; 
 
+  // called only if numLphosts > 0
   lphosts = new Lphost[numLphosts];
-  if (lphosts == NULL)
-  {
+  if (lphosts == NULL) {
     NAMD_die("memory allocation failed in Molecule::read_lphosts");
   }
-  for (i = 0;  i < numLphosts;  i++)
-  {
+  for (i = 0;  i < numLphosts;  i++) {
     NAMD_read_line(fd, buffer);
     if ( (NAMD_blank_string(buffer)) || (buffer[0] == '!') ) continue;
     read_count=sscanf(buffer, "%d %d %6s %f %f %f",
-        &numhosts, &index, lptype, &distance, &angle, &dihedral);
-    if (read_count != 6 || numhosts != 3 || index != 4*i + 1
-        || strcmp(lptype,"F") != 0)
-    {
+        &numhosts, &index, weight, &value1, &value2, &value3);
+    // The "weight" specification in PSF remains hardcoded as "F"
+    // (for false) inside NAMD.  Again, no extant force field uses
+    // lonepairs with weighted placement, so this can really only be
+    // specified inside an RTF, which NAMD never reads anyway.
+    if (read_count != 6 || index != next_index ||
+        strcmp(weight,"F") != 0 || numhosts < 2 || 3 < numhosts) {
       char err_msg[128];
       sprintf(err_msg, "BAD FORMAT FOR LPHOST LINE %d IN PSF FILE LINE\n"
           "LINE=%s\n", i+1, buffer);
       NAMD_die(err_msg);
     }
-    lphosts[i].distance = distance;
-    lphosts[i].angle = angle * (M_PI/180);        // convert to radians
-    lphosts[i].dihedral = dihedral * (M_PI/180);  // convert to radians
+    lphosts[i].numhosts = numhosts; // currently must be 2 or 3
+    next_index += numhosts + 1;  // add 1 to account for LP index
+    if (numhosts == 2) {
+      lphosts[i].distance = value1;
+      lphosts[i].angle = value2;
+      lphosts[i].dihedral = 0.0;  // ignore value3
+    }
+    else {  // numhosts == 3
+      lphosts[i].distance = value1;
+      lphosts[i].angle = value2 * (M_PI/180);     // convert to radians
+      lphosts[i].dihedral = value3 * (M_PI/180);  // convert to radians
+    }
   }
   for (i = 0;  i < numLphosts;  i++) {
+    // Subtract 1 to get 0-based atom index
     lphosts[i].atom1 = NAMD_read_int(fd, "LPHOSTS")-1;
     lphosts[i].atom2 = NAMD_read_int(fd, "LPHOSTS")-1;
     lphosts[i].atom3 = NAMD_read_int(fd, "LPHOSTS")-1;
-    lphosts[i].atom4 = NAMD_read_int(fd, "LPHOSTS")-1;
+    // For numhosts==2, set unused atom4 to atom1
+    lphosts[i].atom4 = ( lphosts[i].numhosts == 3 ?
+        NAMD_read_int(fd, "LPHOSTS")-1 : lphosts[i].atom1 );
   }
 }
 /*      END OF FUNCTION read_lphosts    */
@@ -9409,6 +9438,8 @@ void Molecule::build_atom_status(void) {
   }
 
   // determine migration groups based on lone pair hosts
+  // Find the lowest atom index in each migration group for all
+  // lone pair support atoms.  This value marks the migration group.
   for (i=0; i<numLphosts; ++i) {
     int a1 = lphosts[i].atom1;
     int a2 = lphosts[i].atom2;

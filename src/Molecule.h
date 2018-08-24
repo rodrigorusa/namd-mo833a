@@ -573,7 +573,7 @@ public:
   int numDrudeAtoms;  // Number of Drude particles
   int numTholes;  // Number of Thole terms
   int numAnisos;  // Number of anisotropic terms
-  int numLphosts;  // Number of lone pair hosts
+  int numLphosts;  ///< Number of lone pair host records in PSF
   // DRUDE
   
   int numConstraints; //  Number of atoms constrained

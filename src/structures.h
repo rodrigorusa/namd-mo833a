@@ -106,12 +106,22 @@ typedef struct drude_constants  // supplement Atom data
   Real thole;
 } DrudeConst;
 
-typedef struct lphost    // lone pair host
+/** Lonepair host record
+ *
+ * Maintains record of LP index and supporting atom indices.
+ * Field numhosts is either 2 or 3, depending on LP type.
+ * For the case of 2 supporting atoms, index atom4 is set to repeat atom1.
+ * The lonepair parameters make geometric sense only in 3-numhosts case.
+ * For the 2-numhosts case, "distance" and "angle" both represent
+ * distances and set "dihedral" to zero.
+ */
+typedef struct lphost
 {
-  int32 atom1;
+  int32 atom1;     ///< First index is to the LP
   int32 atom2;
   int32 atom3;
   int32 atom4;
+  int32 numhosts;  ///< Either 2 or 3 host atoms, depending on LP type
   Real distance;
   Real angle;
   Real dihedral;
