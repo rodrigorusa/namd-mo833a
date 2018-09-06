@@ -1,10 +1,10 @@
 +--------------------------------------------------------------------+
 |                                                                    |
-|                   NAMD 2.12 Release Announcement                   |
+|                  NAMD 2.13b1 Release Announcement                  |
 |                                                                    |
 +--------------------------------------------------------------------+
 
-                                                     December 22, 2016
+                                                     September 7, 2018
 
 The Theoretical and Computational Biophysics Group at the University of
 Illinois is proud to announce the public release of a new version of
@@ -13,52 +13,44 @@ high-performance simulation of large biomolecular systems.  NAMD is
 distributed free of charge and includes source code.  NAMD development
 is supported by the NIH National Institute of General Medical Sciences.
 
-NAMD 2.12 has many advantages over NAMD 2.11, among these are:
+NAMD 2.13b1 has many advantages over NAMD 2.12, including:
 
-- GPU-accelerated simulations up to three times as fast as NAMD 2.11
+- GPU-accelerated simulations less limited by CPU performance
 
-- Improved vectorization and new kernels for Xeon Phi Knight's Landing
+- Improved GPU-accelerated performance for non-orthogonal cells
 
-- Improved scaling for large implicit solvent simulations
+- Updated CUDA compatibility to version 9.x
 
-- Improved scaling for multi-threaded "smp" builds
+- Replica exchange solute tempering, 2nd generation (REST2)
 
-- Communication thread sleeps in single-process-per-replica smp runs
+- Constant-pH MD
 
-- Divide GPUs among replicas on host with "+devicesperreplica n"
+- Improvements to hybrid QM/MM simulation
 
-- Shared-memory parallel calculation of collective variables
+- Stochastic velocity rescaling thermostat
 
-- Tcl scripting of collective variables thermodynamic integration
+- Gaussian accelerated MD (GaMD)
 
-- Constraints on probability distributions of collective variables
+- Improved lonepair support
 
-- Collective variables module improvements including to histogram bias
+- Interleaved double-wide sampling for FEP
 
-- Extended adaptive biasing force on-the-fly free energy estimator
+- Extend nonbondedScaling to LJ correction term
 
-- Dynamic lambda scaling for alchemical work calculations
+- Collective variables module improvements
 
-- Scaling of bonded terms in alchemical free energy calculations
+- IMDignoreForces option for QwikMD
 
-- Properly scaled alchemical Lennard-Jones long-range corrections
+- Various psfgen improvements
 
-- Multigrator pressure and temperature control method
+- Support for billion-atom systems
 
-- Retry after spurious EXDEV (Invalid cross-device link) output errors
+- Update to Charm++ 6.8.2
 
-- Ability to modify grid force scaling without restarting
-
-- Ability to reload molecular structure without restarting
-
-- Optional Python scripting interface
-
-- QM/MM simulation via interfaces to ORCA and MOPAC
-
-- Update to Charm++ 6.7.1
+- Require CUDA 8.0 or greater, Kepler or newer GPUs
 
 
-Details at http://www.ks.uiuc.edu/Research/namd/2.12/features.html
+Details at http://www.ks.uiuc.edu/Research/namd/2.13/features.html
 
 NAMD is available from http://www.ks.uiuc.edu/Research/namd/
 
