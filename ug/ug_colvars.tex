@@ -1072,9 +1072,15 @@ Other components are instead affected by global rotations or translations: howev
 Finally, a few components are defined by convention using a roto-translated frame (e.g. the minimal RMSD): for these components, \texttt{centerReference} and \texttt{rotateReference} are enabled by default.
 In typical applications, the default settings result in the expected behavior.
 
+\paragraph*{Warning on rotating frames of reference and periodic boundary conditions.}
+\texttt{rotateReference} affects coordinates that depend on minimum-image distances in periodic boundary conditions (PBC).
+After rotation of the coordinates, the periodic cell vectors become irrelevant: the rotated system is effectively non-periodic.
+A safe way to handle this is to ensure that the relevant inter-group distance vectors remain smaller than the half-size of the periodic cell.
+If this is not desirable, one should avoid the rotating frame of reference, and apply orientational restraints to the reference group instead, in order to keep the orientation of the reference group consistent with the orientation of the periodic cell.
+
+\paragraph*{Warning on rotating frames of reference and ABF.}
 Note that \texttt{centerReference} and \texttt{rotateReference} may affect the Jacobian derivative of colvar components in a way that is not taken into account by default.
 Be careful when using these options in ABF simulations or when using total force values.
-At this point, only the RMSD component will correctly adjust the Jacobian derivative computation to all situations.
 
 \begin{itemize}
 
@@ -1704,8 +1710,9 @@ spherical coordinates, for the center of mass of a group of atoms
 described by the block \texttt{atoms}.  It returns an angle
 (in degrees) within the interval $[0:180]$.
 To obtain spherical coordinates in a frame of reference tied to
-another group of atoms, use the \texttt{fittingGroup}\ref{sec:colvar_atom_groups_ref_frame} option
+another group of atoms, use the \texttt{fittingGroup} (\ref{sec:colvar_atom_groups_ref_frame}) option
 within the \texttt{atoms} block.
+An example is provided in file \texttt{examples/11\_polar\_angles.in} of the Colvars public repository.
 
 \begin{cvcoptions}
 \item %
@@ -1728,6 +1735,11 @@ described by the block \texttt{atoms}. It returns an angle
 calculates all the distances between two angles taking into account
 periodicity.  For instance, reference values for restraints or range
 boundaries can be defined by using any real number of choice.
+To obtain spherical coordinates in a frame of reference tied to
+another group of atoms, use the \texttt{fittingGroup} (\ref{sec:colvar_atom_groups_ref_frame}) option
+within the \texttt{atoms} block.
+An example is provided in file \texttt{examples/11\_polar\_angles.in} of the Colvars public repository.
+
 
 \begin{cvcoptions}
 \item %
@@ -2065,6 +2077,13 @@ reflects the deviation from reference coordinates in a separate, moving
 reference frame.
 \end{enumerate}
 
+\cvscriptonly{
+\cvsubsubsec{Path collective variables}{sec:pathcv}
+
+An application of the \texttt{rmsd} component is "path collective variables",\cite{Branduardi2007}
+which are implemented as Tcl-scripted combinations or RMSDs.
+The implementation is available as file \texttt{colvartools/pathCV.tcl}, and
+an example is provided in file \texttt{examples/10\_pathCV.namd} of the Colvars public repository.}
 
 \cvsubsubsec{\texttt{eigenvector}: projection of the atomic  coordinates on a vector.}{sec:cvc_eigenvector}
 The block \texttt{eigenvector~\{...\}} defines the projection of the coordinates
@@ -2676,14 +2695,20 @@ In certain conditions, \texttt{distanceZ} can also be periodic, namely
 when periodic boundary conditions (PBCs) are defined in the simulation
 and \texttt{distanceZ}'s axis is parallel to a unit cell vector.
 
-The following keywords can be used within periodic components (and are
-illegal elsewhere):
+In addition, a custom \cvscriptonly{or scripted} scalar colvar may be periodic
+depending on its user-defined expression. It will only be treated as such by
+the Colvars module if the period is specified using the \texttt{period} keyword,
+while \texttt{wrapAround} is optional.
+
+The following keywords can be used within periodic components, and within
+custom \cvscriptonly{or scripted} colvars (\ref{sec:colvar_custom_function}
+\cvscriptonly{, \ref{sec::colvar_scripted}}).
 
 \begin{itemize}
 \item %
   \keydef
     {period}{%
-    \texttt{distanceZ}}{%
+    \texttt{distanceZ}, custom colvars}{%
     Period of the component}{%
     positive decimal}{%
     0.0}{%
@@ -2696,24 +2721,20 @@ illegal elsewhere):
 \item %
   \keydef
     {wrapAround}{%
-    \texttt{distanceZ}, \texttt{dihedral} or \texttt{spinAngle}}{%
-    Center
-    of the wrapping interval for periodic variables}{%
+    \texttt{distanceZ}, \texttt{dihedral}, \texttt{spinAngle}, custom colvars}{%
+    Center of the wrapping interval for periodic variables}{%
     decimal}{%
     0.0}{%
     By default, values of the periodic components are centered around zero, ranging from $-P/2$ to $P/2$, where $P$ is the period.
     Setting this number centers the interval around this value.
     This can be useful for convenience of output, or to set the walls for a \texttt{harmonicWalls} in an order that would not otherwise be allowed.}
 \end{itemize}
+
 Internally, all differences between two values of a periodic colvar
 follow the minimum image convention: they are calculated based on
 the two periodic images that are closest to each other.
 
-\emph{Note: linear or polynomial combinations of periodic components
-  may become meaningless when components cross the periodic boundary.
-  Use such combinations carefully: estimate the range of possible values
-  of each component in a given simulation, and make use of
-  \texttt{wrapAround} to limit this problem whenever possible.}
+\emph{Note: linear or polynomial combinations of periodic components (see \ref{sec:cvc_superp}) may become meaningless when components cross the periodic boundary.  Use such combinations carefully: estimate the range of possible values of each component in a given simulation, and make use of \texttt{wrapAround} to limit this problem whenever possible.}
 
 
 \cvsubsubsec{Non-scalar components.}{sec:cvc_non_scalar}
@@ -2890,8 +2911,8 @@ the keyword \texttt{period}, and the optional keyword \texttt{wrapAround}, with 
 same meaning as in periodic components (see \ref{sec:cvc_periodic} for details).
 
 An example of elaborate scripted colvar is given in example 10, in the
-form of path-based collective variables as defined by Branduardi et al\cite{Branduardi2007}.
-The required Tcl procedures are provided in the \texttt{colvartools} directory.
+form of path-based collective variables as defined by Branduardi et al\cite{Branduardi2007}
+(\ref{sec:pathcv}).
 
 \begin{itemize}
  \item %
@@ -3539,7 +3560,7 @@ Calculate UI estimator of the free energy?}
 When enabled, it triggers calculation of the free energy following the UI estimator.}
 \end{itemize}
 
-\paragraph{Usage for multiple--replica eABF.}
+\paragraph*{Usage for multiple--replica eABF.}
 The eABF algorithm can be associated with a multiple--walker strategy \cite{Minoukadeh2010,Comer2014c} (\ref{sec:mw-ABF}).
 To run a multiple--replica eABF simulation, start a multiple-replica
 NAMD run (option \texttt{+replicas}) and set {\tt shared on} in the Colvars config file to enable

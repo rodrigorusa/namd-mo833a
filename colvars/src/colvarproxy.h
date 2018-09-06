@@ -184,7 +184,8 @@ public:
   /// Get the mass of the given atom
   inline cvm::real get_atom_mass(int index) const
   {
-    return atoms_masses[index];
+    cvm::real m = atoms_masses[index];
+    return ( m > 0. ? m : 1.0); // Avoid atoms with zero mass
   }
 
   /// Get the charge of the given atom
@@ -460,6 +461,9 @@ public:
 
   /// Convert a script object (Tcl or Python call argument) to a C string
   virtual char const *script_obj_to_str(unsigned char *obj);
+
+  /// Convert a script object (Tcl or Python call argument) to a vector of strings
+  virtual std::vector<std::string> script_obj_to_str_vector(unsigned char *obj);
 
   /// Pointer to the scripting interface object
   /// (does not need to be allocated in a new interface)

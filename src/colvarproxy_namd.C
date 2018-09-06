@@ -548,7 +548,7 @@ void colvarproxy_namd::fatal_error(std::string const &message)
 {
   log(message);
   if (errno) {
-    log(strerror(errno));
+    // log(strerror(errno));
     NAMD_err("Error in the collective variables module");
   } else {
     NAMD_die("Error in the collective variables module: exiting.\n");
@@ -827,13 +827,14 @@ int colvarproxy_namd::load_coords(char const *pdb_filename,
         break;
     }
 
-    if ((ipos < pos.size()) || (current_index != indices.end()))
-      cvm::error("Error: the number of records in the PDB file \""+
-                 std::string(pdb_filename)+
-                 "\" does not appear to match either the total number of atoms,"+
-                 " or the number of coordinates requested at this point("+
-                 cvm::to_str(pos.size())+").\n", BUG_ERROR);
-
+    if (ipos < pos.size() || (!use_pdb_field && current_index != indices.end())) {
+      size_t n_requested = use_pdb_field ? pos.size() : indices.size();
+      cvm::error("Error: number of matching records in the PDB file \""+
+                 std::string(pdb_filename)+"\" ("+cvm::to_str(ipos)+
+                 ") does not match the number of requested coordinates ("+
+                 cvm::to_str(n_requested)+").\n", INPUT_ERROR);
+      return COLVARS_ERROR;
+    }
   } else {
 
     // when the PDB contains exactly the number of atoms of the array,
@@ -991,6 +992,33 @@ char const *colvarproxy_namd::script_obj_to_str(unsigned char *obj)
   return colvarproxy::script_obj_to_str(obj);
 #endif
 }
+
+
+std::vector<std::string> colvarproxy_namd::script_obj_to_str_vector(unsigned char *obj)
+{
+  if (cvm::debug()) {
+    cvm::log("Called colvarproxy_namd::script_obj_to_str_vector().\n");
+  }
+  std::vector<std::string> result;
+#ifdef NAMD_TCL
+  Tcl_Interp *interp = reinterpret_cast<Tcl_Interp *>(_tcl_interp);
+  Tcl_Obj *tcl_obj = reinterpret_cast<Tcl_Obj *>(obj);
+  Tcl_Obj **tcl_list_elems = NULL;
+  int count = 0;
+  if (Tcl_ListObjGetElements(interp, tcl_obj, &count, &tcl_list_elems) ==
+      TCL_OK) {
+    result.reserve(count);
+    for (int i = 0; i < count; i++) {
+      result.push_back(Tcl_GetString(tcl_list_elems[i]));
+    }
+  } else {
+    Tcl_SetResult(interp,
+                  const_cast<char *>("Cannot parse Tcl list."), TCL_STATIC);
+  }
+#endif
+  return result;
+}
+
 
 int colvarproxy_namd::init_atom_group(std::vector<int> const &atoms_ids)
 {
