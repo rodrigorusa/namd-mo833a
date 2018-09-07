@@ -14,6 +14,7 @@
 #include "InfoStream.h"
 #include "Node.h"
 #include "SimParameters.h"
+#include "Molecule.h"
 //#define DEBUGM
 #define MIN_DEBUG_LEVEL 1
 #include "Debug.h"
@@ -264,8 +265,16 @@ int GlobalMasterServer::callClients() {
     numDataSenders = totalAtomsRequested;
     AtomIDList::iterator g_i = msg->newgdef.begin();
     AtomIDList::iterator g_e = msg->newgdef.end();
+    Molecule *mol = Node::Object()->molecule;
     for ( ; g_i != g_e; ++g_i ) {
-      if ( *g_i != -1 ) ++numDataSenders;
+      if ( *g_i != -1 ) {
+        if (mol->atommass(*g_i) <= 0.001) {
+          iout << iWARN << "Atom " << (*g_i+1) << " has a near-zero mass, "
+               << "but it was requested for center-of-mass calculation.\n"
+               << endi;
+        }
+        ++numDataSenders;
+      }
     }
 
     DebugM(3,"Sending configure ("<<totalAtomsRequested<<" atoms, "
@@ -423,8 +432,16 @@ int GlobalMasterServer::callClients() {
     numDataSenders = totalAtomsRequested;
     AtomIDList::iterator g_i = msg->newgdef.begin();
     AtomIDList::iterator g_e = msg->newgdef.end();
+    Molecule *mol = Node::Object()->molecule;
     for ( ; g_i != g_e; ++g_i ) {
-      if ( *g_i != -1 ) ++numDataSenders;
+      if ( *g_i != -1 ) {
+        if (mol->atommass(*g_i) <= 0.001) {
+          iout << iWARN << "Atom " << (*g_i+1) << " has a near-zero mass, "
+               << "but it was requested for center-of-mass calculation.\n"
+               << endi;
+        }
+        ++numDataSenders;
+      }
     }
   }
   msg->totalforces = forceSendActive;
