@@ -30,5 +30,5 @@ and freely distribute effective tools (with source code) for structural
 biology.  For more information, see http://www.ks.uiuc.edu/
 
 The NAMD project is funded by the National Institutes of Health
-National Institute of General Medical Sciences (NIH 9P41GM104601).
+National Institute of General Medical Sciences (NIH P41-GM104601).
 
