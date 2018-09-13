@@ -4595,7 +4595,7 @@ public:
     void backward_fft();
 	void send_ungrid(PmeGridMsg *);
 	void send_all_ungrid();
-	void send_subset_ungrid(int fromIdx, int toIdx, int specialIdx);
+	void send_subset_ungrid(int fromIdx, int toIdx);
 private:
     ResizeArray<PmeGridMsg *> grid_msgs;
     ResizeArray<int> work_zlist;
@@ -4661,7 +4661,7 @@ public:
     void backward_fft();
 	void backward_subset_fft(int fromIdx, int toIdx);
     void send_untrans();
-    void send_subset_untrans(int fromIdx, int toIdx, int evirIdx);
+    void send_subset_untrans(int fromIdx, int toIdx);
 private:
 #ifdef NAMD_FFTW
 #ifdef NAMD_FFTW_3
@@ -4726,7 +4726,7 @@ public:
     void pme_kspace();
     void backward_fft();
     void send_untrans();
-	void send_subset_untrans(int fromIdx, int toIdx, int evirIdx);
+	void send_subset_untrans(int fromIdx, int toIdx);
     void node_process_trans(PmeTransMsg *);
 #ifdef NAMD_FFTW
 #ifdef NAMD_FFTW_3
@@ -5742,78 +5742,25 @@ void PmeXPencil::backward_fft() {
 }
 
 static inline void PmeXPencilSendUntrans(int first, int last, void *result, int paraNum, void *param){
-	int evirIdx = paraNum;
 	PmeXPencil *xpencil = (PmeXPencil *)param;
-	xpencil->send_subset_untrans(first, last, evirIdx);
+	xpencil->send_subset_untrans(first, last);
 }
 
-void PmeXPencil::send_subset_untrans(int fromIdx, int toIdx, int evirIdx){
+void PmeXPencil::send_subset_untrans(int fromIdx, int toIdx){
 	int xBlocks = initdata.xBlocks;
 	int block1 = initdata.grid.block1;	
 	int K1 = initdata.grid.K1;
 
-	int ackL=0, ackH=-1;
-	int unL=0, unH=-1;
-	int send_evir=0;
-	if(fromIdx >= evirIdx+1) {
-		//send PmeUntransMsg with has_evir=0
-		unL = fromIdx;
-		unH = toIdx;		
-	} else if(toIdx <= evirIdx-1) {
-		//send PmeAckMsg
-		ackL=fromIdx;
-		ackH=toIdx;		
-	} else {
-		//partially send PmeAckMsg and partially send PmeUntransMsg
-		ackL=fromIdx;
-		ackH=evirIdx-1;
-		send_evir=1;
-		unL=evirIdx+1;
-		unH=toIdx;
-	}
-
-	for(int isend=ackL; isend<=ackH; isend++) {
-		//send PmeAckMsg
-        CmiEnableUrgentSend(1);
+	for(int isend=fromIdx; isend<=toIdx; isend++) {
 		int ib = send_order[isend];
-		PmeAckMsg *msg = new (PRIORITY_SIZE) PmeAckMsg;
-		SET_PRIORITY(msg,sequence,PME_UNTRANS_PRIORITY)
-		initdata.yPencil(ib,0,thisIndex.z).recvAck(msg);
-        CmiEnableUrgentSend(0);
-    }
-
-    CmiEnableUrgentSend(1);
-	//send PmeUntransMsg with has_evir=1
-	if(send_evir) {
-		int ib = send_order[evirIdx];
-		int nx = block1;
-		if ( (ib+1)*block1 > K1 ) nx = K1 - ib*block1;
-		PmeUntransMsg *msg = new (nx*ny*nz*2,PRIORITY_SIZE) PmeUntransMsg;		
-		msg->sourceNode = thisIndex.y;
-		msg->ny = ny;
-		float *md = msg->qgrid;
-		for ( int i=ib*block1; i<(ib*block1+nx); ++i ) {
-			float *d = data + i*ny*nz*2;
-			for ( int j=0; j<ny; ++j, d += nz*2 ) {
-				for ( int k=0; k<nz; ++k ) {
-					*(md++) = d[2*k];
-					*(md++) = d[2*k+1];
-				}
-			}
+		if ( ! needs_reply[ib] ) {
+			PmeAckMsg *msg = new (PRIORITY_SIZE) PmeAckMsg;
+			CmiEnableUrgentSend(1);
+			SET_PRIORITY(msg,sequence,PME_UNTRANS_PRIORITY)
+			initdata.yPencil(ib,0,thisIndex.z).recvAck(msg);
+			CmiEnableUrgentSend(0);
+			continue;
 		}
-		SET_PRIORITY(msg,sequence,PME_UNTRANS_PRIORITY)
-#if USE_NODE_PAR_RECEIVE
-        msg->destElem=CkArrayIndex3D(ib,0, thisIndex.z);
-        initdata.pmeNodeProxy[CmiNodeOf(initdata.ym.ckLocalBranch()->procNum(0,msg->destElem))].recvYUntrans(msg);
-#else
-        initdata.yPencil(ib,0,thisIndex.z).recvUntrans(msg);
-#endif
-	 }
-    CmiEnableUrgentSend(0);
-	
-	//send PmeUntransMsg with has_evir=0
-	for(int isend=unL; isend<=unH; isend++) {
-		int ib = send_order[isend];
 		int nx = block1;
 		if ( (ib+1)*block1 > K1 ) nx = K1 - ib*block1;
 		PmeUntransMsg *msg = new (nx*ny*nz*2,PRIORITY_SIZE) PmeUntransMsg;
@@ -5873,26 +5820,13 @@ void PmeXPencil::send_untrans() {
   if(useCkLoop>=CKLOOP_CTRL_PME_SENDUNTRANS
      && CkNumPes() >= 2 * initdata.yBlocks * initdata.zBlocks) {
 	  	int xBlocks = initdata.xBlocks;
-		int evirIdx = 0;
-		for ( int isend=0; isend<xBlocks; ++isend ) {
-			int ib = send_order[isend];
-			if (needs_reply[ib]) {
-				evirIdx = isend;
-				break;
-			}
-		}
 
-		//basically: 
-		//[0,evirIdx-1]->send PmeAckMsg
-		//evirIdx->send PmeUntransMsg with has_evir=1
-		//[evirIdx+1, xBlocks-1]->send PmeUntransMsg with has_evir=0
-		//send_subset_untrans(0, xBlocks-1, evirIdx);
 #if USE_NODE_PAR_RECEIVE
-		//CkLoop_Parallelize(PmeXPencilSendUntrans, evirIdx, (void *)this, CkMyNodeSize(), 0, xBlocks-1, 1); //has to sync
-		CkLoop_Parallelize(PmeXPencilSendUntrans, evirIdx, (void *)this, xBlocks, 0, xBlocks-1, 1); //has to sync
+		//CkLoop_Parallelize(PmeXPencilSendUntrans, 1, (void *)this, CkMyNodeSize(), 0, xBlocks-1, 1); //has to sync
+		CkLoop_Parallelize(PmeXPencilSendUntrans, 1, (void *)this, xBlocks, 0, xBlocks-1, 1); //has to sync
 #else
-        //CkLoop_Parallelize(PmeXPencilSendUntrans, evirIdx, (void *)this, CkMyNodeSize(), 0, xBlocks-1, 0); //not sync
-		CkLoop_Parallelize(PmeXPencilSendUntrans, evirIdx, (void *)this, xBlocks, 0, xBlocks-1, 0); //not sync
+        //CkLoop_Parallelize(PmeXPencilSendUntrans, 1, (void *)this, CkMyNodeSize(), 0, xBlocks-1, 0); //not sync
+		CkLoop_Parallelize(PmeXPencilSendUntrans, 1, (void *)this, xBlocks, 0, xBlocks-1, 0); //not sync
 #endif        
 		return;
   }
@@ -6038,79 +5972,25 @@ void PmeYPencil::backward_fft() {
 }
 
 static inline void PmeYPencilSendUntrans(int first, int last, void *result, int paraNum, void *param){
-        int evirIdx = paraNum;
         PmeYPencil *ypencil = (PmeYPencil *)param;
-        ypencil->send_subset_untrans(first, last, evirIdx);
+        ypencil->send_subset_untrans(first, last);
 }
 
-void PmeYPencil::send_subset_untrans(int fromIdx, int toIdx, int evirIdx){
+void PmeYPencil::send_subset_untrans(int fromIdx, int toIdx){
 	int yBlocks = initdata.yBlocks;
 	int block2 = initdata.grid.block2;	
 	int K2 = initdata.grid.K2;
 
-	int ackL=0, ackH=-1;
-	int unL=0, unH=-1;
-	int send_evir=0;
-	if(fromIdx >= evirIdx+1) {
-		//send PmeUntransMsg with has_evir=0
-		unL = fromIdx;
-		unH = toIdx;		
-	} else if(toIdx <= evirIdx-1) {
-		//send PmeAckMsg
-		ackL=fromIdx;
-		ackH=toIdx;		
-	} else {
-		//partially send PmeAckMsg and partially send PmeUntransMsg
-		ackL=fromIdx;
-		ackH=evirIdx-1;
-		send_evir=1;
-		unL=evirIdx+1;
-		unH=toIdx;
-	}
-
-	for(int isend=ackL; isend<=ackH; isend++) {
-		//send PmeAckMsg
-        CmiEnableUrgentSend(1);
+	for(int isend=fromIdx; isend<=toIdx; isend++) {
 		int jb = send_order[isend];
-		PmeAckMsg *msg = new (PRIORITY_SIZE) PmeAckMsg;
-		SET_PRIORITY(msg,sequence,PME_UNTRANS2_PRIORITY)
-		initdata.zPencil(thisIndex.x,jb,0).recvAck(msg);
-        CmiEnableUrgentSend(0);
-	}
-
-    CmiEnableUrgentSend(1);
-	//send PmeUntransMsg with has_evir=1
-	if(send_evir) {
-		int jb = send_order[evirIdx];
-		int ny = block2;
-		if ( (jb+1)*block2 > K2 ) ny = K2 - jb*block2;
-		PmeUntransMsg *msg = new (nx*ny*nz*2,PRIORITY_SIZE) PmeUntransMsg;		
-		msg->sourceNode = thisIndex.z;
-		msg->ny = nz;
-		float *md = msg->qgrid;
-		const float *d = data;
-		for ( int i=0; i<nx; ++i, d += K2*nz*2 ) {
-			for ( int j=jb*block2; j<(jb*block2+ny); ++j ) {
-				for ( int k=0; k<nz; ++k ) {
-					*(md++) = d[2*(j*nz+k)];
-					*(md++) = d[2*(j*nz+k)+1];
-				}
-			}
+		if ( ! needs_reply[jb] ) {
+			PmeAckMsg *msg = new (PRIORITY_SIZE) PmeAckMsg;
+			CmiEnableUrgentSend(1);
+			SET_PRIORITY(msg,sequence,PME_UNTRANS2_PRIORITY)
+			initdata.zPencil(thisIndex.x,jb,0).recvAck(msg);
+			CmiEnableUrgentSend(0);
+			continue;
 		}
-		SET_PRIORITY(msg,sequence,PME_UNTRANS2_PRIORITY)
-#if USE_NODE_PAR_RECEIVE
-        msg->destElem=CkArrayIndex3D( thisIndex.x, jb, 0);
-    //    CkPrintf("[%d] sending to %d %d %d recvZUntrans on node %d\n", CkMyPe(), thisIndex.x, jb, 0, CmiNodeOf(initdata.zm.ckLocalBranch()->procNum(0,msg->destElem)));
-        initdata.pmeNodeProxy[CmiNodeOf(initdata.zm.ckLocalBranch()->procNum(0,msg->destElem))].recvZUntrans(msg);
-#else
-        initdata.zPencil(thisIndex.x,jb,0).recvUntrans(msg);
-#endif
-	}
-
-    CmiEnableUrgentSend(0);
-	//send PmeUntransMsg with has_evir=0
-	for(int isend=unL; isend<=unH; isend++) {
-		int jb = send_order[isend];
 		int ny = block2;
 		if ( (jb+1)*block2 > K2 ) ny = K2 - jb*block2;
 		PmeUntransMsg *msg = new (nx*ny*nz*2,PRIORITY_SIZE) PmeUntransMsg;
@@ -6160,28 +6040,13 @@ void PmeYPencil::send_untrans() {
   if(useCkLoop>=CKLOOP_CTRL_PME_SENDUNTRANS
      && CkNumPes() >= 2 * initdata.xBlocks * initdata.zBlocks) {
 	  int yBlocks = initdata.yBlocks;
-	  int evirIdx = 0;
-	  for ( int isend=0; isend<yBlocks; ++isend ) {
-		  int jb = send_order[isend];
-		  if (needs_reply[jb]) {
-			  evirIdx = isend;
-			  break;
-		  }
-	  }
 
-	  //basically: 
-	  //[0,evirIdx-1]->send PmeAckMsg
-	  //evirIdx->send PmeUntransMsg with has_evir=1
-	  //[evirIdx+1, yBlocks-1]->send PmeUntransMsg with has_evir=0
-	  //send_subset_untrans(0, yBlocks-1, evirIdx);
 #if USE_NODE_PAR_RECEIVE      
-	  //CkLoop_Parallelize(PmeYPencilSendUntrans, evirIdx, (void *)this, CkMyNodeSize(), 0, yBlocks-1, 1); //sync
-	  CkLoop_Parallelize(PmeYPencilSendUntrans, evirIdx, (void *)this, yBlocks, 0, yBlocks-1, 1);
-      evir = 0.;
-      CmiMemoryWriteFence();
+	  //CkLoop_Parallelize(PmeYPencilSendUntrans, 1, (void *)this, CkMyNodeSize(), 0, yBlocks-1, 1); //sync
+	  CkLoop_Parallelize(PmeYPencilSendUntrans, 1, (void *)this, yBlocks, 0, yBlocks-1, 1);
 #else
-      //CkLoop_Parallelize(PmeYPencilSendUntrans, evirIdx, (void *)this, CkMyNodeSize(), 0, yBlocks-1, 0); //not sync
-	  CkLoop_Parallelize(PmeYPencilSendUntrans, evirIdx, (void *)this, yBlocks, 0, yBlocks-1, 0); //not sync
+      //CkLoop_Parallelize(PmeYPencilSendUntrans, 1, (void *)this, CkMyNodeSize(), 0, yBlocks-1, 0); //not sync
+	  CkLoop_Parallelize(PmeYPencilSendUntrans, 1, (void *)this, yBlocks, 0, yBlocks-1, 0); //not sync
 #endif
 	  return;
   }
@@ -6341,36 +6206,11 @@ void PmeZPencil::backward_fft() {
 static inline void PmeZPencilSendUngrid(int first, int last, void *result, int paraNum, void *param){
 	//to take advantage of the interface which allows 3 user params at most.
 	//under such situtation, no new parameter list needs to be created!! -Chao Mei
-	int specialIdx = paraNum;
 	PmeZPencil *zpencil = (PmeZPencil *)param;
-	zpencil->send_subset_ungrid(first, last, specialIdx);
+	zpencil->send_subset_ungrid(first, last);
 }
 
 void PmeZPencil::send_all_ungrid() {
-/* 
-//Original code: the transformation is to first extract the msg 
-//idx that will has evir value set. -Chao Mei  
-	int send_evir = 1;
-	for (int imsg=0; imsg < grid_msgs.size(); ++imsg ) {
-		PmeGridMsg *msg = grid_msgs[imsg];
-		if ( msg->hasData ) {
-			if ( send_evir ) {
-				msg->evir[0] = evir;
-				send_evir = 0;
-			} else {
-				msg->evir[0] = 0.;
-			}
-		}
-		send_ungrid(msg);
-	}
-*/
-	int evirIdx = 0;
-	for(int imsg=0; imsg<grid_msgs.size(); imsg++) {
-		if(grid_msgs[imsg]->hasData) {
-			evirIdx = imsg;
-			break;
-		}
-	}
 
 #if     CMK_SMP && USE_CKLOOP
 	int useCkLoop = Node::Object()->simParameters->useCkLoop;
@@ -6378,19 +6218,19 @@ void PmeZPencil::send_all_ungrid() {
            && CkNumPes() >= 2 * initdata.xBlocks * initdata.yBlocks) {
 		//????What's the best value for numChunks?????
 #if USE_NODE_PAR_RECEIVE        
-		//CkLoop_Parallelize(PmeZPencilSendUngrid, evirIdx, (void *)this, CkMyNodeSize(), 0, grid_msgs.size()-1, 1); //has to sync
-		CkLoop_Parallelize(PmeZPencilSendUngrid, evirIdx, (void *)this, grid_msgs.size(), 0, grid_msgs.size()-1, 1); //has to sync
+		//CkLoop_Parallelize(PmeZPencilSendUngrid, 1, (void *)this, CkMyNodeSize(), 0, grid_msgs.size()-1, 1); //has to sync
+		CkLoop_Parallelize(PmeZPencilSendUngrid, 1, (void *)this, grid_msgs.size(), 0, grid_msgs.size()-1, 1); //has to sync
 #else
-        //CkLoop_Parallelize(PmeZPencilSendUngrid, evirIdx, (void *)this, CkMyNodeSize(), 0, grid_msgs.size()-1, 0); //not sync
-		CkLoop_Parallelize(PmeZPencilSendUngrid, evirIdx, (void *)this, grid_msgs.size(), 0, grid_msgs.size()-1, 0); //not sync
+        //CkLoop_Parallelize(PmeZPencilSendUngrid, 1, (void *)this, CkMyNodeSize(), 0, grid_msgs.size()-1, 0); //not sync
+		CkLoop_Parallelize(PmeZPencilSendUngrid, 1, (void *)this, grid_msgs.size(), 0, grid_msgs.size()-1, 0); //not sync
 #endif        
 		return;
 	}
 #endif
-	send_subset_ungrid(0, grid_msgs.size()-1, evirIdx);
+	send_subset_ungrid(0, grid_msgs.size()-1);
 }
 
-void PmeZPencil::send_subset_ungrid(int fromIdx, int toIdx, int specialIdx){
+void PmeZPencil::send_subset_ungrid(int fromIdx, int toIdx){
 	for (int imsg=fromIdx; imsg <=toIdx; ++imsg ) {
 		PmeGridMsg *msg = grid_msgs[imsg];
 		send_ungrid(msg);
