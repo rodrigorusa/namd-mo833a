@@ -4590,6 +4590,7 @@ public:
     void send_trans();
 	void send_subset_trans(int fromIdx, int toIdx);
     void recv_untrans(const PmeUntransMsg *);
+    void recvNodeAck(PmeAckMsg *);
     void node_process_untrans(PmeUntransMsg *);
     void node_process_grid(PmeGridMsg *);
     void backward_fft();
@@ -4657,6 +4658,7 @@ public:
 	void send_subset_trans(int fromIdx, int toIdx);
     void recv_untrans(const PmeUntransMsg *);    
     void node_process_trans(PmeTransMsg *);
+    void recvNodeAck(PmeAckMsg *);
     void node_process_untrans(PmeUntransMsg *);
     void backward_fft();
 	void backward_subset_fft(int fromIdx, int toIdx);
@@ -4957,26 +4959,33 @@ void PmeYPencil::node_process_trans(PmeTransMsg *msg)
         forward_fft();
       }
       send_trans();
-      if( ! hasData)
-        {
-          send_untrans(); //todo, what is up with the recvAck in SDAG version?
-        }
       imsg=0;
       CmiMemoryWriteFence();
     }
 }
 
+void PmeYPencil::recvNodeAck(PmeAckMsg *msg) {
+  delete msg;
+  node_process_untrans(0);
+}
+
 void PmeYPencil::node_process_untrans(PmeUntransMsg *msg)
 {
-  recv_untrans(msg);
+  if ( msg ) {
+    if ( ! hasData ) NAMD_bug("PmeYPencil::node_process_untrans non-null msg but not hasData");
+    recv_untrans(msg);
+  } else if ( hasData ) NAMD_bug("PmeYPencil::node_process_untrans hasData but null msg");
   int limsg;
   CmiMemoryAtomicFetchAndInc(imsgb,limsg);
   if(limsg+1 == initdata.yBlocks)
     {
+     if ( hasData ) {
       backward_fft();
-      send_untrans();
+     }
+      hasData=0;
       imsgb=0;
       CmiMemoryWriteFence();
+      send_untrans();
     }
 }
 
@@ -5757,7 +5766,11 @@ void PmeXPencil::send_subset_untrans(int fromIdx, int toIdx){
 			PmeAckMsg *msg = new (PRIORITY_SIZE) PmeAckMsg;
 			CmiEnableUrgentSend(1);
 			SET_PRIORITY(msg,sequence,PME_UNTRANS_PRIORITY)
+#if USE_NODE_PAR_RECEIVE
+			initdata.yPencil(ib,0,thisIndex.z).recvNodeAck(msg);
+#else
 			initdata.yPencil(ib,0,thisIndex.z).recvAck(msg);
+#endif
 			CmiEnableUrgentSend(0);
 			continue;
 		}
@@ -5834,23 +5847,23 @@ void PmeXPencil::send_untrans() {
   int xBlocks = initdata.xBlocks;
   int block1 = initdata.grid.block1;
   int K1 = initdata.grid.K1;
-  int send_evir = 1;
   for ( int isend=0; isend<xBlocks; ++isend ) {
     int ib = send_order[isend];
     if ( ! needs_reply[ib] ) {
       PmeAckMsg *msg = new (PRIORITY_SIZE) PmeAckMsg;
       CmiEnableUrgentSend(1);
       SET_PRIORITY(msg,sequence,PME_UNTRANS_PRIORITY)
+#if USE_NODE_PAR_RECEIVE
+      initdata.yPencil(ib,0,thisIndex.z).recvNodeAck(msg);
+#else
       initdata.yPencil(ib,0,thisIndex.z).recvAck(msg);
+#endif
       CmiEnableUrgentSend(0);
       continue;
     }
     int nx = block1;
     if ( (ib+1)*block1 > K1 ) nx = K1 - ib*block1;
     PmeUntransMsg *msg = new (nx*ny*nz*2,PRIORITY_SIZE) PmeUntransMsg;
-    if ( send_evir ) {
-      send_evir = 0;
-    }
     msg->sourceNode = thisIndex.y;
     msg->ny = ny;
     float *md = msg->qgrid;
@@ -5987,7 +6000,11 @@ void PmeYPencil::send_subset_untrans(int fromIdx, int toIdx){
 			PmeAckMsg *msg = new (PRIORITY_SIZE) PmeAckMsg;
 			CmiEnableUrgentSend(1);
 			SET_PRIORITY(msg,sequence,PME_UNTRANS2_PRIORITY)
+#if USE_NODE_PAR_RECEIVE
+			initdata.zPencil(thisIndex.x,jb,0).recvNodeAck(msg);
+#else
 			initdata.zPencil(thisIndex.x,jb,0).recvAck(msg);
+#endif
 			CmiEnableUrgentSend(0);
 			continue;
 		}
@@ -6054,23 +6071,23 @@ void PmeYPencil::send_untrans() {
   int yBlocks = initdata.yBlocks;
   int block2 = initdata.grid.block2;
   int K2 = initdata.grid.K2;
-  int send_evir = 1;
   for ( int isend=0; isend<yBlocks; ++isend ) {
     int jb = send_order[isend];
     if ( ! needs_reply[jb] ) {
       PmeAckMsg *msg = new (PRIORITY_SIZE) PmeAckMsg;
       CmiEnableUrgentSend(1);
       SET_PRIORITY(msg,sequence,PME_UNTRANS2_PRIORITY)
+#if USE_NODE_PAR_RECEIVE
+      initdata.zPencil(thisIndex.x,jb,0).recvNodeAck(msg);
+#else
       initdata.zPencil(thisIndex.x,jb,0).recvAck(msg);
+#endif
       CmiEnableUrgentSend(0);
       continue;
     }
     int ny = block2;
     if ( (jb+1)*block2 > K2 ) ny = K2 - jb*block2;
     PmeUntransMsg *msg = new (nx*ny*nz*2,PRIORITY_SIZE) PmeUntransMsg;
-    if ( send_evir ) {
-      send_evir = 0;
-    }
     msg->sourceNode = thisIndex.z;
     msg->ny = nz;
     float *md = msg->qgrid;
@@ -6255,6 +6272,7 @@ void PmeZPencil::send_ungrid(PmeGridMsg *msg) {
     CmiEnableUrgentSend(0);
     return;
   }
+  if ( ! hasData ) NAMD_bug("PmeZPencil::send_ungrid msg->hasData but not pencil->hasData");
   msg->sourceNode = thisIndex.x * initdata.yBlocks + thisIndex.y;
   int dim3 = initdata.grid.dim3;
   int zlistlen = msg->zlistlen;
@@ -6318,9 +6336,17 @@ void PmeZPencil::node_process_grid(PmeGridMsg *msg)
 #endif
 }
 
+void PmeZPencil::recvNodeAck(PmeAckMsg *msg) {
+  delete msg;
+  node_process_untrans(0);
+}
+
 void PmeZPencil::node_process_untrans(PmeUntransMsg *msg)
 {
-  recv_untrans(msg);
+  if ( msg ) {
+    if ( ! hasData ) NAMD_bug("PmeZPencil::node_process_untrans non-null msg but not hasData");
+    recv_untrans(msg);
+  } else if ( hasData ) NAMD_bug("PmeZPencil::node_process_untrans hasData but null msg");
 #if USE_NODE_PAR_RECEIVE
   CmiMemoryWriteFence();
   CmiLock(ComputePmeMgr::fftw_plan_lock);
@@ -6332,26 +6358,11 @@ void PmeZPencil::node_process_untrans(PmeUntransMsg *msg)
 #if USE_NODE_PAR_RECEIVE
       CmiMemoryReadFence();
 #endif    
-      if(hasData) // maybe this should be an assert
-        {
-          backward_fft();
-        }
-        
-        send_all_ungrid();
-    /*  int send_evir = 1;
-      // TODO: this part should use Chao's output parallelization
-      for ( limsg=0; limsg < grid_msgs.size(); ++limsg ) {
-        PmeGridMsg *omsg = grid_msgs[limsg];
-        if ( omsg->hasData ) {
-          if ( send_evir ) {
-            omsg->evir[0] = evir;
-            send_evir = 0;
-          } else {
-            omsg->evir[0] = 0.;
-          }
-        }
-        send_ungrid(omsg);
-      } */
+      if(hasData) {
+        backward_fft();
+      }
+      send_all_ungrid();
+      hasData=0;
       imsgb=0;
       evir = 0;
       memset(data, 0, sizeof(float) * nx*ny* initdata.grid.dim3); 
