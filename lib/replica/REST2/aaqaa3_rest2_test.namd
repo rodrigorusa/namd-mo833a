@@ -55,17 +55,17 @@ LangevinPistonPeriod    100
 LangevinPistonDecay     100
 LangevinPistonTemp      300
 
-commotion         no
+commotion            no
 
-soluteScaling     on
-ssCol             O
-ssFile            aaqaa3.spt
+soluteScaling        on
+soluteScalingCol     O
+soluteScalingFile    aaqaa3.spt
 
-soluteScalingFactor 1.0
+soluteScalingFactor  1.0
 run 20
 
-soluteScalingFactor 0.9
+soluteScalingFactor  0.9
 run 20
 
-soluteScalingFactor 0.8
+soluteScalingFactor  0.8
 run 20

@@ -63,7 +63,7 @@ LangevinPistonTemp      300
 commotion             no
 
 soluteScaling           on
-ssCol              O
-ssFile            aaqaa3.spt
+soluteScalingCol        O
+soluteScalingFile       aaqaa3.spt
 
 soluteScalingAll no

@@ -8794,14 +8794,14 @@ void Molecule::build_ss_flags(
 
   if (ssfile == NULL) {
     if ( ! initial_pdb ) {
-      NAMD_die("Initial PDB file unavailable, ssFile required.");
+      NAMD_die("Initial PDB file unavailable, soluteScalingFile required.");
     }
     bPDB = initial_pdb;
     strcpy(filename, "coordinate PDB file (default)");
   }
   else {
     if (ssfile->next != NULL) {
-      NAMD_die("Multiple definitions of ssFile in configuration file");
+      NAMD_die("Multiple definitions of soluteScalingFile in configuration file");
     }
 
     if ((cwd == NULL) || (ssfile->data[0] == '/')) {
@@ -8818,7 +8818,7 @@ void Molecule::build_ss_flags(
     }
 
     if (bPDB->num_atoms() != numAtoms) {
-      NAMD_die("Number of atoms in ssFile PDB does not match coordinate PDB");
+      NAMD_die("Number of atoms in soluteScalingFile PDB does not match coordinate PDB");
     }
   }
 
@@ -8827,7 +8827,7 @@ void Molecule::build_ss_flags(
   }
   else {
     if (sscol->next != NULL) {
-      NAMD_die("Multiple definitions of ssCol value in config file");
+      NAMD_die("Multiple definitions of soluteScalingCol value in config file");
     }
 
     if (strcasecmp(sscol->data, "X") == 0) {
@@ -8846,7 +8846,7 @@ void Molecule::build_ss_flags(
       bcol = 5;
     }
     else {
-      NAMD_die("ssCol must have value of X, Y, Z, O or B");
+      NAMD_die("soluteScalingCol must have value of X, Y, Z, O or B");
     }
   }
 
