@@ -14,7 +14,7 @@
 \usepackage{verbatim}
 \usepackage{comment}
 \usepackage[stable]{footmisc}
-%\usepackage{hyperref}  % links in table of contents
+\usepackage[pagebackref,colorlinks,citecolor=blue,hyperfootnotes=false]{hyperref}  % links in table of contents
 %\usepackage{tocloft}
 \makeindex
 
@@ -139,18 +139,15 @@
 \newpage
 \input{ug_avail}
 
+% NOTE: with hyperref package, \contentsline needs 5 arguments, not 3.
+% https://tex.stackexchange.com/questions/168013/redefining-contentsline-with-hyperref-loaded
 \newpage
-%\phantomsection
-%\label{References}
-\addtocontents{toc}{\protect \contentsline {section}{References}{\thepage}} 
-%\addcontentsline{toc}{\protect \contentsline {section}{References}{\thepage}} %\addtocontents{toc}{section}{Bibliography} 
-
+\addtocontents{toc}{\protect\contentsline{section}{References}{\thepage}{}{}} 
 \bibliographystyle{abbrv}
 \bibliography{ug,ug_colvars,ug_eabf}
 
 \newpage
-\addtocontents{toc}{\protect \contentsline {section}{Index}{\thepage}}
-%\addcontentsline{toc}{section}{Index}
+\addtocontents{toc}{\protect\contentsline{section}{Index}{\thepage}{}{}}
 \printindex
 
 % that's all, folks
