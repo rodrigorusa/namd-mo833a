@@ -1027,6 +1027,9 @@ void CudaComputeNonbonded::launchWork() {
       int numEmptyPatches = tileListKernel.getNumEmptyPatches();
       int* emptyPatches = tileListKernel.getEmptyPatches();
       for (int i=0;i < numEmptyPatches;i++) {
+        PatchRecord &pr = patches[emptyPatches[i]];
+        memset(h_forces+pr.atomStart, 0, sizeof(float4)*pr.numAtoms);
+        if (doSlow) memset(h_forcesSlow+pr.atomStart, 0, sizeof(float4)*pr.numAtoms);
         patchReadyQueue[i] = emptyPatches[i];
       }
       if (patchReadyQueueLen != patches.size())
