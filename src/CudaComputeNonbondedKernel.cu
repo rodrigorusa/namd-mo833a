@@ -191,7 +191,7 @@ nonbondedForceKernel(const int start, const int numTileLists,
 
   // Single warp takes care of one list of tiles
   // for (int itileList = (threadIdx.x + blockDim.x*blockIdx.x)/WARPSIZE;itileList < numTileLists;itileList += blockDim.x*gridDim.x/WARPSIZE)
-  int itileList = start + (threadIdx.x + blockDim.x*blockIdx.x)/WARPSIZE;
+  int itileList = start + threadIdx.x/WARPSIZE + blockDim.x/WARPSIZE*blockIdx.x;
   if (itileList < numTileLists)
   {
 

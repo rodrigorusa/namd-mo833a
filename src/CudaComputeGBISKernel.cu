@@ -315,7 +315,7 @@ GBIS_Kernel(const int numTileLists,
   TileListVirialEnergy* __restrict__ virialEnergy) {
 
   // Single warp takes care of one list of tiles
-  for (int itileList = (threadIdx.x + blockDim.x*blockIdx.x)/WARPSIZE;itileList < numTileLists;itileList += blockDim.x*gridDim.x/WARPSIZE)
+  for (int itileList = threadIdx.x/WARPSIZE + blockDim.x/WARPSIZE*blockIdx.x;itileList < numTileLists;itileList += blockDim.x/WARPSIZE*gridDim.x)
   {
     TileList tmp = tileLists[itileList];
     int iatomStart = tmp.iatomStart;

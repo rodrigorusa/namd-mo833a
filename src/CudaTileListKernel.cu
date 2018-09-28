@@ -191,8 +191,7 @@ __global__ void buildSortKeys(const int numTileListsDst, const int maxTileListLe
 __global__ void fillSortKeys(const int numComputes, const int maxTileListLen,
   const int2* __restrict__ minmaxListLen, unsigned int* __restrict__ sortKeys) {
 
-  int i = (threadIdx.x + blockDim.x*blockIdx.x)/WARPSIZE;
-  if (i < numComputes) {
+  for (int i = threadIdx.x/WARPSIZE + blockDim.x/WARPSIZE*blockIdx.x;i < numComputes;i+=blockDim.x/WARPSIZE*gridDim.x) {
     const int wid = threadIdx.x % WARPSIZE;
     int2 minmax = minmaxListLen[i];
     int minlen = minmax.x;
@@ -541,7 +540,7 @@ repackTileListsKernel(const int numTileLists, const int begin_bit, const int* __
   const int wid = threadIdx.x % WARPSIZE;
 
   // One warp does one tile list
-  for (int i = (threadIdx.x + blockDim.x*blockIdx.x)/WARPSIZE;i < numTileLists;i+=blockDim.x*gridDim.x/WARPSIZE) 
+  for (int i = threadIdx.x/WARPSIZE + blockDim.x/WARPSIZE*blockIdx.x;i < numTileLists;i+=blockDim.x/WARPSIZE*gridDim.x) 
   {
     int j = tileListOrder[i];
     int start = tileListPos[i];
