@@ -114,20 +114,7 @@ To the ``\emph{dist}'' variable, we apply a \texttt{harmonic} potential of force
 Here, we document the syntax of the commands and parameters used to set up and use the Colvars module in \MDENGINE{}.
 One of these parameters is the configuration file or the configuration text for the module itself, whose syntax is described in \ref{sec:colvars_config} and in the following sections.
 
-\cvvmdonly{
-\cvsubsec{Using the \texttt{cv} command}{sec:cv_command}
-\cvvmdugonly{\index{Colvars!\texttt{cv} command}}
-
-The Colvars module is accessed in VMD through the command \texttt{cv}.
-The command must be used the first time as \texttt{cv molid }\emph{$<$molid$>$} to set up the Colvars module for a given molecule.
-In all following uses, the \texttt{cv} command will continue operating on the same molecule, regardless of its ``top'' status.
-To use the \texttt{cv} command on a different molecule, use \texttt{cv delete} first and then \texttt{cv molid }\emph{$<$molid$>$}.
-Invoking the \texttt{cv} command with no arguments prints a help screen.
-
-\cvvmdugonly{\input{ug_colvars-cv.tex}}
-\cvrefmanonly{\input{colvars-cv.tex}}
-
-}
+% Removed VMD section by hand to make latex2html work correctly
 
 \cvnamdonly{
 \cvsubsec{NAMD parameters}{sec:colvars_mdengine_params}
