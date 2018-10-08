@@ -545,7 +545,7 @@ void settle1_SIMD(const Vector *ref, Vector *pos,
 template <int veclen>
 void rattlePair(const RattleParam* rattleParam,
   const BigReal *refx, const BigReal *refy, const BigReal *refz,
-  BigReal *posx, BigReal *posy, BigReal *posz) {
+  BigReal *posx, BigReal *posy, BigReal *posz, bool& consFailure) {
 
   int a = rattleParam[0].ia;
   int b = rattleParam[0].ib;
@@ -566,7 +566,15 @@ void rattlePair(const RattleParam* rattleParam,
   BigReal rma = rattleParam[0].rma;
   BigReal rmb = rattleParam[0].rmb;
 
-  BigReal gab = (-rpab + sqrt(rpab*rpab + refsq*diffsq))/(refsq*(rma + rmb));
+  BigReal gab;
+  BigReal sqrtarg = rpab*rpab + refsq*diffsq;
+  if ( sqrtarg < 0. ) {
+    consFailure = true;
+    gab = 0.;
+  } else {
+    consFailure = false;
+    gab = (-rpab + sqrt(sqrtarg))/(refsq*(rma + rmb));
+  }
 
   BigReal dpx = rabx * gab;
   BigReal dpy = raby * gab;
@@ -633,7 +641,7 @@ void rattleN(const int icnt, const RattleParam* rattleParam,
 //
 template void rattlePair<1>(const RattleParam* rattleParam,
   const BigReal *refx, const BigReal *refy, const BigReal *refz,
-  BigReal *posx, BigReal *posy, BigReal *posz);
+  BigReal *posx, BigReal *posy, BigReal *posz, bool& consFailure);
 template void settle1_SIMD<2>(const Vector *ref, Vector *pos,
   BigReal mOrmT, BigReal mHrmT, BigReal ra,
   BigReal rb, BigReal rc, BigReal rra);

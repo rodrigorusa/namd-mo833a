@@ -63,7 +63,7 @@ struct RattleParam {
 template <int veclen>
 void rattlePair(const RattleParam* rattleParam,
   const BigReal *refx, const BigReal *refy, const BigReal *refz,
-  BigReal *posx, BigReal *posy, BigReal *posz);
+  BigReal *posx, BigReal *posy, BigReal *posz, bool& consFailure);
 
 void rattleN(const int icnt, const RattleParam* rattleParam,
   const BigReal *refx, const BigReal *refy, const BigReal *refz,

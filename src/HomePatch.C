@@ -2356,9 +2356,9 @@ int HomePatch::rattle1(const BigReal timestep, Tensor *virial,
     if (icnt == 1) {
       rattlePair<1>(&rattleParam[posParam],
         refx, refy, refz,
-        posx, posy, posz);
+        posx, posy, posz,
+        consFailure);
       done = true;
-      consFailure = false;
     } else {
       rattleN(icnt, &rattleParam[posParam],
         refx, refy, refz,
