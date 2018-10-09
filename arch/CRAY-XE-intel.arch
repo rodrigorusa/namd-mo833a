@@ -4,7 +4,7 @@ CHARMARCH = gemini_gni-crayxe-persistent-smp
 CHARMOPTS = -ld++-option -static-intel
 FLOATOPTS = -ip -no-vec
 
-CXX = CC -std=c++11 -DNOHOSTNAME -DNO_GETPWUID
+CXX = CC -std=c++11
 CXXOPTS = -O2 $(FLOATOPTS)
 CXXNOALIASOPTS = -O2 -fno-alias $(FLOATOPTS)
 

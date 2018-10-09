@@ -13,7 +13,7 @@ CHARMARCH = gemini_gni-crayxe-persistent-smp
 # the the psfgen compilation to succeed.
 #
 
-CXX = CC -std=c++11 -DNOHOSTNAME -DNO_GETPWUID
+CXX = CC -std=c++11
 CXXOPTS = -O3 $(GCCFIX) -ffast-math -fexpensive-optimizations -fomit-frame-pointer
 
 CC = cc
