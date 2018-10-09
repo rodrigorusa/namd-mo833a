@@ -2492,7 +2492,12 @@ void cuda_check_pme_forces(void *arg, double walltime) {
       continue; // check next event
     }
   } else if ( err != cudaErrorNotReady ) {
-    cuda_errcheck("in cuda_check_pme_forces");
+    char errmsg[256];
+    sprintf(errmsg,"in cuda_check_pme_forces for event %d after polling %d times over %f s on seq %d",
+            argp->forces_done_count/EVENT_STRIDE,
+            argp->check_forces_count, walltime - argp->forces_time,
+            argp->saved_sequence);
+    cuda_errcheck(errmsg);
     NAMD_bug("cuda_errcheck missed error in cuda_check_pme_forces");
   } else if ( ++(argp->check_forces_count) >= count_limit ) {
     char errmsg[256];
@@ -2524,6 +2529,9 @@ void ComputePmeMgr::ungridCalc(void) {
     double before = CmiWallTimer();
     cudaMemcpyAsync(v_data_dev, q_data_host, q_data_size, cudaMemcpyHostToDevice, 0 /*streams[stream]*/);
     cudaEventRecord(nodePmeMgr->end_potential_memcpy, 0 /*streams[stream]*/);
+    // try to make the unspecified launch failures go away
+    cudaEventSynchronize(nodePmeMgr->end_potential_memcpy);
+    cuda_errcheck("in ComputePmeMgr::ungridCalc after potential memcpy");
     traceUserBracketEvent(CUDA_EVENT_ID_PME_COPY,before,CmiWallTimer());
 
     const int myrank = CkMyRank();
@@ -2581,8 +2589,10 @@ void ComputePmeMgr::ungridCalc(void) {
   //CmiLock(cuda_lock);
   double before = CmiWallTimer();
   cudaMemcpyAsync(afn_dev, afn_host, 3*pcsz*sizeof(float*), cudaMemcpyHostToDevice, streams[stream]);
+  cuda_errcheck("in ComputePmeMgr::ungridCalc after force pointer memcpy");
   traceUserBracketEvent(CUDA_EVENT_ID_PME_COPY,before,CmiWallTimer());
   cudaStreamWaitEvent(streams[stream], nodePmeMgr->end_potential_memcpy, 0);
+  cuda_errcheck("in ComputePmeMgr::ungridCalc after wait for potential memcpy");
   traceUserEvent(CUDA_EVENT_ID_PME_TICK);
 
   for ( int i=0; i<pcsz; ++i ) {
@@ -2606,12 +2616,15 @@ void ComputePmeMgr::ungridCalc(void) {
         pmeComputes[i]->f_data_dev,
         n, */ myGrid.K1, myGrid.K2, myGrid.K3, myGrid.order,
         streams[stream]);
+      cuda_errcheck("in ComputePmeMgr::ungridCalc after force kernel submit");
       traceUserBracketEvent(CUDA_EVENT_ID_PME_KERNEL,before,CmiWallTimer());
       before = CmiWallTimer();
       cudaMemcpyAsync(pmeComputes[i]->f_data_host, pmeComputes[i]->f_data_dev, 3*subtotn*sizeof(float),
         cudaMemcpyDeviceToHost, streams[stream]);
+      cuda_errcheck("in ComputePmeMgr::ungridCalc after force memcpy submit");
       traceUserBracketEvent(CUDA_EVENT_ID_PME_COPY,before,CmiWallTimer());
       cudaEventRecord(end_forces[i/EVENT_STRIDE], streams[stream]);
+      cuda_errcheck("in ComputePmeMgr::ungridCalc after end_forces event");
       traceUserEvent(CUDA_EVENT_ID_PME_TICK);
     }
     // CkPrintf("pe %d c %d natoms %d fdev %lld fhost %lld\n", CkMyPe(), i, (int64)afn_host[3*i+2], pmeComputes[i]->f_data_dev, pmeComputes[i]->f_data_host);
