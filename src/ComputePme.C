@@ -6247,13 +6247,7 @@ void PmeZPencil::send_all_ungrid() {
 	if(useCkLoop>=CKLOOP_CTRL_PME_SENDUNTRANS
            && CkNumPes() >= 2 * initdata.xBlocks * initdata.yBlocks) {
 		//????What's the best value for numChunks?????
-#if USE_NODE_PAR_RECEIVE        
-		//CkLoop_Parallelize(PmeZPencilSendUngrid, 1, (void *)this, CkMyNodeSize(), 0, grid_msgs.size()-1, 1); //has to sync
 		CkLoop_Parallelize(PmeZPencilSendUngrid, 1, (void *)this, grid_msgs.size(), 0, grid_msgs.size()-1, 1); //has to sync
-#else
-        //CkLoop_Parallelize(PmeZPencilSendUngrid, 1, (void *)this, CkMyNodeSize(), 0, grid_msgs.size()-1, 0); //not sync
-		CkLoop_Parallelize(PmeZPencilSendUngrid, 1, (void *)this, grid_msgs.size(), 0, grid_msgs.size()-1, 0); //not sync
-#endif        
 		return;
 	}
 #endif
