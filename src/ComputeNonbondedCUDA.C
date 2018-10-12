@@ -42,11 +42,7 @@ void cuda_errcheck(const char *msg) {
   cudaError_t err;
   if ((err = cudaGetLastError()) != cudaSuccess) {
     char host[128];
-#ifdef NOHOSTNAME
-    sprintf(host,"physical node %d", CmiPhysicalNodeID(CkMyPe()));
-#else
     gethostname(host, 128);  host[127] = 0;
-#endif
     char devstr[128] = "";
     int devnum;
     if ( cudaGetDevice(&devnum) == cudaSuccess ) {

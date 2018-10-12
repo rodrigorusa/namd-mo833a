@@ -97,11 +97,7 @@ void DeviceCUDA::initialize() {
   if (CkMyPe() == 0) CkPrintf("Info: Built with CUDA version %d\n", CUDA_VERSION);
 
   char host[128];
-#ifdef NOHOSTNAME
-  sprintf(host,"physical node %d", CmiPhysicalNodeID(CkMyPe()));
-#else
   gethostname(host, 128);  host[127] = 0;
-#endif
 
   int myPhysicalNodeID = CmiPhysicalNodeID(CkMyPe());
   int myRankInPhysicalNode;

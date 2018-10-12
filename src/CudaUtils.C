@@ -8,11 +8,7 @@
 
 void cudaDie(const char *msg, cudaError_t err) {
   char host[128];
-#ifdef NOHOSTNAME
-  sprintf(host,"physical node %d", CmiPhysicalNodeID(CkMyPe()));
-#else
   gethostname(host, 128);  host[127] = 0;
-#endif
   char devstr[128] = "";
   int devnum;
   if ( cudaGetDevice(&devnum) == cudaSuccess ) {
@@ -50,13 +46,9 @@ void cuda_affinity_initialize() {
     if ( err == cudaSuccess ) err = cudaMalloc(&dummy, 4);
   }
   if ( err != cudaSuccess ) {
-#ifdef NOHOSTNAME
-    fprintf(stderr,"CUDA initialization error: %s\n", cudaGetErrorString(err));
-#else
     char host[128];
     gethostname(host, 128);  host[127] = 0;
     fprintf(stderr,"CUDA initialization error on %s: %s\n", host, cudaGetErrorString(err));
-#endif
   }
 }
 
