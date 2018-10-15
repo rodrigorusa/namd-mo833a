@@ -343,14 +343,14 @@ CLBMigrateMsg* NamdHybridLB::GrpLevelStrategy(LDStats* stats) {
    int i;
    double total = 0.;
    maxCompute = 0.;
-   int maxi = 0;
+   int maxi = -1;
    for (i=0; i<nMoveableComputes; i++) {
       double load = computeArray[i].load;
       total += load;
       if ( load > maxCompute ) { maxCompute = load;  maxi = i; }
    }
    avgCompute = total / nMoveableComputes;
-   maxComputeId = LdbIdField(computeArray[maxi].handle.id, 0);
+   maxComputeId = maxi < 0 ? -1 : LdbIdField(computeArray[maxi].handle.id, 0);
 
     int P = stats->nprocs();
    numPesAvailable = 0;
