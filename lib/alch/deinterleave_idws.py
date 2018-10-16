@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # Input: fepout file from an interleaved double-wide sampling run from 0 to 1
@@ -116,16 +116,18 @@ parser = argparse.ArgumentParser(description='Process fepout data from Interleav
 parser.add_argument('filenames', nargs='+', help='fepout file name(s) with lambda from 0 to 1')
 parser.add_argument('-T', '--temperature', type=float, default=300., help='temperature for FEP estimate, in K')
 parser.add_argument('-r', '--reverse', type=bool, default=True, help='reverse order of backward-sampling windows')
-parser.add_argument('-i', '--interpolate', default=False, action='store_true', help='interpolate data rather than subsampling it (gives constant number of samples per window)')
+parser.add_argument('-i', '--interpolate', default=False, action='store_true', help='interpolate data rather than subsampling it')
 args = parser.parse_args()
 
 # Store the output in the same directory as the first file
 basename = os.path.splitext(args.filenames[0])[0]
 outf = open(basename + '_fwd.fepout', 'w')
 
+interpolating = False
 if args.interpolate:
     if interp_avail:
         resample = interpolated_window
+        interpolating = True
     else:
         print('Interpolation requires the scipy.interpolate package. Defaulting to subsampling.')
         resample = subsampled_window
@@ -172,6 +174,7 @@ for line in fileinput.input(args.filenames):
         T.clear()
         step_counter = -1
         first_step = -1
+        equilSteps = 0
 
         # Extract lambda values
         lambda1 = float(fields[6])
@@ -223,7 +226,7 @@ for line in fileinput.input(args.filenames):
             first_step = int(fields[1])
             step_counter = 0
 
-        if IDWS_on or (step_counter / alchOutFreq) % 2 == 0:
+        if IDWS_on or interpolating or (step_counter / alchOutFreq) % 2 == 0:
             # If IDWS is off, discard every other sample to keep number of samples per window constant
             # to please ParseFEP
             steps.append(step_counter)
@@ -232,16 +235,17 @@ for line in fileinput.input(args.filenames):
             if line.startswith('FepEnergy:') and not last_window:
                 steps_f.append(step_counter)
                 deltaE_f.append(float(fields[6]))
-                if not args.interpolate:
+                if not interpolating:
                     lines_f.append(line[10:])
 
             if line.startswith('FepE_back:') or (last_window and line[:10] == 'FepEnergy:'):
                 steps_b.append(step_counter)
                 deltaE_b.append(float(fields[6]))
-                if not args.interpolate:
+                if not interpolating:
                     lines_b.append(line[10:])
 
-        step_counter += alchOutFreq
+        if alchOutFreq > 0:
+            step_counter += alchOutFreq
 
 # Process last window
 process_window()
