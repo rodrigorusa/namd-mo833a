@@ -183,6 +183,7 @@ Controller::Controller(NamdState *s) :
     random = new Random(simParams->randomSeed);
     random->split(0,PatchMap::Object()->numPatches()+1);
 
+    heat = totalEnergy0 = 0.0;
     rescaleVelocities_sumTemps = 0;  
     rescaleVelocities_numTemps = 0;
     stochRescale_count = 0;
@@ -1370,6 +1371,7 @@ void Controller::stochRescaleVelocities(int step)
                   + 2*R1*sqrt(tempfactor*(1 - stochRescaleTimefactor)*stochRescaleTimefactor)); 
       }
       broadcast->stochRescaleCoefficient.publish(step,coefficient);
+      heat += 0.5*numDegFreedom*BOLTZMANN*temperature*(coefficient*coefficient - 1.0);
       stochRescale_count = 0;
     }
   }
@@ -2989,6 +2991,7 @@ void Controller::printEnergies(int step, int minimize)
     BigReal potentialEnergy;
     BigReal flatEnergy;
     BigReal smoothEnergy;
+    BigReal work;
 
     Vector momentum;
     Vector angularMomentum;
@@ -3104,6 +3107,12 @@ void Controller::printEnergies(int step, int minimize)
     smoothEnergy = (flatEnergy + smooth2_avg
         - (4.0/3.0)*(kineticEnergyHalfstep - kineticEnergyCentered));
 
+    // Reset values for accumulated heat and work.
+    if (step <= simParameters->firstTimestep &&
+        (simParameters->stochRescaleOn && simParameters->stochRescaleHeat)) {
+      heat = 0.0;
+      totalEnergy0 = totalEnergy;
+    }
     if ( simParameters->outputMomenta && ! minimize &&
          ! ( step % simParameters->outputMomenta ) )
     {
@@ -3209,6 +3218,11 @@ void Controller::printEnergies(int step, int minimize)
       GET_VECTOR(pairElectForce,reduction,REDUCTION_PAIR_ELECT_FORCE);
     }
 
+    // Compute cumulative nonequilibrium work (including shadow work).
+    if (simParameters->stochRescaleOn && simParameters->stochRescaleHeat) {
+      work = totalEnergy - totalEnergy0 - heat;
+    }
+
     // callback to Tcl with whatever we can
 #ifdef NAMD_TCL
 #define CALLBACKDATA(LABEL,VALUE) \
@@ -3252,6 +3266,10 @@ void Controller::printEnergies(int step, int minimize)
       if ( simParameters->pairInteractionOn ) {
         CALLBACKLIST("VDW_FORCE",pairVDWForce);
         CALLBACKLIST("ELECT_FORCE",pairElectForce);
+      }
+      if (simParameters->stochRescaleOn && simParameters->stochRescaleHeat) {
+        CALLBACKLIST("HEAT",heat);
+        CALLBACKLIST("WORK",work);
       }
       if (simParameters->alchOn) {
         if (simParameters->alchThermIntOn) {
@@ -3356,6 +3374,11 @@ void Controller::printEnergies(int step, int minimize)
 	  iout << FORMAT("PRESSAVG");
 	  iout << FORMAT("GPRESSAVG");
 	}
+        if (simParameters->stochRescaleOn && simParameters->stochRescaleHeat) {
+          iout << "     ";
+          iout << FORMAT("HEAT");
+          iout << FORMAT("WORK");
+        }
         if (simParameters->drudeOn) {
           iout << "     ";
 	  iout << FORMAT("DRUDEBOND");
@@ -3450,6 +3473,11 @@ void Controller::printEnergies(int step, int minimize)
 	iout << FORMAT(volume);
 	iout << FORMAT(pressure_avg*PRESSUREFACTOR/avg_count);
 	iout << FORMAT(groupPressure_avg*PRESSUREFACTOR/avg_count);
+    }
+    if (simParameters->stochRescaleOn && simParameters->stochRescaleHeat) {
+          iout << "     ";
+          iout << FORMAT(heat);
+          iout << FORMAT(work);
     }
     if (simParameters->drudeOn) {
         iout << "     ";

@@ -158,6 +158,9 @@ protected:
       BigReal kineticEnergyHalfstep;
       BigReal kineticEnergyCentered;
       BigReal temperature;
+      BigReal heat;
+      /**< heat exchanged with the thermostat since firstTimestep */
+      BigReal totalEnergy0; /**< totalEnergy at firstTimestep */
       // BigReal smooth2_avg;
       BigReal smooth2_avg2;  // avoid internal compiler error
       Tensor pressure;
