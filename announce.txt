@@ -1,10 +1,10 @@
 +--------------------------------------------------------------------+
 |                                                                    |
-|                  NAMD 2.13b1 Release Announcement                  |
+|                  NAMD 2.13b2 Release Announcement                  |
 |                                                                    |
 +--------------------------------------------------------------------+
 
-                                                     September 7, 2018
+                                                      October 16, 2018
 
 The Theoretical and Computational Biophysics Group at the University of
 Illinois is proud to announce the public release of a new version of
@@ -13,7 +13,7 @@ high-performance simulation of large biomolecular systems.  NAMD is
 distributed free of charge and includes source code.  NAMD development
 is supported by the NIH National Institute of General Medical Sciences.
 
-NAMD 2.13b1 has many advantages over NAMD 2.12, including:
+NAMD 2.13b2 has many advantages over NAMD 2.12, including:
 
 - GPU-accelerated simulations less limited by CPU performance
 
