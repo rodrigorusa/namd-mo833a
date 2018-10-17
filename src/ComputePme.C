@@ -2472,6 +2472,8 @@ void ComputePmeMgr::recvAck(PmeAckMsg *msg) {
 
 extern "C" void CcdCallBacksReset(void *ignored,double curWallTime);  // fix Charm++
 
+void cudaDie(const char *msg, cudaError_t err=cudaSuccess);
+
 void cuda_check_pme_forces(void *arg, double walltime) {
   ComputePmeMgr *argp = (ComputePmeMgr *) arg;
 
@@ -2497,15 +2499,14 @@ void cuda_check_pme_forces(void *arg, double walltime) {
             argp->forces_done_count/EVENT_STRIDE,
             argp->check_forces_count, walltime - argp->forces_time,
             argp->saved_sequence);
-    cuda_errcheck(errmsg);
-    NAMD_bug("cuda_errcheck missed error in cuda_check_pme_forces");
+    cudaDie(errmsg,err);
   } else if ( ++(argp->check_forces_count) >= count_limit ) {
     char errmsg[256];
-    sprintf(errmsg,"cuda_check_pme_forces polled %d times over %f s on seq %d",
+    sprintf(errmsg,"cuda_check_pme_forces for event %d polled %d times over %f s on seq %d",
+            argp->forces_done_count/EVENT_STRIDE,
             argp->check_forces_count, walltime - argp->forces_time,
             argp->saved_sequence);
-    cuda_errcheck(errmsg);
-    NAMD_die(errmsg);
+    cudaDie(errmsg,err);
   } else {
     break; // call again
   }
@@ -3453,15 +3454,17 @@ void cuda_check_pme_charges(void *arg, double walltime) {
     argp->sendChargeGridReady();
     argp->check_charges_count = 0;
   } else if ( err != cudaErrorNotReady ) {
-    cuda_errcheck("in cuda_check_pme_charges");
-    NAMD_bug("cuda_errcheck missed error in cuda_check_pme_charges");
+    char errmsg[256];
+    sprintf(errmsg,"in cuda_check_pme_charges after polling %d times over %f s on seq %d",
+            argp->check_charges_count, walltime - argp->charges_time,
+            argp->saved_sequence);
+    cudaDie(errmsg,err);
   } else if ( ++(argp->check_charges_count) >= count_limit ) {
     char errmsg[256];
     sprintf(errmsg,"cuda_check_pme_charges polled %d times over %f s on seq %d",
             argp->check_charges_count, walltime - argp->charges_time,
             argp->saved_sequence);
-    cuda_errcheck(errmsg);
-    NAMD_die(errmsg);
+    cudaDie(errmsg,err);
   } else {
     CcdCallBacksReset(0,walltime);  // fix Charm++
     CUDA_POLL(cuda_check_pme_charges, arg);

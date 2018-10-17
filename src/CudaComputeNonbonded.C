@@ -1490,8 +1490,10 @@ void CudaComputeNonbonded::forceDoneCheck(void *arg, double walltime) {
       return;
     } else if (err != cudaErrorNotReady) {
       // Anything else is an error
-      cudaCheck(err);
-      // NAMD_bug("CudaComputeNonbonded::forceDoneCheck, cudaEventQuery returned error");
+      char errmsg[256];
+      sprintf(errmsg,"in CudaComputeNonbonded::forceDoneCheck after polling %d times over %f s",
+              c->checkCount, walltime - c->beforeForceCompute);
+      cudaDie(errmsg,err);
     }
   }
 
@@ -1501,7 +1503,10 @@ void CudaComputeNonbonded::forceDoneCheck(void *arg, double walltime) {
   // Event has not occurred
   c->checkCount++;
   if (c->checkCount >= 1000000) {
-    NAMD_bug("CudaComputeNonbonded::forceDoneCheck, check count exceeded");
+    char errmsg[256];
+    sprintf(errmsg,"CudaComputeNonbonded::forceDoneCheck polled %d times over %f s",
+            c->checkCount, walltime - c->beforeForceCompute);
+    cudaDie(errmsg,cudaSuccess);
   }
 
   // Call again 

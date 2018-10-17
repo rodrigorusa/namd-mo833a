@@ -878,18 +878,24 @@ void ComputeBondedCUDA::forceDoneCheck(void *arg, double walltime) {
   if (err == cudaSuccess) {
     // Event has occurred
     c->checkCount = 0;
-    traceUserBracketEvent(CUDA_BONDED_KERNEL_EVENT, c->beforeForceCompute, CkWallTimer());
+    traceUserBracketEvent(CUDA_BONDED_KERNEL_EVENT, c->beforeForceCompute, walltime);
     c->finishPatches();
     return;
   } else if (err != cudaErrorNotReady) {
     // Anything else is an error
-    NAMD_bug("ComputeBondedCUDA::forceDoneCheck, cudaEventQuery returned error");
+    char errmsg[256];
+    sprintf(errmsg,"in ComputeBondedCUDA::forceDoneCheck after polling %d times over %f s",
+            c->checkCount, walltime - c->beforeForceCompute);
+    cudaDie(errmsg,err);
   }
 
   // Event has not occurred
   c->checkCount++;
   if (c->checkCount >= 1000000) {
-    NAMD_bug("ComputeBondedCUDA::forceDoneCheck, check count exceeded");
+    char errmsg[256];
+    sprintf(errmsg,"ComputeBondedCUDA::forceDoneCheck polled %d times over %f s",
+            c->checkCount, walltime - c->beforeForceCompute);
+    cudaDie(errmsg,err);
   }
 
   // Call again 

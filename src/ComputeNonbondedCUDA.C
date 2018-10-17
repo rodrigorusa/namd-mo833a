@@ -951,8 +951,7 @@ void cuda_check_progress(void *arg, double walltime) {
     sprintf(errmsg,"cuda_check_progress polled %d times over %f s on step %d",
             check_count, walltime - remote_submit_time,
             ((ComputeNonbondedCUDA *) arg)->step);
-    cuda_errcheck(errmsg);
-    NAMD_die(errmsg);
+    cudaDie(errmsg,cudaSuccess);
   }
   if ( poll_again ) {
     CcdCallBacksReset(0,walltime);  // fix Charm++
@@ -974,15 +973,17 @@ void cuda_check_remote_progress(void *arg, double walltime) {
     cuda_errcheck("at cuda remote stream completed");
     WorkDistrib::messageFinishCUDA((ComputeNonbondedCUDA *) arg);
   } else if ( err != cudaErrorNotReady ) {
-    cuda_errcheck("in cuda_check_remote_progress");
-    NAMD_bug("cuda_errcheck missed error in cuda_check_remote_progress");
+    char errmsg[256];
+    sprintf(errmsg,"in cuda_check_remote_progress after polling %d times over %f s on step %d",
+            check_remote_count, walltime - remote_submit_time,
+            ((ComputeNonbondedCUDA *) arg)->step);
+    cudaDie(errmsg,err);
   } else if ( ++check_remote_count >= count_limit ) {
     char errmsg[256];
     sprintf(errmsg,"cuda_check_remote_progress polled %d times over %f s on step %d",
             check_remote_count, walltime - remote_submit_time,
             ((ComputeNonbondedCUDA *) arg)->step);
-    cuda_errcheck(errmsg);
-    NAMD_die(errmsg);
+    cudaDie(errmsg,err);
   } else if ( check_local_count ) {
     NAMD_bug("nonzero check_local_count in cuda_check_remote_progress");
   } else {
@@ -1002,15 +1003,17 @@ void cuda_check_local_progress(void *arg, double walltime) {
     cuda_errcheck("at cuda local stream completed");
     WorkDistrib::messageFinishCUDA((ComputeNonbondedCUDA *) arg);
   } else if ( err != cudaErrorNotReady ) {
-    cuda_errcheck("in cuda_check_local_progress");
-    NAMD_bug("cuda_errcheck missed error in cuda_check_local_progress");
+    char errmsg[256];
+    sprintf(errmsg,"in cuda_check_local_progress after polling %d times over %f s on step %d",
+            check_local_count, walltime - local_submit_time,
+            ((ComputeNonbondedCUDA *) arg)->step);
+    cudaDie(errmsg,err);
   } else if ( ++check_local_count >= count_limit ) {
     char errmsg[256];
     sprintf(errmsg,"cuda_check_local_progress polled %d times over %f s on step %d",
             check_local_count, walltime - local_submit_time,
             ((ComputeNonbondedCUDA *) arg)->step);
-    cuda_errcheck(errmsg);
-    NAMD_die(errmsg);
+    cudaDie(errmsg,err);
   } else if ( check_remote_count ) {
     NAMD_bug("nonzero check_remote_count in cuda_check_local_progress");
   } else {
