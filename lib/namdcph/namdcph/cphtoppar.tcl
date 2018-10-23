@@ -390,12 +390,14 @@ proc ::cphSystem::proposeResidueTautomerization {segresidname} {
 #   The natural log of the ratio Qj/Qi, i.e. ln(Qj/Qi)
 #
 proc ::cphSystem::computeInherentLogRatio {pH segresidname statei statej} {
-    set multij [cphSystem get multiplicity $segresidname $statej]
     if {$statei == $statej} {
         # dn = pKai = 0 exactly, but lookup will fail.
-        return [expr {-log($multij)}]
+        # Note also that, of course, multii = multij.
+        return 0.0
     }
 
+    set multii [cphSystem get multiplicity $segresidname $statei]
+    set multij [cphSystem get multiplicity $segresidname $statej]
     set li [cphSystem get occupancy $segresidname $statei]
     set lj [cphSystem get occupancy $segresidname $statej]
     set dn [expr {lsum($lj) - lsum($li)}]
@@ -410,7 +412,8 @@ proc ::cphSystem::computeInherentLogRatio {pH segresidname statei statej} {
         # titration: pKa is positive in direction of fewer protons
         set sgn [expr {$dn > 0} ? 1.0 : -1.0]
     }
-    return [expr {$::LN10*($sgn*$pKai - $dn*$pH) - log($multij)}]
+    # Note that multii and multij are integers!
+    return [expr {$::LN10*($sgn*$pKai - log10((1.*$multij)/$multii) - $dn*$pH)}]
 }
 
 # ::cphSystem::computeInherentAcceptance
@@ -1485,6 +1488,13 @@ proc ::cphSystem::resDef2Matrix {resDef data} {
                 } ;# END 2 sites, 3 states
                 4 {
                     switch -- $numValues {
+                        2 {
+                            lassign $data attr32 attr20
+                            mset Matrix 3 2 $attr32
+                            mset Matrix 3 1 $attr32
+                            mset Matrix 2 0 $attr20
+                            mset Matrix 1 0 $attr20
+                        }
                         4 {
                             lassign $data attr32 attr31 attr20 attr10
                             mset Matrix 3 2 $attr32
