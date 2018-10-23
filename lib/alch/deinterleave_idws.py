@@ -24,6 +24,7 @@ import argparse
 import re
 import math
 import fileinput
+
 try:
     from scipy.interpolate import InterpolatedUnivariateSpline
     interp_avail = True
@@ -40,7 +41,7 @@ def interpolated_window(steps_window, deltaE_window, lambda1, lambda2, lines=[])
     for t in range(len(steps)):
         s = steps[t]
         if equil and s >= equilSteps:
-            buf += '#' + str(s) + ' STEPS OF EQUILIBRATION AT LAMBDA ' + str(0) + ' COMPLETED\n#STARTING COLLECTION OF ENSEMBLE AVERAGE\n'
+            buf += ('#{} STEPS OF EQUILIBRATION AT LAMBDA {} COMPLETED\n#STARTING COLLECTION OF ENSEMBLE AVERAGE\n').format(equilSteps, lambda1)
             equil = False
             acc_exp = 0
             acc_N = 0
@@ -59,23 +60,22 @@ def subsampled_window(steps_window, deltaE_window, lambda1, lambda2, lines):
     acc_N = 0
     buf = ''
     first = steps_window[0]
-    freq = steps_window[1] - first # outputFreq, in timesteps
 
     stride = 1
     # find first gap in data
     for i in range(len(steps_window)-1):
         diff = steps_window[i+1] - steps_window[i]
-        if diff != freq:
-            if diff % freq != 0:
-                sys.exit('Error: gap between data points is ' + str(diff) + ' instead of a multiple of ' + str(freq))
+        if diff != alchOutFreq:
+            if diff % alchOutFreq != 0:
+                sys.exit('Error: gap between data points is ' + str(diff) + ' instead of a multiple of ' + str(alchOutFreq))
             else:
-                stride = diff // freq - 1
+                stride = diff // alchOutFreq - 1
             break
 
     for t in range(0, len(steps_window), stride):
-        s = steps_window[t] - first + 1
+        s = steps_window[t]
         if equil and s >= equilSteps:
-            buf += '#' + str(s) + ' STEPS OF EQUILIBRATION AT LAMBDA ' + str(0) + ' COMPLETED\n#STARTING COLLECTION OF ENSEMBLE AVERAGE\n'
+            buf += ('#{} STEPS OF EQUILIBRATION AT LAMBDA {} COMPLETED\n#STARTING COLLECTION OF ENSEMBLE AVERAGE\n').format(equilSteps, lambda1)
             equil = False
             acc_exp = 0
             acc_N = 0
@@ -146,6 +146,7 @@ beta = 1. / RT
 # Global step counter, because we don't depend on the fepout files to have consistent step numbers
 step_counter = -1
 alchOutFreq = -1
+equilSteps = 0
 
 deltaE_f = []
 steps_f = []
@@ -155,6 +156,8 @@ steps_b = []
 lines_b = []
 steps = []
 T = []
+
+equil_re = re.compile('#(\d*) STEPS OF EQUILIBRATION')
 
 for line in fileinput.input(args.filenames):
     fields = re.split(' +', line.strip())
@@ -174,6 +177,7 @@ for line in fileinput.input(args.filenames):
         T.clear()
         step_counter = -1
         first_step = -1
+        alchOutFreq = -1
         equilSteps = 0
 
         # Extract lambda values
@@ -207,8 +211,9 @@ for line in fileinput.input(args.filenames):
         # Done processing the header of the first window
         first_window = False
 
-    if line.strip() == '#STARTING COLLECTION OF ENSEMBLE AVERAGE':
-        equilSteps = steps[-1] + 1 # actually a lower bound of equilSteps if fepOutFreq > 1
+    match = equil_re.match(line)
+    if match != None:
+        equilSteps = int(match.group(1))
 
     # Collect all timestep numbers (both fwd and bwd) for interpolation
     if line.startswith('FepE'):
@@ -219,12 +224,14 @@ for line in fileinput.input(args.filenames):
             i_temp = 8
         else:
             print("Wrong number of fields (expected 8 or 10) in line:\n" + line)
-        if step_counter == 0:
-            alchOutFreq = int(fields[1]) - first_step
-            step_counter = alchOutFreq
-        elif step_counter == -1:
+
+        # Detect first step and value of alchOutFreq
+        if step_counter == -1:
             first_step = int(fields[1])
-            step_counter = 0
+            step_counter = first_step
+        elif step_counter == first_step:
+            alchOutFreq = int(fields[1]) - first_step
+            step_counter += alchOutFreq
 
         if IDWS_on or interpolating or (step_counter / alchOutFreq) % 2 == 0:
             # If IDWS is off, discard every other sample to keep number of samples per window constant
