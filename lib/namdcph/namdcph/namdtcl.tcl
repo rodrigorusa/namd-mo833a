@@ -171,6 +171,14 @@ proc getThermostat {{forbidBerendsen true}} {
     global thermostatCmd ""
     global thermostatTempCmd ""
 
+    # Only available in 2.12 development and 2.13+
+    if {![catch stochRescale]} {
+        if {[isset stochRescale] && [stochRescale]} {
+            set thermostatName "stochastic-rescaling"
+            set thermostatCmd stochRescale
+            set thermostatTempCmd stochRescaleTemp
+        }
+    }
     if {[isset langevin] && [langevin]} {
         set thermostatName "Langevin"
         set thermostatCmd langevin

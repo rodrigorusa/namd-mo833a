@@ -20,6 +20,7 @@ namespace eval ::namdcph {
     variable numMinSteps 0
     variable excludeList [list]
     variable alchFrcCons 100.0
+    variable useHeat 0
     variable MDBasename namdcph.md
     variable SWBasename namdcph.sw
     variable stateInfo [dict create] ;# cphSystem data and defaults
@@ -528,6 +529,8 @@ proc ::namdcph::runMD {args} {
 #   Result of MC accept/reject test 
 #
 proc ::namdcph::runSwitch {numsteps segresidnameList} {
+    variable ::namdcph::useHeat
+
     # (1) Checkpoint and modify output parameters. 
     #
     storeEnergies
@@ -552,8 +555,14 @@ proc ::namdcph::runSwitch {numsteps segresidnameList} {
     #
     storeEnergies
     set DeltaE [cphSystem compute switch $segresidnameList]
-    set Work [expr {$::energyArray(CUMALCHWORK) + $DeltaE}]
-    set ReducedWork [expr {$Work / [::kBT]}]
+    if {$useHeat} {
+        # Computed as totalEnergy - totalEnergy0 - heat.
+        set Work $::energyArray(WORK)
+    } else {
+        # Computed as alchemical protocol work.
+        set Work $::energyArray(CUMALCHWORK)
+    }
+    set ReducedWork [expr {($Work + $DeltaE) / [::kBT]}]
     set accept [metropolisAcceptance $ReducedWork]
     set tmp [printProposalSummary $segresidnameList]
     cphPrint [format "%s WorkCorr % 10.4f CorrWork % 10.4f"\
@@ -921,6 +930,7 @@ proc ::namdcph::initialize {} {
     variable ::namdcph::moveInfo
     variable ::namdcph::excludeList
     variable ::namdcph::SystempH
+    variable ::namdcph::useHeat
 
     callback energyCallback
     # 1) Set up alchemical keywords and run startup. 
@@ -928,6 +938,13 @@ proc ::namdcph::initialize {} {
     initializeAlch
     getThermostat
     getBarostat
+    # Note that checking the stored name avoids the need to catch in case we
+    # have an older version of NAMD where stochRescale is unavailable.
+    if {[string match $::thermostatName "stochastic-rescaling"]} {
+        if {[isset stochRescaleHeat] && [stochRescaleHeat]} {
+            set useHeat 1
+        }
+    }
 
     # 2) Rebuild the PSF with dummy protons and modify protonation states as 
     # needed. Build the residue definitions, assign states to each residue, and 
@@ -1074,6 +1091,7 @@ proc ::namdcph::printSettingsSummary {} {
     variable ::namdcph::restartFilename
     variable ::namdcph::SystempH
     variable ::namdcph::alchFrcCons
+    variable ::namdcph::useHeat
 
     set StarBar "***************************************"
     cphPrint $StarBar
@@ -1089,6 +1107,12 @@ proc ::namdcph::printSettingsSummary {} {
     cphPrint "NONEQUILIBRIUM SWITCH PARAMETERS:"
     cphPrint "ALCHEMICAL FORCE CONSTANT $alchFrcCons kcal/mol-A^2"
     cphPrint "neMD/MC CRITERION TEMPERATURE [$::thermostatTempCmd]"
+    if {$useHeat} {
+        cphPrint "WORK COMPUTATION: HEAT EXCHANGE W/THERMOSTAT"
+        cphWarnExpt
+    } else {
+        cphPrint "WORK COMPUTATION: ALCHEMICAL PROTOCOL WORK"
+    }
     cphPrint "TEMPORARY FILE INFORMATION:"
     cphPrint "cpH TOPOLOGY FILE BASENAME [getMDBasename]"
     cphPrint "neMD/MC TRAJECTORY BASENAME [getSWBasename]"
