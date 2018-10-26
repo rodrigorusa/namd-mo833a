@@ -11,7 +11,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #else
-int sbrk(int) { return 0; }
+namespace {
+  int sbrk(int) { return 0; }
+}
 #endif
 
 int memusageinit::initialized;
