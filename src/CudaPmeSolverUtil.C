@@ -353,11 +353,17 @@ void CudaPmeKSpaceCompute::energyAndVirialCheck(void *arg, double walltime) {
     // Event has not occurred
     c->checkCount++;
     if (c->checkCount >= 1000000) {
-      NAMD_bug("CudaPmeKSpaceCompute::energyAndVirialCheck, check count exceeded");
+      char errmsg[256];
+      sprintf(errmsg,"CudaPmeKSpaceCompute::energyAndVirialCheck polled %d times",
+              c->checkCount);
+      cudaDie(errmsg,err);
     }
   } else {
     // Anything else is an error
-    NAMD_bug("CudaPmeKSpaceCompute::energyAndVirialCheck, cudaEventQuery returned error");
+    char errmsg[256];
+    sprintf(errmsg,"in CudaPmeKSpaceCompute::energyAndVirialCheck after polling %d times",
+            c->checkCount);
+    cudaDie(errmsg,err);
   }
 
   // Call again 
@@ -523,11 +529,17 @@ void CudaPmeRealSpaceCompute::cuda_gatherforce_check(void *arg, double walltime)
     // Event has not occurred
     c->checkCount++;
     if (c->checkCount >= 1000000) {
-      NAMD_bug("CudaPmeRealSpaceCompute::cuda_gatherforce_check, check count exceeded");
+      char errmsg[256];
+      sprintf(errmsg,"CudaPmeRealSpaceCompute::cuda_gatherforce_check polled %d times",
+              c->checkCount);
+      cudaDie(errmsg,err);
     }
   } else {
     // Anything else is an error
-    NAMD_bug("CudaPmeRealSpaceCompute::cuda_gatherforce_check, cudaEventQuery returned error");
+    char errmsg[256];
+    sprintf(errmsg,"in CudaPmeRealSpaceCompute::cuda_gatherforce_check after polling %d times",
+            c->checkCount);
+    cudaDie(errmsg,err);
   }
 
   // Call again 
