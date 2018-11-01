@@ -2969,6 +2969,7 @@ void Parameters::done_reading_files()
     {
       NAMD_die("memory allocation of bond_array failed!");
     }
+    memset(bond_array, 0, NumBondParams*sizeof(BondValue));
   }
 
   if (NumAngleParams)
@@ -2978,6 +2979,10 @@ void Parameters::done_reading_files()
     if (angle_array == NULL)
     {
       NAMD_die("memory allocation of angle_array failed!");
+    }
+    memset(angle_array, 0, NumAngleParams*sizeof(AngleValue));
+    for ( Index i=0; i<NumAngleParams; ++i ) {
+      angle_array[i].normal = 1;
     }
   }
 
@@ -3039,6 +3044,14 @@ void Parameters::done_reading_files()
   //  Assign indexes to each of the parameters and populate the
   //  arrays using the binary trees and linked lists that we have
   //  already read in
+
+  // Note that if parameters have been overwritten (matching
+  // atom patterns but different parameter values) the tree
+  // contains fewer elements than Num...Params would suggest.
+  // The arrays are initialized above because the end values
+  // may not be occupied.  Modifying the Num...Params values
+  // would break backwards compatibility of memopt extraBonds.
+
   index_bonds(bondp, 0);
   index_angles(anglep, 0);
   NumVdwParamsAssigned = index_vdw(vdwp, 0);
