@@ -866,6 +866,8 @@ public:
         zVector stirPivot;             // Pivot point of stir axis
 
 	Bool extraBondsOn;		// read extra bonded forces
+	Bool extraBondsCosAngles;       // extra angles are cosine-based
+	Bool extraBondsCosAnglesSetByUser; // did the user set this explicitly
 
 	Bool consForceOn;		//  Should constant force be applied
   char consForceFile[128];

@@ -8337,6 +8337,7 @@ void Molecule::build_extra_bonds(Parameters *parameters, StringList *file) {
 //to load
   char err_msg[512];
   int a1,a2,a3,a4; float k, ref;
+  int anglesNormal = ( simParams->extraBondsCosAngles ? 0 : 1 );
   #ifndef MEM_OPT_VERSION
   ResizeArray<Bond> bonds;
   ResizeArray<Angle> angles;
@@ -8413,6 +8414,7 @@ void Molecule::build_extra_bonds(Parameters *parameters, StringList *file) {
         AngleValue tmpv;
         tmpv.k = k;  tmpv.theta0 = ref / 180. * PI;
         tmpv.k_ub = 0;  tmpv.r_ub = 0;
+        tmpv.normal = anglesNormal;
         angle_params.add(tmpv);      
               
       } else if ( ! strncasecmp(type,"dihedral",4) ) {
@@ -8515,6 +8517,14 @@ void Molecule::build_extra_bonds(Parameters *parameters, StringList *file) {
   int extraNumAngles = angle_params.size();
   if ( extraNumAngles ) {
     iout << iINFO << "READ " << extraNumAngles << " EXTRA ANGLES\n" << endi;
+    if ( anglesNormal ) {
+      iout << iINFO << "EXTRA ANGLES ARE NORMAL HARMONIC\n" << endi;
+    } else if ( simParams->extraBondsCosAnglesSetByUser ) {
+      iout << iINFO << "EXTRA ANGLES ARE COSINE-BASED\n" << endi;
+    } else {
+      iout << iWARN << "EXTRA ANGLES ARE COSINE-BASED BY DEFAULT TO MATCH PREVIOUS VERSIONS\n";
+      iout << iWARN << "FOR NORMAL HARMONIC EXTRA ANGLES SET extraBondsCosAngles off\n" << endi;
+    }
     #ifndef MEM_OPT_VERSION
     Angle *newangles = new Angle[numAngles+extraNumAngles];
     memcpy(newangles, this->angles, numAngles*sizeof(Angle));

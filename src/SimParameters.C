@@ -2148,6 +2148,9 @@ void SimParameters::config_parser_boundary(ParseOptions &opts) {
    opts.optional("extraBonds", "extraBondsFile",
 		"file with list of extra bonds",
 		 PARSE_MULTIPLES);
+   opts.optionalB("extraBonds", "extraBondsCosAngles",
+		"Should extra angles be cosine-based to match ancient bug",
+		&extraBondsCosAngles, TRUE);
 
 }
 
@@ -4093,6 +4096,12 @@ void SimParameters::check_config(ParseOptions &opts, ConfigList *config, char *&
 
    if ( gridforceOn || mgridforceOn ) {
      parse_mgrid_params(config);
+   }
+
+   if ( extraBondsOn ) {
+     extraBondsCosAnglesSetByUser = ! ! config->find("extraBondsCosAngles");
+   } else {
+     extraBondsCosAnglesSetByUser = false;
    }
       
    if (!opts.defined("constraints"))

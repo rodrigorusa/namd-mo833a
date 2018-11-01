@@ -90,7 +90,7 @@ public:
 	Real theta0;	//  Rest angle for angle
 	Real k_ub;	//  Urey-Bradley force constant
 	Real r_ub;	//  Urey-Bradley distance
-  int normal; // Whether we use harmonic (0) or cos-based (1) angle terms
+  int normal; // Whether we use harmonic (1) or cos-based (0) angle terms
 };
 
 typedef struct four_body_consts

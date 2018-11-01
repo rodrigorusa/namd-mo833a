@@ -1254,6 +1254,14 @@ $U(x) = k (1 + cos(n x - x_{ref}))$.
 The only difference between dihedrals and
 impropers is the output field that their potential energy is added to.
 
+Due to a very old bug all NAMD releases prior to 2.13 have used the
+MARTINI cosine-based angle potential function for all extra angles.
+Since workflows may unknowingly depend on this undocumented behavior,
+cosine-based angles remain the default, but a warning is printed
+unless the desired behavior is specified via the new option
+extraBondsCosAngles (defaults to ``on'', set to ``off'' to use
+the normal harmonic angle potential function for all extra angles).
+
 The extra bonded term implementation shares the parallel implementation
 of regular bonded terms in \NAMD, allowing large numbers of extra terms
 to be specified with minimal impact on parallel scalability.
@@ -1269,6 +1277,11 @@ Extra bonded terms are enabled via the following options:
 \item
 \NAMDCONFWDEF{extraBonds}{enable extra bonded terms?}{{\tt on} or {\tt off}}{{\tt off}}
 {Specifies whether or not extra bonded terms are present.} 
+
+\item
+\NAMDCONFWDEF{extraBondsCosAngles}{are extra angles cosine-based?}{{\tt on} or {\tt off}}{{\tt on}}
+{Specifies whether or not all extra angles are cosine-based for consistency with previous versions.
+Set to {\tt off} to use normal harmonic angle potential for all extra angles.} 
 
 \item
 \NAMDCONF{extraBondsFile}{file containing extra bonded terms}{file}
