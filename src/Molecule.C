@@ -405,6 +405,7 @@ void Molecule::initialize(SimParameters *simParams, Parameters *param)
   cSMDKs=0;
   cSMDVels=0;
   cSMDcoffs=0;
+  cSMDnumInst=0;
   
   goInit();
 }
