@@ -629,6 +629,28 @@ When using multiple time stepping, it is important that rescaling
   type (usually {\tt fullElectFrequency}).
 }
 
+\item
+\NAMDCONFWDEF{stochRescaleHeat}
+{Should heat transfer and work be computed?}
+{{\tt yes} or {\tt no}}
+{{\tt no}}
+{
+When active, the \emph{cumulative} heat transfer with the thermostat will
+  be reported as \texttt{HEAT}.
+The work due to the thermostat and integrator can then be computed as the
+  change in total energy less the heat transfer and is reported as
+  \texttt{WORK}.
+Note that the work includes all sources, including non-conservative elements of
+  the Hamiltonian, but should otherwise approach zero for simulations at or
+  near equilibrium.
+The accumulation starts at \texttt{firstTimestep} and can be reset from
+  \texttt{Tcl} by re-setting this to zero.
+\textbf{
+This is an experimental option and not yet guaranteed for any specific
+  purpose.
+}
+}
+
 \end{itemize}
 
 
