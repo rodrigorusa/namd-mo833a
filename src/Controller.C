@@ -3630,7 +3630,7 @@ void Controller::outputFepEnergy(int step) {
        electEnergy - electEnergySlow - ljEnergy;
   BigReal RT = BOLTZMANN * simParams->alchTemp;
 
-  if (alchEnsembleAvg && (simParams->alchLambdaIDWS < 0. || (step / simParams->alchIDWSfreq) % 2 == 1 )){
+  if (alchEnsembleAvg && (simParams->alchLambdaIDWS < 0. || (step / simParams->alchIDWSFreq) % 2 == 1 )){
     // with IDWS, only accumulate stats on those timesteps where target lambda is "forward"
     FepNo++;
     exp_dE_ByRT += exp(-dE/RT);
@@ -3870,7 +3870,7 @@ void Controller::writeFepEnergyData(int step, ofstream_namd &file) {
 
   if(stepInRun){
     if(!FepWhamOn){
-      if ( simParams->alchLambdaIDWS >= 0. && (step / simParams->alchIDWSfreq) % 2 == 0 ) {
+      if ( simParams->alchLambdaIDWS >= 0. && (step / simParams->alchIDWSFreq) % 2 == 0 ) {
         // IDWS is active and we are on a "backward" timestep
         fepFile << FEPTITLE_BACK(step);
       } else {
