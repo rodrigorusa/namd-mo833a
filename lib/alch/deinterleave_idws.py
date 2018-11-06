@@ -10,8 +10,10 @@
 #   reverse sequential transformation (0 -> 1 -> 0)
 
 # Notes on further analysis:
-# Missing samples of deltaE can be interpolated to recover the same number of samples in each window
-#
+# Missing samples of deltaE must be interpolated to recover the same number of samples in each window
+# This is necessary for ParseFEP up to version 2.1
+# Hopefully later versions will fix this
+
 # Note:
 # The first window samples forward only, the last window backward only
 #
@@ -53,7 +55,9 @@ def interpolated_window(steps_window, deltaE_window, lambda1, lambda2, lines=[])
         buf += 'FepEnergy: {:6d}  {:14.4f} {:14.4f} {:14.4f} {:14.4f} {:14.4f} {:14.4f} {:14.4f} {:14.4f}\n'.format(s, 0, 0, 0, 0, dE, 0., T[t], -RT*math.log(acc_exp / acc_N))
     return buf, -RT*math.log(acc_exp / acc_N)
 
-
+# Note: this doesn't subsample anymore, as I've given up the subsampling trick, which is frustratingly complicated to get right
+# and wouldn't be necessary if ParseFEP was slightly less ****
+# which hopefully it will be soon
 def subsampled_window(steps_window, deltaE_window, lambda1, lambda2, lines):
     equil = True
     acc_exp = 0
@@ -62,15 +66,17 @@ def subsampled_window(steps_window, deltaE_window, lambda1, lambda2, lines):
     first = steps_window[0]
 
     stride = 1
+    # Disabling the trick blow, as this does not reliably produce even-sampled windows
+    # and then parseFEP has a fit
     # find first gap in data
-    for i in range(len(steps_window)-1):
-        diff = steps_window[i+1] - steps_window[i]
-        if diff != alchOutFreq:
-            if diff % alchOutFreq != 0:
-                sys.exit('Error: gap between data points is ' + str(diff) + ' instead of a multiple of ' + str(alchOutFreq))
-            else:
-                stride = diff // alchOutFreq - 1
-            break
+    #for i in range(len(steps_window)-1):
+    #    diff = steps_window[i+1] - steps_window[i]
+    #    if diff != alchOutFreq:
+    #        if diff % alchOutFreq != 0:
+    #            sys.exit('Error: gap between data points is ' + str(diff) + ' instead of a multiple of ' + str(alchOutFreq))
+    #        else:
+    #            stride = diff // alchOutFreq - 1
+    #        break
 
     for t in range(0, len(steps_window), stride):
         s = steps_window[t]
@@ -116,7 +122,7 @@ parser = argparse.ArgumentParser(description='Process fepout data from Interleav
 parser.add_argument('filenames', nargs='+', help='fepout file name(s) with lambda from 0 to 1')
 parser.add_argument('-T', '--temperature', type=float, default=300., help='temperature for FEP estimate, in K')
 parser.add_argument('-r', '--reverse', type=bool, default=True, help='reverse order of backward-sampling windows')
-parser.add_argument('-i', '--interpolate', default=False, action='store_true', help='interpolate data rather than subsampling it')
+parser.add_argument('-i', '--interpolate', default=True, action='store_true', help='interpolate data rather than subsampling it')
 args = parser.parse_args()
 
 # Store the output in the same directory as the first file
@@ -233,23 +239,20 @@ for line in fileinput.input(args.filenames):
             alchOutFreq = int(fields[1]) - first_step
             step_counter += alchOutFreq
 
-        if IDWS_on or interpolating or (step_counter / alchOutFreq) % 2 == 0:
-            # If IDWS is off, discard every other sample to keep number of samples per window constant
-            # to please ParseFEP
-            steps.append(step_counter)
-            T.append(float(fields[i_temp]))
+        steps.append(step_counter)
+        T.append(float(fields[i_temp]))
 
-            if line.startswith('FepEnergy:') and not last_window:
-                steps_f.append(step_counter)
-                deltaE_f.append(float(fields[6]))
-                if not interpolating:
-                    lines_f.append(line[10:])
+        if line.startswith('FepEnergy:') and not last_window:
+            steps_f.append(step_counter)
+            deltaE_f.append(float(fields[6]))
+            if not interpolating:
+                lines_f.append(line[10:])
 
-            if line.startswith('FepE_back:') or (last_window and line[:10] == 'FepEnergy:'):
-                steps_b.append(step_counter)
-                deltaE_b.append(float(fields[6]))
-                if not interpolating:
-                    lines_b.append(line[10:])
+        if line.startswith('FepE_back:') or (last_window and line[:10] == 'FepEnergy:'):
+            steps_b.append(step_counter)
+            deltaE_b.append(float(fields[6]))
+            if not interpolating:
+                lines_b.append(line[10:])
 
         if alchOutFreq > 0:
             step_counter += alchOutFreq
