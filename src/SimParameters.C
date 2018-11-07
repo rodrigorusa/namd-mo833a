@@ -4852,6 +4852,12 @@ if ( openatomOn )
 							<< "\n" << endi;
 
    iout << iINFO << "MARGIN                 " << margin << "\n";
+   if ( margin > 4.0 ) {
+      iout << iWARN << "MARGIN IS UNUSUALLY LARGE AND WILL LOWER PERFORMANCE\n";
+      BigReal f = patchDimension/(patchDimension-margin);
+      f *= f*f;
+      iout << iWARN << "MARGIN INCREASED PATCH VOLUME BY A FACTOR OF " << f << "\n";
+   }
 
    if ( splitPatch == SPLIT_PATCH_HYDROGEN ) {
       iout << iINFO << "HYDROGEN GROUP CUTOFF  " << hgroupCutoff << "\n";
