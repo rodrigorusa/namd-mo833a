@@ -279,7 +279,7 @@ proc ::namdcph::cphAnalyzeForce {dcdfilename segresidname state0 state1} {
 # pH value for the simulation
 #
 proc ::namdcph::pH {pHValue} {
-    checkIsPositive "pH" $pHValue
+    checkIsNumeric "pH" $pHValue
     variable ::namdcph::SystempH $pHValue 
     return
 }
@@ -345,7 +345,7 @@ proc ::namdcph::cphSetResiduepKai {args} {
         #NB pKai may be a list of values - check individually.
         lassign [lrange $args $i [expr {$i+1}]] segresidname pKai
         foreach pKa $pKai {
-            checkIsPositive pKai $pKa
+            checkIsNumeric pKai $pKa
         }
         dict set stateInfo $segresidname pKai $pKai
     }
