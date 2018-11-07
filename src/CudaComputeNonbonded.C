@@ -34,7 +34,7 @@ extern "C" void CcdCallBacksReset(void *ignored, double curWallTime);  // fix Ch
 // Class constructor
 //
 CudaComputeNonbonded::CudaComputeNonbonded(ComputeID c, int deviceID,
-  CudaNonbondedTables& cudaNonbondedTables, bool doStreaming) : 
+  CudaNonbondedTables& cudaNonbondedTables, bool doStreaming) :
 Compute(c), deviceID(deviceID), doStreaming(doStreaming), nonbondedKernel(deviceID, cudaNonbondedTables, doStreaming),
 tileListKernel(deviceID, doStreaming), GBISKernel(deviceID) {
 
@@ -81,7 +81,7 @@ tileListKernel(deviceID, doStreaming), GBISKernel(deviceID) {
   dEdaSumHSize = 0;
   dHdrPrefixH = NULL;
   dHdrPrefixHSize = 0;
-
+  maxShmemPerBlock = 0;
   cudaPatches = NULL;
 
   atomsChangedIn = true;
@@ -542,7 +542,7 @@ void CudaComputeNonbonded::assignPatches(ComputeMgr* computeMgrIn) {
   // Set counters of avoidable PEs to high numbers
   for (int i=0;i < pesToAvoid.size();i++) {
     int pe = pesToAvoid[i];
-    peProxyPatchCounter[CkRankOf(pe)] = (1 << 20);    
+    peProxyPatchCounter[CkRankOf(pe)] = (1 << 20);
   }
 #endif
   // Avoid master Pe somewhat
@@ -613,6 +613,12 @@ void CudaComputeNonbonded::initialize() {
     allocate_host<VirialEnergy>(&h_virialEnergy, 1);
     allocate_device<VirialEnergy>(&d_virialEnergy, 1);
 
+  /* JM: Queries for maximum sharedMemoryPerBlock on deviceID
+   */
+   cudaDeviceProp props;
+   cudaCheck(cudaGetDeviceProperties(&props, deviceID)); //Gets properties of 'deviceID device'
+   maxShmemPerBlock = props.sharedMemPerBlock;
+
 #if CUDA_VERSION >= 5050
     int leastPriority, greatestPriority;
     cudaCheck(cudaDeviceGetStreamPriorityRange(&leastPriority, &greatestPriority));
@@ -629,7 +635,7 @@ void CudaComputeNonbonded::initialize() {
     lock = CmiCreateLock();
 
     reduction = ReductionMgr::Object()->willSubmit(REDUCTIONS_BASIC);
-  }  
+  }
 }
 
 //
@@ -899,7 +905,7 @@ void CudaComputeNonbonded::reallocateArrays() {
     reallocate_host<float4>(&h_forcesSlow, &h_forcesSlowSize, atomStorageSize, 1.4f);
   }
   reallocate_device<float4>(&d_forces, &d_forcesSize, atomStorageSize, 1.4f);
-  reallocate_device<float4>(&d_forcesSlow, &d_forcesSlowSize, atomStorageSize, 1.4f);  
+  reallocate_device<float4>(&d_forcesSlow, &d_forcesSlowSize, atomStorageSize, 1.4f);
 
   if (simParams->GBISOn) {
     reallocate_host<float>(&intRad0H, &intRad0HSize, atomStorageSize, 1.2f);
@@ -1050,9 +1056,9 @@ void CudaComputeNonbonded::launchWork() {
     if (gbisPhase == 1) {
       doGBISphase1();
     } else if (gbisPhase == 2) {
-      doGBISphase2(); 
+      doGBISphase2();
     } else if (gbisPhase == 3) {
-      doGBISphase3(); 
+      doGBISphase3();
     }
   }
 
@@ -1081,7 +1087,7 @@ void CudaComputeNonbonded::launchWork() {
 //
 void CudaComputeNonbonded::doGBISphase1() {
   cudaCheck(cudaSetDevice(deviceID));
-  
+
   if (atomsChanged) {
     GBISKernel.updateIntRad(atomStorageSize, intRad0H, intRadSH, stream);
   }
@@ -1159,7 +1165,7 @@ void CudaComputeNonbonded::doForce() {
     // Build initial tile lists and sort
     tileListKernel.buildTileLists(numTileLists, patches.size(), atomStorageSize,
       maxTileListLen, lata, latb, latc,
-      cudaPatches, (const float4*)atoms, plcutoff2, stream);
+      cudaPatches, (const float4*)atoms, plcutoff2, maxShmemPerBlock, stream);
     // Prepare tile list for atom-based refinement
     tileListKernel.prepareTileList(stream);
   }
@@ -1205,7 +1211,7 @@ void CudaComputeNonbonded::finishReductions() {
 
   if (CkMyPe() != masterPe)
     NAMD_bug("CudaComputeNonbonded::finishReductions() called on non masterPe");
-  
+
   // fprintf(stderr, "%d finishReductions doSkip %d doVirial %d doEnergy %d\n", CkMyPe(), doSkip, doVirial, doEnergy);
 
   if (!doSkip) {
@@ -1415,7 +1421,7 @@ void CudaComputeNonbonded::finishTimers() {
       traceUserBracketEvent(CUDA_GBIS3_KERNEL_EVENT, beforeForceCompute, CkWallTimer());
   } else {
     traceUserBracketEvent(CUDA_NONBONDED_KERNEL_EVENT, beforeForceCompute, CkWallTimer());
-  }  
+  }
 }
 
 //
@@ -1509,7 +1515,7 @@ void CudaComputeNonbonded::forceDoneCheck(void *arg, double walltime) {
     cudaDie(errmsg,cudaSuccess);
   }
 
-  // Call again 
+  // Call again
   CcdCallBacksReset(0, walltime);
   CcdCallFnAfter(forceDoneCheck, arg, 0.1);
 }
@@ -1547,7 +1553,7 @@ struct cr_sortop_distance {
 };
 
 static inline bool sortop_bitreverse(int a, int b) {
-  if ( a == b ) return 0; 
+  if ( a == b ) return 0;
   for ( int bit = 1; bit; bit *= 2 ) {
     if ( (a&bit) != (b&bit) ) return ((a&bit) < (b&bit));
   }
@@ -1637,7 +1643,7 @@ void CudaComputeNonbonded::buildExclusions() {
 #ifdef MEM_OPT_VERSION
   int natoms = mol->exclSigPoolSize;
 #else
-  int natoms = mol->numAtoms; 
+  int natoms = mol->numAtoms;
 #endif
 
 	if (exclusionsByAtom != NULL) delete [] exclusionsByAtom;

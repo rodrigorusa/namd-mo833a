@@ -334,7 +334,7 @@ __global__ void calcTileListPosKernel(const int numComputes,
     BlockScan(tempStorage).ExclusiveSum(numTiles1, tilePosVal);
 
     // Store into global memory
-    if (k < numComputes) {      
+    if (k < numComputes) {
       tilePos[k] = shTilePos0 + tilePosVal;
     }
 
@@ -483,7 +483,7 @@ buildTileListsBBKernel(const int numTileLists,
     numJtiles  = cub::ShuffleIndex(numJtiles,  WARPSIZE-1, WARPSIZE, WARP_FULL_MASK);
     jtileStart = cub::ShuffleIndex(jtileStart, WARPSIZE-1, WARPSIZE, WARP_FULL_MASK);
     if (jtileStart + numJtiles > tileJatomStartSize) {
-      // tileJatomStart out of memory, exit 
+      // tileJatomStart out of memory, exit
       if (wid == 0) tileListStat->tilesSizeExceeded = true;
       return;
     }
@@ -540,7 +540,7 @@ repackTileListsKernel(const int numTileLists, const int begin_bit, const int* __
   const int wid = threadIdx.x % WARPSIZE;
 
   // One warp does one tile list
-  for (int i = threadIdx.x/WARPSIZE + blockDim.x/WARPSIZE*blockIdx.x;i < numTileLists;i+=blockDim.x/WARPSIZE*gridDim.x) 
+  for (int i = threadIdx.x/WARPSIZE + blockDim.x/WARPSIZE*blockIdx.x;i < numTileLists;i+=blockDim.x/WARPSIZE*gridDim.x)
   {
     int j = tileListOrder[i];
     int start = tileListPos[i];
@@ -669,7 +669,7 @@ __global__ void reOrderTileListDepth(const int numTileLists, const int* __restri
     tileListDepthDst[i] = tileListDepthSrc[j];
   }
 
-} 
+}
 
 //
 // Bit shift tileListDepth so that only lower 16 bits are used
@@ -874,7 +874,7 @@ void CudaTileListKernel::updateComputes(const int numComputesIn,
 
 void CudaTileListKernel::writeTileList(const char* filename, const int numTileLists,
   const TileList* d_tileLists, cudaStream_t stream) {
-  
+
   TileList* h_tileLists = new TileList[numTileLists];
   copy_DtoH<TileList>(d_tileLists, h_tileLists, numTileLists, stream);
   cudaCheck(cudaStreamSynchronize(stream));
@@ -981,7 +981,8 @@ void CudaTileListKernel::markJtileOverlap(const int width, const int numTileList
 void CudaTileListKernel::buildTileLists(const int numTileListsPrev,
   const int numPatchesIn, const int atomStorageSizeIn, const int maxTileListLenIn,
   const float3 lata, const float3 latb, const float3 latc,
-  const CudaPatchRecord* h_cudaPatches, const float4* h_xyzq, const float plcutoff2In,
+  const CudaPatchRecord* h_cudaPatches, const float4* h_xyzq,
+  const float plcutoff2In, const size_t maxShmemPerBlock,
   cudaStream_t stream) {
 
   numPatches = numPatchesIn;
@@ -1059,6 +1060,9 @@ void CudaTileListKernel::buildTileLists(const int numTileListsPrev,
     int nblock = min(deviceCUDA->getMaxNumBlocks(), (numTileListsPrev-1)/nthread+1);
 
     int shmem_size = buildTileListsBBKernel_shmem_sizePerThread(maxTileListLen)*nthread;
+    if(shmem_size > maxShmemPerBlock){
+      NAMD_die("CudaTileListKernel::buildTileLists, maximum shared memory allocation exceeded. Too many atoms in a patch");
+    }
 
     // NOTE: In the first call numJtiles = 1. buildTileListsBBKernel will return and
     //       tell the required size in h_tileListStat->numJtiles. In subsequent calls,
@@ -1172,13 +1176,13 @@ void CudaTileListKernel::sortTileLists(
   // Check that the array sizes are adequate
   if (numTileListsSrc > tileListsSrc.size || numJtilesSrc > tileJatomStartSrc.size ||
     numTileListsSrc > tileListDepthSrc.size || numTileListsSrc > tileListOrderSrc.size ||
-    (patchPairsSrc.ptr != NULL && numTileListsSrc > patchPairsSrc.size) || 
+    (patchPairsSrc.ptr != NULL && numTileListsSrc > patchPairsSrc.size) ||
     (tileExclsSrc.ptr != NULL && numJtilesSrc > tileExclsSrc.size))
     NAMD_die("CudaTileListKernel::sortTileLists, Src allocated too small");
 
   if (numTileListsDst > tileListsDst.size || numJtilesDst > tileJatomStartDst.size ||
     numTileListsSrc > tileListDepthDst.size || numTileListsSrc > tileListOrderDst.size ||
-    (patchPairsDst.ptr != NULL && numTileListsDst > patchPairsDst.size) || 
+    (patchPairsDst.ptr != NULL && numTileListsDst > patchPairsDst.size) ||
     (tileExclsDst.ptr != NULL && numJtilesDst > tileExclsDst.size))
     NAMD_die("CudaTileListKernel::sortTileLists, Dst allocated too small");
 
@@ -1301,7 +1305,7 @@ void CudaTileListKernel::sortTileLists(
 
         int nthread = 1024;
         int nblock = min(deviceCUDA->getMaxNumBlocks(), (numTileListsSrc-1)/nthread+1);
-        buildRemoveZerosSortKey <<< nblock, nthread, 0, stream >>> 
+        buildRemoveZerosSortKey <<< nblock, nthread, 0, stream >>>
         (numTileListsSrc, tileListDepthSrc.ptr, begin_bit, sortKeySrc);
         cudaCheck(cudaGetLastError());
       }
@@ -1338,7 +1342,7 @@ void CudaTileListKernel::sortTileLists(
       {
         int nthread = 1024;
         int nblock = min(deviceCUDA->getMaxNumBlocks(), (numTileListsDst-1)/nthread+1);
-        reOrderTileListDepth <<< nblock, nthread, 0, stream >>> 
+        reOrderTileListDepth <<< nblock, nthread, 0, stream >>>
         (numTileListsDst, tileListOrderDst.ptr,
           tileListDepthSrc.ptr, tileListDepthDst.ptr);
         cudaCheck(cudaGetLastError());
@@ -1357,7 +1361,7 @@ void CudaTileListKernel::sortTileLists(
 
         int nthread = 1024;
         int nblock = min(deviceCUDA->getMaxNumBlocks(), (numTileListsSrc-1)/nthread+1);
-        setupSortKey <<< nblock, nthread, 0, stream >>> 
+        setupSortKey <<< nblock, nthread, 0, stream >>>
         (numTileListsSrc, maxTileListLen_sortKeys, tileListsSrc.ptr, tileListDepthSrc.ptr, begin_bit, sortKeys, sortKeySrc);
         cudaCheck(cudaGetLastError());
 
@@ -1397,7 +1401,7 @@ void CudaTileListKernel::sortTileLists(
       {
         int nthread = 1024;
         int nblock = min(deviceCUDA->getMaxNumBlocks(), (numTileListsDst-1)/nthread+1);
-        reOrderTileListDepth <<< nblock, nthread, 0, stream >>> 
+        reOrderTileListDepth <<< nblock, nthread, 0, stream >>>
         (numTileListsDst, tileListOrderDst.ptr,
           tileListDepthSrc.ptr, tileListDepthDst.ptr);
         cudaCheck(cudaGetLastError());
@@ -1407,7 +1411,7 @@ void CudaTileListKernel::sortTileLists(
       {
         int nthread = 32;
         int nblock = min(deviceCUDA->getMaxNumBlocks(), (numTileListsDst-1)/nthread+1);
-        localSort<32> <<< nblock, nthread, 0, stream >>> 
+        localSort<32> <<< nblock, nthread, 0, stream >>>
         (numTileListsDst, begin_bit, num_bit, tileListDepthDst.ptr, tileListOrderDst.ptr);
         cudaCheck(cudaGetLastError());
 
@@ -1521,7 +1525,7 @@ void CudaTileListKernel::sortTileLists(
     // Fill in patchNumLists[0...numPatches-1]
     int nthread = 512;
     int nblock = min(deviceCUDA->getMaxNumBlocks(), (numTileListsDst-1)/nthread+1);
-    calcPatchNumLists <<< nblock, nthread, 0, stream >>> 
+    calcPatchNumLists <<< nblock, nthread, 0, stream >>>
     (numTileListsDst, numPatches, tileListsDst.ptr, patchNumLists);
     cudaCheck(cudaGetLastError());
 
@@ -1530,7 +1534,7 @@ void CudaTileListKernel::sortTileLists(
 
     // Fill in tileListsDst[0...numTileListsDst-1].patchNumLists
     // and find empty patches into emptyPatches[0 ... numEmptyPatches - 1]
-    setPatchNumLists_findEmptyPatches <<< nblock, nthread, 0, stream >>> 
+    setPatchNumLists_findEmptyPatches <<< nblock, nthread, 0, stream >>>
     (numTileListsDst, tileListsDst.ptr, patchNumLists,
       numPatches, &emptyPatches[numPatches], emptyPatches);
     cudaCheck(cudaGetLastError());

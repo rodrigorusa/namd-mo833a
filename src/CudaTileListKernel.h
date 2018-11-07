@@ -13,7 +13,7 @@ struct TileList {
   int jtileEnd;
   float3 offsetXYZ;
   int2 patchInd;        // Patch indices for this list
-  union {  
+  union {
     int2 patchNumList;    // Number of lists contributing to each patch
     // int icompute;
   };
@@ -144,7 +144,7 @@ private:
   int sortKeyDstSize;
 
   int maxTileListLen_sortKeys;
-  
+
   unsigned int* sortKeys;
   int sortKeysSize;
 
@@ -310,7 +310,8 @@ public:
   void buildTileLists(const int numTileListsPrev,
     const int numPatchesIn, const int atomStorageSizeIn, const int maxTileListLenIn,
     const float3 lata, const float3 latb, const float3 latc,
-    const CudaPatchRecord* h_cudaPatches, const float4* h_xyzq, const float plcutoff2In, cudaStream_t stream);
+    const CudaPatchRecord* h_cudaPatches, const float4* h_xyzq, const float plcutoff2In,
+    const size_t maxShmemPerBlock, cudaStream_t stream);
 
   void reSortTileLists(const bool doGBIS, cudaStream_t stream);
   // void applyOutputOrder(cudaStream_t stream);

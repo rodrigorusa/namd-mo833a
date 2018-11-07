@@ -86,6 +86,7 @@ private:
   bool computesChanged;
 
   const int deviceID;
+  size_t maxShmemPerBlock;
   cudaStream_t stream;
 
   // PME and VdW CUDA kernels
