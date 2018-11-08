@@ -837,5 +837,46 @@ This independent frequency allows the user to store whole-system
 data at a larger stride to save time and space.
 }
 
+\item
+\NAMDCONFWDEF{qmEnergyStride}{Set frequency of QM specific energy output}%
+{integer}{1}{%
+Frequency of QM-only energy output. A dedicated energy output line will be 
+created to indicate the energy calculated by the QM code.
+This independent frequency allows the user to store QM-specific energy 
+data at a larger stride to save time and space.
+}
+
+
+\item
+\NAMDCONFWDEF{qmChargeFromPSF}{Set charge of QM region from PSF file}%
+{``on" or ``off"}{off}{%
+Automatically determine charge of QM regions by adding the charges of 
+atoms in each region.
+}
+
+
+\item
+\NAMDCONFWDEF{qmCSMD}{Apply conditional-SMD to QM atoms?}%
+{``on" or ``off"}{off}{%
+Apply conditional SMD to QM atoms in order to steer the simulation 
+within the QM region, while avoiding bringing atoms too close together 
+and destabilizing the molecule. C-SMD works like regular SMD, but 
+with pairs of atoms. The first atom is pulled by a string connected 
+to a virtual particle, and the direction of motion of the virtual 
+particle is updated to follow a second atom. The force on the first 
+atom will stop being applied when they come closer than a cutoff value.
+}
+
+\item
+\NAMDCONF{qmCSMDFile}{Set cSMD information}{cSMD file}{%
+Name of a text file indicating pairs of atoms that will be brought
+closer in space. In the file, each line defines a cSMD bias, with the 
+following syntax:\\
+Atom1 Atom2 Force(Kcal/Mol/A) Speed(A/step) Cutoff(A)
+}
+
+
+
+
 \end{itemize}
 
