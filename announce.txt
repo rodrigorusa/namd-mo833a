@@ -4,14 +4,15 @@
 |                                                                    |
 +--------------------------------------------------------------------+
 
-                                                      November 1, 2018
+                                                      November 9, 2018
 
 The Theoretical and Computational Biophysics Group at the University of
 Illinois is proud to announce the public release of a new version of
 NAMD, a parallel, object-oriented molecular dynamics code designed for
 high-performance simulation of large biomolecular systems.  NAMD is
 distributed free of charge and includes source code.  NAMD development
-is supported by the NIH National Institute of General Medical Sciences.
+is supported by the NIH National Institute of General Medical Sciences
+grant number NIH P41-GM104601.
 
 NAMD 2.13 has many advantages over NAMD 2.12, including:
 
