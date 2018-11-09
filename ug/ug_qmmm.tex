@@ -601,10 +601,10 @@ identified by a non-zero number.
 \vspace{-1em}
 \small{
 \begin{tabbing}
-qmCustomPCFile \= system/system.customPC.1.pdb \\
-qmCustomPCFile \> system/system.customPC.2.pdb \\
-qmCustomPCFile \> system/system.customPC.3.pdb \\
-qmCustomPCFile \> system/system.customPC.4.pdb
+qmCustomPCFile  system/system.customPC.1.pdb \\
+qmCustomPCFile  system/system.customPC.2.pdb \\
+qmCustomPCFile  system/system.customPC.3.pdb \\
+qmCustomPCFile  system/system.customPC.4.pdb
 \end{tabbing}
 } % \small
 } % \texttt
@@ -659,12 +659,12 @@ string composed of the QM group ID, the segment name and the residue ID.
 \vspace{-1em}
 \small{
 \begin{tabbing}
-qmLSSRef \= "1 RP1 9" \\
-qmLSSRef \> "2 RP1 3" \\
-qmLSSRef \> "2 RP1 2" \\
-qmLSSRef \> "3 AP1 9" \\
-qmLSSRef \> "3 AP1 3" \\
-qmLSSRef \> "4 AP1 9"
+qmLSSRef  "1 RP1 9" \\
+qmLSSRef  "2 RP1 3" \\
+qmLSSRef  "2 RP1 2" \\
+qmLSSRef  "3 AP1 9" \\
+qmLSSRef  "3 AP1 3" \\
+qmLSSRef  "4 AP1 9"
 \end{tabbing}
 } % \small
 } % \texttt
@@ -682,8 +682,8 @@ if either ORCA or MOPAC are selected.
 \vspace{-1em}
 \small{
 \begin{tabbing}
-qmConfigLine \= "! PM3 ENGRAD" \\
-qmConfigLine \> "\%\%output PrintLevel Mini Print\textbackslash{[}P\_Mulliken\textbackslash{]} 1 Print\textbackslash{[}P\_AtCharges\_M\textbackslash{]} 1 end"
+qmConfigLine  "! PM3 ENGRAD" \\
+qmConfigLine  "\%\%output PrintLevel Mini Print\textbackslash{[}P\_Mulliken\textbackslash{]} 1 Print\textbackslash{[}P\_AtCharges\_M\textbackslash{]} 1 end"
 \end{tabbing}
 } % \small
 } % \texttt
@@ -694,8 +694,8 @@ qmConfigLine \> "\%\%output PrintLevel Mini Print\textbackslash{[}P\_Mulliken\te
 \vspace{-1em}
 \small{
 \begin{tabbing}
-qmConfigLine \= "PM7 XYZ T=2M 1SCF MOZYME CUTOFF=9.0 AUX LET GRAD QMMM GEO-OK" \\
-qmConfigLine \> "Test System"
+qmConfigLine  "PM7 XYZ T=2M 1SCF MOZYME CUTOFF=9.0 AUX LET GRAD QMMM GEO-OK" \\
+qmConfigLine  "Test System"
 \end{tabbing}
 } % \small
 } % \texttt
@@ -714,10 +714,10 @@ and its multiplicity.
 \vspace{-1em}
 \small{
 \begin{tabbing}
-qmMult \= "1 1" \\
-qmMult \> "2 1" \\
-qmMult \> "3 1" \\
-qmMult \> "4 1"
+qmMult  "1 1" \\
+qmMult  "2 1" \\
+qmMult  "3 1" \\
+qmMult  "4 1"
 \end{tabbing}
 } % \small
 } % \texttt
@@ -736,10 +736,10 @@ of the QM region ID and its total charge.
 \vspace{-1em}
 \small{
 \begin{tabbing}
-qmCharge \= "1 1" \\
-qmCharge \> "2 -1" \\
-qmCharge \> "3 1" \\
-qmCharge \> "4 -1"
+qmCharge  "1 1" \\
+qmCharge  "2 -1" \\
+qmCharge  "3 1" \\
+qmCharge  "4 -1"
 \end{tabbing}
 } % \small
 } % \texttt
@@ -846,14 +846,12 @@ This independent frequency allows the user to store QM-specific energy
 data at a larger stride to save time and space.
 }
 
-
 \item
 \NAMDCONFWDEF{qmChargeFromPSF}{Set charge of QM region from PSF file}%
 {``on" or ``off"}{off}{%
 Automatically determine charge of QM regions by adding the charges of 
 atoms in each region.
 }
-
 
 \item
 \NAMDCONFWDEF{qmCSMD}{Apply conditional-SMD to QM atoms?}%
@@ -874,9 +872,6 @@ closer in space. In the file, each line defines a cSMD bias, with the
 following syntax:\\
 Atom1 Atom2 Force(Kcal/Mol/A) Speed(A/step) Cutoff(A)
 }
-
-
-
 
 \end{itemize}
 

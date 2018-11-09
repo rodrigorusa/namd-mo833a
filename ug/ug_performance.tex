@@ -1,6 +1,101 @@
 \section{Performance Tuning}
 \label{section:performance}
 
+\subsection{NAMD performance tuning concepts}
+The simulation performance obtained from NAMD depends on many factors.
+The particular simulation protocol being run is one of the largest
+single factors associated with NAMD performance, as different simulation
+methods invoke different code that can have substantially different 
+performance costs, potentially with a different degree of parallel
+scalability, message passing activity, hardware acceleration through
+the use of GPUs or CPU vectorization,
+and other attributes that also contribute to overall NAMD performance.
+
+\paragraph{Measuring performance.}
+When NAMD first starts running, it does significant I/O, FFT tuning,
+GPU context setup, and other work that is unrelated to normal 
+simulation activity, so it is important to measure performance only
+when NAMD has completed startup all of the processing units are 
+running at full speed.
+The best way to measure NAMD performance accurately requires running
+NAMD for 500 to 1,000 steps of normal dynamics (not minimization), 
+so that load balancing has a chance to 
+take place several times, and all of the CPUs and GPUs have ramped up
+to 100\% clock rate.  NAMD provides ``Benchmark time:'' and ``TIMING:''
+measurements in its output, which can be used for this purpose.  
+Here, we are only interested in the so-called wall clock time.
+
+\paragraph{NAMD configuration and I/O performance.}
+Aside from the choice of major simulation protocol and associated
+methods in use, it is also important to consider the performance impacts
+associated with routine NAMD configuration parameters such as those
+that control the frequency of simulation informational outputs and 
+various types of I/O.
+Simulation outputs such as energy information may require NAMD to do additional
+computations above and beyond standard force evaluation calculations.
+We advise that NAMD simulation configuration parameters be selected such
+that output of energies (via the \texttt{outputEnergies} parameter) 
+be performed only as much as is strictly necessary, since 
+they otherwise serve to slow down the simulation due to the extra
+calculations they require.  
+NAMD writes ``restart" files to enable simulations that were terminated 
+unexpectedly (for any reason) to be conveniently restarted from the 
+most recently written restart file available.  While it is desirable
+to have a relatively recent restart point to continue from, writing
+restart information costs NAMD extra network communication and disk I/O.
+If restart files are written too frequently, this extra activity and I/O
+will slow down the simulation.  A reasonable estimate for restart
+frequency is to choose the value such that NAMD writes restart files
+about once every ten minutes of wall clock time.  
+At such a rate, the extra work and I/O associated with writing
+the restart files should remain an insignificant factor in NAMD performance.
+
+\paragraph{Computational (arithmetic) performance.}
+NAMD is provided in a variety of builds that support platform-specific
+techniques such as CPU vectorization and GPU acceleration 
+to achieve higher arithmetic performance, thereby increasing 
+NAMD simulation throughput.  
+Whenever possible NAMD builds should be compiled such that 
+CPU vector instructions are enabled, and highly tuned
+platform-specific NAMD code is employed for performance-critical 
+force computations.
+The so-called ``SMP'' builds of NAMD benefit from reduced memory use 
+and can in many cases perform better overall, but one trade-off 
+is that the communication thread is unavailable for simulation work.
+NAMD performance can be improved by explicitly setting CPU affinity
+using the appropriate Charm++ command line flags, e.g., 
+\texttt{++ppn 7 +commap 0,8 +pemap 1-7,9-15} as an example.
+
+It is often beneficial to reserve one CPU core for the 
+operating system, to prevent harmful operating system noise or ``jitter'',
+particularly when running NAMD on large scale clusters or supercomputers.
+The Cray \texttt{aprun -r 1} command reserves and
+forces the operating system to run on the last CPU core.
+
+State-of-the-art compute-optimized GPU accelerators, 
+can provide NAMD with simulation performance equivalent to 
+several CPU sockets (on the order of 100 CPU cores) when used to 
+greatest effect, e.g., when GPUs have sufficient work per GPU.
+In general, effective GPU acceleration currently requires on the order
+of 10,000 atoms per GPU assuming a fast network interconnect.
+NAMD currently requires several CPU cores to drive each GPU effectively,
+ensuring that there is always work ready and available for the GPU.
+For contemporary CPU and GPU hardware, the most productive ratios of 
+CPU core counts per GPU tend to range from 8:1 to 25:1 depending on 
+the details of the hardware involved. 
+
+\paragraph{Networking performance.}
+When running NAMD on more than a single node, it is important to 
+use a NAMD version that is optimal for the underlying network hardware
+and software you intend to run on.  The Charm++ runtime system on which
+NAMD is based supports a variety of underlying networks, so be sure to
+select a NAMD/Charm++ build that is most directly suited for your 
+hardware platform.  In general, we advise users to avoid the use of 
+an MPI-based NAMD build as it will underperform compared with a native
+network layer such as InfiniBand IB verbs (often referred to as ``verbs''),
+the Cray-specific ``gni-crayxc'' or ``gni-crayxe'' layer,
+or the IBM PAMI message passing layer, as practical examples.
+
 
 \subsection{Non-bonded interaction distance-testing}
 

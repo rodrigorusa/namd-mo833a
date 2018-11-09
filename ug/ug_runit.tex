@@ -391,20 +391,74 @@ should be used, with CPU affinity set as described above.
 
 Energy evaluation is slower than calculating forces alone, and the loss
 is much greater in CUDA-accelerated builds.  Therefore you should set
-outputEnergies to 100 or higher in the simulation config file.  Some
-features are unavailable in CUDA builds, including alchemical free
-energy perturbation and the {Lowe-Andersen} thermostat.
-
-As this is a new feature you are encouraged to test all simulations
-before beginning production runs.  Forces evaluated on the GPU differ
+outputEnergies to 100 or higher in the simulation config file.
+% As this is a new feature you are encouraged to test all simulations
+% before beginning production runs.
+Forces evaluated on the GPU differ
 slightly from a CPU-only calculation, an effect more visible in reported
 scalar pressure values than in energies.
 
+NAMD now has the entire force calculation offloaded to GPU
+for conventional MD simulation options.
+However,
+not all advanced features are compatible with CUDA-accelerated NAMD builds,
+in particular, any simulation option that requires modification
+to the functional form of the non-bonded forces.
+Note that QM/MM simulation is also disabled for CUDA-accelerated NAMD,
+because the calculation is bottlenecked by
+the QM calculation rather than the MM force calculation,
+so can benefit from CUDA acceleration of the QM part when available.
+Table~\ref{table:CUDA-accelerated} lists the parts of NAMD
+that are accelerated with CUDA-capable GPUs,
+and Table~\ref{table:CUDA-disabled} lists the advanced simulation
+options that are disabled within a CUDA-accelerated NAMD build.
+
+\begin{table}[htb]
+\caption{NAMD GPU: What is accelerated?}
+\begin{center}
+\begin{tabular}{c|c}
+\textbf{Accelerated} & \textbf{Not Accelerated} \\ \hline
+short-range non-bonded  & integration \\
+PME reciprocal sum      & rigid bonds \\
+bonded terms            & grid forces \\
+implicit solvent        & collective variables \\
+NVIDIA GPUs only        &
+\end{tabular}
+\end{center}
+\label{table:CUDA-accelerated}
+\end{table}
+
+\begin{table}[htb]
+\caption{NAMD GPU: What features are disabled?}
+\begin{center}
+\begin{tabular}{c|c}
+\textbf{Disabled} & \textbf{Not Disabled} \\ \hline
+Alchemical (FEP and TI)
+  & Memory optimized builds \\
+Locally enhanced sampling
+  & Conformational free energy \\
+Tabulated energies
+  & Collective variables \\
+Drude (nonbonded Thole)
+  & Grid forces \\
+Go forces
+  & Steering forces \\
+Pairwaise interaction
+  & Almost everything else \\
+Pressure profile
+  & \\
+QM/MM
+  &
+\end{tabular}
+\end{center}
+\label{table:CUDA-disabled}
+\end{table}
+
 To benefit from GPU acceleration you will need a CUDA build of NAMD
-and a recent high-end NVIDIA video card.  CUDA builds will not function
-without a CUDA-capable GPU and a driver that supports CUDA 6.0.  If the
+and a recent NVIDIA video card.  CUDA builds will not function
+without a CUDA-capable GPU and a driver that supports CUDA 8.0.  If the
 installed driver is too old NAMD will exit on startup with the error
-``CUDA driver version is insufficient for CUDA runtime version''.
+``CUDA driver version is insufficient for CUDA runtime version.''
 
 Finally, if NAMD was not statically linked against the CUDA runtime
 then the libcudart.so file included with the binary (copied from
@@ -419,7 +473,8 @@ when running a multicore binary (recommended for a single machine):
 \end{verbatim}
 
 Each namd2 thread can use only one GPU.  Therefore you will need to run
-at least one thread for each GPU you want to use.  Multiple threads
+at least one thread for each GPU you want to use.
+Multiple threads in an SMP build of NAMD
 can share a single GPU, usually with an increase in performance.  NAMD
 will automatically distribute threads equally among the GPUs on a node.
 Specific GPU device IDs can be requested via the +devices argument on
@@ -484,6 +539,76 @@ you should use the same Charm++ you would use for a non-CUDA build.
 Do NOT add the cuda option to the Charm++ build command line.  The
 only changes to the build process needed are to add --with-cuda and
 possibly --cuda-prefix ... to the NAMD config command line.
+
+Right now, NAMD does not support all features available on GPUs.
+Thus, some keywords were introduced to help the user have a better control of 
+the calculation. These keywords are relevant only for CUDA builds, 
+and are ignored if the user is running a CPU build.
+
+\subsubsection{Keywords}
+
+\begin{itemize}
+\setlength{\itemsep}{0.4cm}
+
+\item
+\NAMDCONFWDEF{bondedCUDA}{0 to 255}{Integer value between 0 and 255}{255}{%
+NAMD provides CUDA kernels for calculating
+six different bonded force terms.
+The bondedCUDA parameter acts as a bit mask
+that can disable particular kernels.
+Any partial sum of the following values can
+be used to enable only the specified bonded terms:
+\begin{itemize}
+\item bonds $=$ 1
+\item angles $=$ 2
+\item dihedrals $=$ 4
+\item impropers $=$ 8
+\item exclusions $=$ 16
+\item crossterms $=$ 32
+\end{itemize}
+}
+
+\item
+\NAMDCONFWDEF{usePMECUDA}{Offload entire PME reciprocal sum to GPU?}%
+{``on" or ``off"}{on}{%
+The entire PME reciprocal sum is offloaded to GPUs,
+when using no more than four nodes.
+Otherwise usePMECUDA is disabled by default.
+}
+
+\item
+\NAMDCONFWDEF{PMEoffload}{Offload PME gridding/ungridding procedures to GPU?}%
+{``on" or ``off"}{off}{%
+The gridding and ungridding procedures for calculating the PME
+reciprocal sum is offloaded to GPUs,
+with the FFT calculation still performed by CPUs.
+PMEoffload is enabled by default only for PMEinterpOrder $>$ 4.
+
+For huge systems (10 million atoms and above)
+where the parallel FFT limits performance,
+it is desirable to use PMEoffload in conjunction with
+increased order interpolation and increased grid spacing,
+in order to decrease the overall communication latency
+by decreasing the overall grid size by a factor of 8
+while maintaining the same accuracy for the calculation.
+
+\vspace{-0.25em}
+\textbf{Exemplary use:}
+\texttt{%
+\vspace{-1em}
+\small{%
+\begin{tabbing}
+PME on \\
+PMEinterpOrder 8 \\
+PMEgridSpacing 2.0 \\
+PMEoffload on   ;\# enabled by default for these PME settings
+\end{tabbing}
+} % \small
+} % \texttt
+} % \NAMDCONFWDEF
+
+
+\end{itemize}
 
 \subsection{Xeon Phi Acceleration}
 
