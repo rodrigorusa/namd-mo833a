@@ -3055,13 +3055,12 @@ void Controller::printEnergies(int step, int minimize)
       ljEnergy += molecule->getEnergyTailCorr(alchLambda) / volume;
 
       if (simParameters->alchOn) {
-        BigReal alchLambda2 = simParameters->alchLambda2;
         if (simParameters->alchFepOn) {
+          BigReal alchLambda2 = simParameters->getCurrentLambda2(step);
           ljEnergy_f += molecule->getEnergyTailCorr(alchLambda2) / volume;
-        } else if (simParameters->alchThermIntOn && 
-                   simParameters->alchVdwLambdaEnd) {
-          ljEnergy_ti_1 += molecule->tail_corr_dUdl_1 / volume;
-          ljEnergy_ti_2 += molecule->tail_corr_dUdl_2 / volume;
+        } else if (simParameters->alchThermIntOn) {
+          ljEnergy_ti_1 += molecule->getEnergyTailCorr(1.0) / volume;
+          ljEnergy_ti_2 += molecule->getEnergyTailCorr(0.0) / volume;
         }
       }
 #endif
