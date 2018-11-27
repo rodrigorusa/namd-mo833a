@@ -2262,35 +2262,21 @@ void WorkDistrib::mapComputes(void)
     if ( node->simParameters->useDPME )
       mapComputeHomePatches(computeDPMEType);
     else {
-      if (node->simParameters->useOptPME) {
-	mapComputeHomePatches(optPmeType);
-	if ( node->simParameters->pressureProfileEwaldOn )
-	  mapComputeHomePatches(computeEwaldType);
-      }
-      else {
-	mapComputeHomePatches(computePmeType);
-	if ( node->simParameters->pressureProfileEwaldOn )
-	  mapComputeHomePatches(computeEwaldType);
-      }
+      mapComputeHomePatches(computePmeType);
+      if ( node->simParameters->pressureProfileEwaldOn )
+        mapComputeHomePatches(computeEwaldType);
     }
 #else
-    if (node->simParameters->useOptPME) {
-      mapComputeHomePatches(optPmeType);
-      if ( node->simParameters->pressureProfileEwaldOn )
-	mapComputeHomePatches(computeEwaldType);
-    }
-    else {      
 #ifdef NAMD_CUDA
-      if (node->simParameters->usePMECUDA) {
-        mapComputePatch(computePmeCUDAType);
-      } else 
+    if (node->simParameters->usePMECUDA) {
+      mapComputePatch(computePmeCUDAType);
+    } else
 #endif
-      {
-        mapComputePatch(computePmeType);
-      }
-      if ( node->simParameters->pressureProfileEwaldOn )
-	mapComputeHomePatches(computeEwaldType);
+    {
+      mapComputePatch(computePmeType);
     }
+    if ( node->simParameters->pressureProfileEwaldOn )
+      mapComputeHomePatches(computeEwaldType);
 #endif
   }
 
@@ -2872,14 +2858,6 @@ void WorkDistrib::messageEnqueueWork(Compute *compute) {
     wdProxy[CkMyPe()].enqueuePme(msg);
     break;
 #endif
-  case optPmeType:
-    // CkPrintf("PME %d %d %x\n", CkMyPe(), seq, compute->priority());
-#ifdef NAMD_CUDA
-    wdProxy[CkMyPe()].enqueuePme(msg);
-#else
-    msg->compute->doWork();  MACHINE_PROGRESS
-#endif
-    break;
   default:
     wdProxy[CkMyPe()].enqueueWork(msg);
   }

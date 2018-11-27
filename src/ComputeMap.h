@@ -57,7 +57,6 @@ enum ComputeType
   computeBondedCUDAType,
 #endif
 #endif
-  optPmeType,
   computeEwaldType,
   computeFullDirectType,
   computeGlobalType,

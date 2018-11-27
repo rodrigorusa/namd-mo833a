@@ -59,7 +59,6 @@
 #include "CudaComputeNonbonded.h"
 #include "ComputePmeCUDAMgr.h"
 // #endif
-#include "OptPme.h"
 #include "ComputeEwald.h"
 #include "ComputeEField.h"
 /* BEGIN gf */
@@ -707,11 +706,6 @@ ComputeMgr::createCompute(ComputeID i, ComputeMap *map)
         c->initialize();
         break;
 #endif
-    case optPmeType:
-        c = new OptPmeCompute(i); // unknown delete
-        map->registerCompute(i,c);
-        c->initialize();
-        break;
     case computePmeType:
         c = new ComputePme(i,map->computeData[i].pids[0].pid); // unknown delete
         map->registerCompute(i,c);

@@ -25,7 +25,6 @@ mainmodule main {
   #ifdef OPENATOM_VERSION
   extern module ComputeMoaMgr;
   #endif // OPENATOM_VERSION
-  extern module OptPmeMgr;
   extern module ComputeExtMgr;
   extern module ComputeQMMgr;
   extern module ComputeGBISserMgr;

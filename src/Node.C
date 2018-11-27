@@ -64,7 +64,6 @@
 #include "ComputePmeCUDAMgr.h"
 // #endif
 #include "ComputeGridForceMgr.decl.h"
-#include "OptPmeMgr.decl.h"
 #include "Sync.h"
 #include "BackEnd.h"
 #include "PDB.h"
@@ -541,9 +540,6 @@ void Node::startup() {
     AtomMap::Object()->allocateMap(molecule->numAtoms);
 
     if (!CkMyPe()) {
-      if (simParameters->useOptPME)
-	CkpvAccess(BOCclass_group).computePmeMgr = CProxy_OptPmeMgr::ckNew();
-      else 
 #ifdef NAMD_CUDA
       if (simParameters->usePMECUDA) {
         // computePmeCUDAMgr was created in BackEnd.C
@@ -702,29 +698,23 @@ void Node::startup() {
 #endif
 
     if ( simParameters->PMEOn ) {
-      if ( simParameters->useOptPME ) {
-	CProxy_OptPmeMgr pme(CkpvAccess(BOCclass_group).computePmeMgr);
-	pme[CkMyPe()].initialize(new CkQdMsg);
+      #ifdef OPENATOM_VERSION
+      if ( simParameters->openatomOn ) { 
+        CProxy_ComputeMoaMgr moa(CkpvAccess(BOCclass_group).computeMoaMgr); 
+        moa[CkMyPe()].initialize(new CkQdMsg);
       }
-      else {
-        #ifdef OPENATOM_VERSION
-        if ( simParameters->openatomOn ) { 
-          CProxy_ComputeMoaMgr moa(CkpvAccess(BOCclass_group).computeMoaMgr); 
-          moa[CkMyPe()].initialize(new CkQdMsg);
-        }
-        #endif // OPENATOM_VERSION
+      #endif // OPENATOM_VERSION
 #ifdef NAMD_CUDA
-        if ( simParameters->usePMECUDA ) {
-          if(CkMyRank()==0) {
-            CProxy_ComputePmeCUDAMgr pme(CkpvAccess(BOCclass_group).computePmeCUDAMgr);
-            pme.ckLocalBranch()->initialize(new CkQdMsg);  // must run on pe 0 to call ckNew
-          }
-        } else 
-#endif
-        {
-          CProxy_ComputePmeMgr pme(CkpvAccess(BOCclass_group).computePmeMgr);
-          pme[CkMyPe()].initialize(new CkQdMsg);          
+      if ( simParameters->usePMECUDA ) {
+        if(CkMyRank()==0) {
+          CProxy_ComputePmeCUDAMgr pme(CkpvAccess(BOCclass_group).computePmeCUDAMgr);
+          pme.ckLocalBranch()->initialize(new CkQdMsg);  // must run on pe 0 to call ckNew
         }
+      } else 
+#endif
+      {
+        CProxy_ComputePmeMgr pme(CkpvAccess(BOCclass_group).computePmeMgr);
+        pme[CkMyPe()].initialize(new CkQdMsg);          
       }
     }
     break;
@@ -757,29 +747,23 @@ void Node::startup() {
     }
 
     if ( simParameters->PMEOn ) {
-      if ( simParameters->useOptPME ) {
-	CProxy_OptPmeMgr pme(CkpvAccess(BOCclass_group).computePmeMgr);
-	pme[CkMyPe()].initialize_pencils(new CkQdMsg);
+      #ifdef OPENATOM_VERSION
+      if ( simParameters->openatomOn ) { 
+        CProxy_ComputeMoaMgr moa(CkpvAccess(BOCclass_group).computeMoaMgr); 
+        moa[CkMyPe()].initWorkers(new CkQdMsg);
       }
-      else {
-        #ifdef OPENATOM_VERSION
-        if ( simParameters->openatomOn ) { 
-          CProxy_ComputeMoaMgr moa(CkpvAccess(BOCclass_group).computeMoaMgr); 
-          moa[CkMyPe()].initWorkers(new CkQdMsg);
-        }
-        #endif // OPENATOM_VERSION
+      #endif // OPENATOM_VERSION
 #ifdef NAMD_CUDA
-        if ( simParameters->usePMECUDA ) {
-          if(CkMyRank()==0) {
-            CProxy_ComputePmeCUDAMgr pme(CkpvAccess(BOCclass_group).computePmeCUDAMgr);
-            pme[CkMyNode()].initialize_pencils(new CkQdMsg);
-          }
-        } else
-#endif
-        {
-          CProxy_ComputePmeMgr pme(CkpvAccess(BOCclass_group).computePmeMgr);
-          pme[CkMyPe()].initialize_pencils(new CkQdMsg);          
+      if ( simParameters->usePMECUDA ) {
+        if(CkMyRank()==0) {
+          CProxy_ComputePmeCUDAMgr pme(CkpvAccess(BOCclass_group).computePmeCUDAMgr);
+          pme[CkMyNode()].initialize_pencils(new CkQdMsg);
         }
+      } else
+#endif
+      {
+        CProxy_ComputePmeMgr pme(CkpvAccess(BOCclass_group).computePmeMgr);
+        pme[CkMyPe()].initialize_pencils(new CkQdMsg);          
       }
     }
 #ifdef CHARM_HAS_MSA
@@ -807,29 +791,23 @@ void Node::startup() {
 
   case 12:
     if ( simParameters->PMEOn ) {
-      if ( simParameters->useOptPME ) {
-	CProxy_OptPmeMgr pme(CkpvAccess(BOCclass_group).computePmeMgr);
-	pme[CkMyPe()].activate_pencils(new CkQdMsg);
+      #ifdef OPENATOM_VERSION
+      if ( simParameters->openatomOn ) { 
+        CProxy_ComputeMoaMgr moa(CkpvAccess(BOCclass_group).computeMoaMgr); 
+        moa[CkMyPe()].startWorkers(new CkQdMsg);
       }
-      else {
-        #ifdef OPENATOM_VERSION
-        if ( simParameters->openatomOn ) { 
-          CProxy_ComputeMoaMgr moa(CkpvAccess(BOCclass_group).computeMoaMgr); 
-          moa[CkMyPe()].startWorkers(new CkQdMsg);
-        }
-        #endif // OPENATOM_VERSION
+      #endif // OPENATOM_VERSION
 #ifdef NAMD_CUDA
-        if ( simParameters->usePMECUDA ) {
-          if(CkMyRank()==0) {
-            CProxy_ComputePmeCUDAMgr pme(CkpvAccess(BOCclass_group).computePmeCUDAMgr);
-            pme[CkMyNode()].activate_pencils(new CkQdMsg);
-          }
-        } else
-#endif
-        {
-          CProxy_ComputePmeMgr pme(CkpvAccess(BOCclass_group).computePmeMgr);
-          pme[CkMyPe()].activate_pencils(new CkQdMsg);          
+      if ( simParameters->usePMECUDA ) {
+        if(CkMyRank()==0) {
+          CProxy_ComputePmeCUDAMgr pme(CkpvAccess(BOCclass_group).computePmeCUDAMgr);
+          pme[CkMyNode()].activate_pencils(new CkQdMsg);
         }
+      } else
+#endif
+      {
+        CProxy_ComputePmeMgr pme(CkpvAccess(BOCclass_group).computePmeMgr);
+        pme[CkMyPe()].activate_pencils(new CkQdMsg);          
       }
     }
 #ifdef CHARM_HAS_MSA
