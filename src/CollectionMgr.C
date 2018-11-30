@@ -61,9 +61,9 @@ void CollectionMgr::submitPositions(int seq, FullAtomList &a,
         perOList[c->outRank[i]].add(i);
     }    
     CollectVectorVarMsg::DataStatus vstatus;
-    if(c->data.size()==0){
+    if(prec==1){
         vstatus = CollectVectorVarMsg::FloatVectorValid;
-    }else if(c->fdata.size()==0){
+    }else if(prec==2){
         vstatus = CollectVectorVarMsg::VectorValid;
     }else{
         vstatus = CollectVectorVarMsg::BothValid;
@@ -71,7 +71,7 @@ void CollectionMgr::submitPositions(int seq, FullAtomList &a,
     //send msg to output proc if there's one    
     for(int i=0; i<ioMgr->numOutputProcs; i++){
         int numAtoms = perOList[i].size();
-        if(!numAtoms) continue;
+        if(!numAtoms && ioMgr->numProxiesPerOutputProc == 0) continue;
         CollectVectorVarMsg *msg;
         if( vstatus == CollectVectorVarMsg::VectorValid){
             msg = new(numAtoms, numAtoms, 0, 0)CollectVectorVarMsg;
@@ -99,7 +99,7 @@ void CollectionMgr::submitPositions(int seq, FullAtomList &a,
         msg->seq = c->seq;
         msg->size = numAtoms;
         msg->status = vstatus;
-        io[ioMgr->outputProcArray[i]].receivePositions(msg);
+        io[ioMgr->myOutputProxies[i]].receivePositions(msg);
     }
     c->free();
     delete [] perOList;
@@ -133,7 +133,7 @@ void CollectionMgr::submitVelocities(int seq, int zero, FullAtomList &a)
       //send msg to output proc if there's one    
         for(int i=0; i<ioMgr->numOutputProcs; i++){
             int numAtoms = perOList[i].size();
-            if(!numAtoms) continue;
+            if(!numAtoms && ioMgr->numProxiesPerOutputProc == 0) continue;
             CollectVectorVarMsg *msg;            
             msg = new(numAtoms, numAtoms, 0, 0)CollectVectorVarMsg;
             msg->seq = c->seq;
@@ -144,7 +144,7 @@ void CollectionMgr::submitVelocities(int seq, int zero, FullAtomList &a)
                 msg->aid[j] = c->aid[lIdx];
                 msg->data[j] = c->data[lIdx];
             }
-            io[ioMgr->outputProcArray[i]].receiveVelocities(msg);            
+            io[ioMgr->myOutputProxies[i]].receiveVelocities(msg);            
         }
         c->free();
         delete [] perOList;         
@@ -188,7 +188,7 @@ void CollectionMgr::submitForces(int seq, FullAtomList &a, int maxForceUsed, For
       //send msg to output proc if there's one    
         for(int i=0; i<ioMgr->numOutputProcs; i++){
             int numAtoms = perOList[i].size();
-            if(!numAtoms) continue;
+            if(!numAtoms && ioMgr->numProxiesPerOutputProc == 0) continue;
             CollectVectorVarMsg *msg;            
             msg = new(numAtoms, numAtoms, 0, 0)CollectVectorVarMsg;
             msg->seq = c->seq;
@@ -199,7 +199,7 @@ void CollectionMgr::submitForces(int seq, FullAtomList &a, int maxForceUsed, For
                 msg->aid[j] = c->aid[lIdx];
                 msg->data[j] = c->data[lIdx];
             }
-            io[ioMgr->outputProcArray[i]].receiveForces(msg);            
+            io[ioMgr->myOutputProxies[i]].receiveForces(msg);            
         }
         c->free();
         delete [] perOList;         

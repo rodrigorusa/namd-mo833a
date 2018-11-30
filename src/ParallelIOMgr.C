@@ -26,6 +26,129 @@
 #include <algorithm>
 using namespace std;
 
+
+// data structures for IO proxy, all destined for same IO processor
+
+  class CollectProxyVectorInstance {
+  public:
+
+    CollectProxyVectorInstance() : seq(-10) { ; }
+
+    void free() { seq = -10; }
+    int notfree() { return ( seq != -10 ); }
+
+    void reset(int s, CollectVectorVarMsg::DataStatus v, int numClients) {
+      if ( s == -10 ) NAMD_bug("seq == free in CollectionMgr");
+      seq = s;
+      vstatus = v;
+      remaining = numClients;
+      aid.resize(0);
+      data.resize(0);
+      fdata.resize(0);
+    }
+
+    // true -> send it and delete it!
+    int append(CollectVectorVarMsg *msg)
+    {
+      if ( msg->status != vstatus ) {
+        NAMD_bug("CollectProxyVectorInstance vstatus mismatch");
+      }
+      if ( msg->seq != seq ) {
+        NAMD_bug("CollectProxyVectorInstance seq mismatch");
+      }
+      int size = msg->size;
+      for( int i = 0; i < size; ++i ) { aid.add(msg->aid[i]); }
+      if ( vstatus == CollectVectorVarMsg::VectorValid ||
+           vstatus == CollectVectorVarMsg::BothValid ) {
+        for( int i = 0; i < size; ++i ) { data.add(msg->data[i]); }
+      }
+      if ( vstatus == CollectVectorVarMsg::FloatVectorValid ||
+           vstatus == CollectVectorVarMsg::BothValid ) {
+        for( int i = 0; i < size; ++i ) { fdata.add(msg->fdata[i]); } 
+      }
+      const int atoms_per_message_target = 100000;
+      return ( ! --remaining || aid.size() > atoms_per_message_target );
+    }
+
+    CollectVectorVarMsg* buildMsg() {
+      int numAtoms = aid.size();
+      CollectVectorVarMsg *msg;
+      if ( ! numAtoms ) {
+        msg = 0;
+      } else if ( vstatus == CollectVectorVarMsg::VectorValid) {
+        msg = new(numAtoms, numAtoms, 0, 0) CollectVectorVarMsg;
+        for(int j=0; j<numAtoms; j++) {
+          msg->aid[j] = aid[j];
+          msg->data[j] = data[j];
+        }
+      } else if (vstatus == CollectVectorVarMsg::FloatVectorValid) {
+        msg = new(numAtoms, 0, numAtoms, 0) CollectVectorVarMsg;
+        for(int j=0; j<numAtoms; j++) {
+          msg->aid[j] = aid[j];
+          msg->fdata[j] = fdata[j];
+        }
+      } else {
+        msg = new(numAtoms, numAtoms, numAtoms, 0) CollectVectorVarMsg;
+        for(int j=0; j<numAtoms; j++) {
+          msg->aid[j] = aid[j];
+          msg->data[j] = data[j];
+          msg->fdata[j] = fdata[j];
+        }
+      }
+      if ( msg ) {
+        msg->seq = seq;
+        msg->size = numAtoms;
+        msg->status = vstatus;
+      }
+      if ( remaining ) reset(seq,vstatus,remaining);
+      else free();
+      return msg;
+    }
+
+    int seq;
+    AtomIDList aid;
+    CollectVectorVarMsg::DataStatus vstatus;
+    ResizeArray<Vector> data;
+    ResizeArray<FloatVector> fdata;
+
+  private:
+    int remaining;
+
+  };
+
+  class CollectProxyVectorSequence {
+  public:
+    CollectProxyVectorSequence(int nc) : numClients(nc) { ; }
+
+    CollectVectorVarMsg* submitData(CollectVectorVarMsg *msg) {
+      CollectProxyVectorInstance **c = data.begin();
+      CollectProxyVectorInstance **c_e = data.end();
+      for( ; c != c_e && (*c)->seq != msg->seq; ++c );
+      if ( c == c_e ) {
+        c = data.begin();
+        for( ; c != c_e && (*c)->notfree(); ++c );
+        if ( c == c_e ) {
+          data.add(new CollectProxyVectorInstance);
+          c = data.end() - 1;
+        }
+        (*c)->reset(msg->seq,msg->status,numClients);
+      }
+      if ( (*c)->append(msg) ) {
+        CollectVectorVarMsg *newmsg = (*c)->buildMsg();
+        return newmsg;
+      } else {
+        return 0;
+      }
+    }
+
+    ResizeArray<CollectProxyVectorInstance*> data;
+
+  private:
+    int numClients;
+
+  };
+
+
 ParallelIOMgr::ParallelIOMgr()
 {
     CkpvAccess(BOCclass_group).ioMgr = thisgroup;
@@ -95,6 +218,8 @@ void ParallelIOMgr::initialize(Node *node)
     numOutputProcs = simParameters->numoutputprocs;
     numOutputWrts = simParameters->numoutputwrts;
 
+    numProxiesPerOutputProc = std::min((int)sqrt(CkNumPes()),(CkNumPes()-1)/numOutputProcs-1);
+    if ( numProxiesPerOutputProc < 2 ) numProxiesPerOutputProc = 0;
 
     if(!CkMyPe()) {
         iout << iINFO << "Running with " <<numInputProcs<<" input processors.\n"<<endi;
@@ -103,6 +228,9 @@ void ParallelIOMgr::initialize(Node *node)
         #else
         iout << iINFO << "Running with " <<numOutputProcs<<" output processors, and each of them will output to its own separate file.\n"<<endi;
         #endif
+        if ( numProxiesPerOutputProc ) {
+            iout << iINFO << "Running with " <<numProxiesPerOutputProc<<" proxies per output processor.\n"<<endi;
+        }
     }
 
     //build inputProcArray
@@ -149,11 +277,19 @@ void ParallelIOMgr::initialize(Node *node)
    {
     outputProcArray = new int[numOutputProcs];
     outputProcFlags = new char[CkNumPes()];
+    outputProxyArray = new int[numOutputProcs*numProxiesPerOutputProc];
+    myOutputProxies = new int[numOutputProcs];
     myOutputRank = -1;
+    myOutputProxyRank = -1;
     for(int i=0; i<numOutputProcs; ++i) {
       outputProcArray[i] = WorkDistrib::peDiffuseOrdering[(1+i)%CkNumPes()];
     }
     std::sort(outputProcArray, outputProcArray+numOutputProcs);
+    for(int i=0; i<numOutputProcs*numProxiesPerOutputProc; ++i) {
+      outputProxyArray[i] = WorkDistrib::peDiffuseOrdering[(1+numOutputProcs+i)%CkNumPes()];
+    }
+    std::sort(outputProxyArray, outputProxyArray+numOutputProcs*numProxiesPerOutputProc,
+       WorkDistrib::pe_sortop_compact());
     for(int i=0; i<CkNumPes(); ++i) {
       outputProcFlags[i] = 0;
     }
@@ -164,6 +300,26 @@ void ParallelIOMgr::initialize(Node *node)
         myOutputRank = i;
       }
     }
+    for(int i=0; i<numOutputProcs*numProxiesPerOutputProc; ++i) {
+      if ( CkMyPe() == outputProxyArray[i] ) {
+        if ( myOutputRank != -1 ) NAMD_bug("Output proxy is also output proc");
+        if ( myOutputProxyRank != -1 ) NAMD_bug("Duplicate output proxy");
+        myOutputProxyRank = i;
+      }
+    }
+    int myProxySet = (WorkDistrib::peCompactOrderingIndex[CkMyPe()]*numProxiesPerOutputProc)/CkNumPes();
+    for(int i=0; i<numOutputProcs; ++i) {
+      if ( numProxiesPerOutputProc ) {
+        myOutputProxies[i] = outputProxyArray[myProxySet*numOutputProcs+i];
+      } else {
+        myOutputProxies[i] = outputProcArray[i];
+      }
+    }
+
+    // delay building sequences until after PatchMap is initialized
+    myOutputProxyPositions = 0;
+    myOutputProxyVelocities = 0;
+    myOutputProxyForces = 0;
 
     if(!CkMyPe()) {
       iout << iINFO << "OUTPUT PROC LOCATIONS:";
@@ -1520,39 +1676,85 @@ void ParallelIOMgr::getMyAtomsRange(int &lowerIdx, int &upperIdx, int rank, int 
     }
 }
 
+int ParallelIOMgr::calcMyOutputProxyClients() {
+  PatchMap *patchMap = PatchMap::Object();
+  int myOutputProxyClients = 0;
+  int myset = myOutputProxyRank / numOutputProcs;
+  for(int i=0; i<CkNumPes(); ++i) {
+    if ( (i*numProxiesPerOutputProc)/CkNumPes() == myset && 
+         patchMap->numPatchesOnNode(WorkDistrib::peCompactOrdering[i]) ) {
+      ++myOutputProxyClients;
+    }
+  }
+  return myOutputProxyClients;
+}
+
 void ParallelIOMgr::receivePositions(CollectVectorVarMsg *msg)
 {
 #ifdef MEM_OPT_VERSION
+  if ( myOutputRank != -1 ) {
     int ready = midCM->receivePositions(msg);
     if(ready) {
         CProxy_CollectionMaster cm(mainMaster);
         cm.receiveOutputPosReady(msg->seq);
     }
     delete msg;
+  } else if ( myOutputProxyRank != -1 ) {
+    if ( ! myOutputProxyPositions ) {
+      myOutputProxyPositions = new CollectProxyVectorSequence(calcMyOutputProxyClients());
+    }
+    CollectVectorVarMsg *newmsg = myOutputProxyPositions->submitData(msg);
+    if ( newmsg ) thisProxy[outputProcArray[myOutputProxyRank%numOutputProcs]].receivePositions(newmsg);
+    delete msg;
+  } else {
+    NAMD_bug("ParallelIOMgr::receivePositions on bad pe");
+  }
 #endif
 }
 
 void ParallelIOMgr::receiveVelocities(CollectVectorVarMsg *msg)
 {
 #ifdef MEM_OPT_VERSION
+  if ( myOutputRank != -1 ) {
     int ready = midCM->receiveVelocities(msg);
     if(ready) {
         CProxy_CollectionMaster cm(mainMaster);
         cm.receiveOutputVelReady(msg->seq);        
     }
     delete msg;
+  } else if ( myOutputProxyRank != -1 ) {
+    if ( ! myOutputProxyVelocities ) {
+      myOutputProxyVelocities = new CollectProxyVectorSequence(calcMyOutputProxyClients());
+    }
+    CollectVectorVarMsg *newmsg = myOutputProxyVelocities->submitData(msg);
+    if ( newmsg ) thisProxy[outputProcArray[myOutputProxyRank%numOutputProcs]].receiveVelocities(newmsg);
+    delete msg;
+  } else {
+    NAMD_bug("ParallelIOMgr::receiveVelocities on bad pe");
+  }
 #endif
 }
 
 void ParallelIOMgr::receiveForces(CollectVectorVarMsg *msg)
 {
 #ifdef MEM_OPT_VERSION
+  if ( myOutputRank != -1 ) {
     int ready = midCM->receiveForces(msg);
     if(ready) {
         CProxy_CollectionMaster cm(mainMaster);
         cm.receiveOutputForceReady(msg->seq);        
     }
     delete msg;
+  } else if ( myOutputProxyRank != -1 ) {
+    if ( ! myOutputProxyForces ) {
+      myOutputProxyForces = new CollectProxyVectorSequence(calcMyOutputProxyClients());
+    }
+    CollectVectorVarMsg *newmsg = myOutputProxyForces->submitData(msg);
+    if ( newmsg ) thisProxy[outputProcArray[myOutputProxyRank%numOutputProcs]].receiveForces(newmsg);
+    delete msg;
+  } else {
+    NAMD_bug("ParallelIOMgr::receiveForces on bad pe");
+  }
 #endif
 }
 

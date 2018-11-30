@@ -24,6 +24,7 @@ class CollectionMidMaster;
 class CollectMidVectorInstance;
 #endif
 
+class CollectProxyVectorSequence;
 class CollectVectorVarMsg;
 class PatchMap;
 
@@ -212,6 +213,17 @@ private:
     //output procs with rank distance of numOutputProcs/numOutputWrts do the
     //output at a time
     int numOutputWrts;
+
+    int numProxiesPerOutputProc;
+    int myOutputProxyRank;
+    int *outputProxyArray;
+    int *myOutputProxies;
+
+    int calcMyOutputProxyClients();
+
+    CollectProxyVectorSequence *myOutputProxyPositions;
+    CollectProxyVectorSequence *myOutputProxyVelocities;
+    CollectProxyVectorSequence *myOutputProxyForces;
 
     //both arrays are of size #local atoms on this output proc
     int *clusterID;
