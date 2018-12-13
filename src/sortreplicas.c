@@ -21,6 +21,7 @@ static int register_cb(void *v, vmdplugin_t *p) {
 
 #include <sys/types.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 

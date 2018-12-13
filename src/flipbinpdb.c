@@ -11,6 +11,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #ifndef MAP_FILE
 #define MAP_FILE 0
