@@ -71,8 +71,6 @@ Detailed explanations of the design of the Colvars module are provided in refere
 
 
 \cvsec{A crash course}{sec:colvars_crash_course}
-% FIXME: the example uses NAMD syntax to select Calphas, which may confuse
-% LAMMPS users
 
 Suppose that we want to run a steered MD experiment where a small molecule is pulled away from a protein binding site.
 In Colvars terms, this is done by applying a moving restraint to the distance between the two objects.
@@ -81,30 +79,35 @@ The configuration will contain two blocks, one defining the distance variable (s
 \bigskip
 % verbatim can't appear within commands
 {\noindent\ttfamily
-colvar \{\\
+\cvlammpsonly{indexFile index.ndx\\}colvar \{\\
 \-~~name dist\\
 \-~~distance \{\\
 \-~~~~group1 \{ atomNumbersRange 42-55 \}\\
-\-~~~~group2 \{\\
+\cvnamebasedonly{\-~~~~group2 \{\\
 \-~~~~~~psfSegID  PR\\
-\-~~~~~~atomNameResidueRange  CA 15-30 \}\\
-\-~~~~\}\\
+\-~~~~~~atomNameResidueRange  CA 15-30\\
+\-~~~~\}\\}
+\cvlammpsonly{\-~~~~group2 \{ indexGroup C-alpha\_15-30 \}\\}
 \-~~\}\\
 \}\\
 \\
 harmonic \{\\
 \-~~colvars dist\\
 \-~~forceConstant 20.0\\
-\-~~centers 4.~~~~~~~~~~\# initial distance\\
-\-~~targetCenters 15.~~~\# final distance\\
+\-~~centers 4.0~~~~~~~~~\# initial distance\\
+\-~~targetCenters 15.0~~\# final distance\\
 \-~~targetNumSteps 500000\\
 \}\\
 }
 
-Reading this input in plain English: the variable here named \emph{dist} consists in a distance function between the centers of two groups: the ligand (atoms 42 to 55) and the alpha carbon atoms (CA) of residues 15 to 30 in the protein (segment name PR).
-The atom selection syntax is detailed in section \ref{sec:colvar_atom_groups}.
+Reading this input in plain English: the variable here named \emph{dist} consists in a distance function between the centers of two groups: the ligand (atoms 42 to 55) and the $\alpha$-carbon atoms of residues 15 to 30 in the protein \cvnamebasedonly{(segment name PR)}\cvlammpsonly{(selected from the index group ``\texttt{C-alpha\_15-30}'')}.
+To the ``\emph{dist}'' variable, we apply a \texttt{harmonic} potential of force constant 20~\cvnamdonly{kcal/mol}\cvvmdonly{kcal/mol}\cvlammpsonly{(energy unit)}/\cvnamdonly{\AA}\cvvmdonly{\AA}\cvlammpsonly{(length unit)}$^2$, initially centered around a value of 4~\cvnamdonly{\AA}\cvvmdonly{\AA}\cvlammpsonly{(length unit)}, which will increase to 15~\cvnamdonly{\AA}\cvvmdonly{\AA}\cvlammpsonly{(length unit)} over 500,000 simulation steps.
 
-To the ``\emph{dist}'' variable, we apply a \texttt{harmonic} potential of force constant 20~\cvnamdonly{kcal/mol}\cvvmdonly{kcal/mol}\cvlammpsonly{energy units}/\AA$^2$, initially centered around a value of 4~\AA, which will increase to 15~\AA{} over 500,000 simulation steps.
+The atom selection keywords is detailed in section \ref{sec:colvar_atom_groups}.
+\cvlammpsonly{If the selection is too complex to implement only via internal keywords, an external index file may be created following the NDX format used in GROMACS:\\
+\url{http://manual.gromacs.org/documentation/current/user-guide/file-formats.html}\\
+or by using the \texttt{group2ndx} LAMMPS command.}
+
 
 
 \cvsec{General parameters}{sec:colvarmodule}
@@ -430,18 +433,6 @@ The following keywords are available in the global context of the Colvars config
     boolean}{%
     \texttt{on}}{%
     If this flag is enabled (default), SMP parallelism over threads will be used to compute variables and biases, provided that this is supported by the \MDENGINE{} build in use.}
-
-\item %
-  \keydef
-    {analysis}{%
-    global}{%
-    Turn on run-time statistical analysis}{%
-    boolean}{%
-    \texttt{off}}{%
-    If this flag is enabled, each colvar is instructed to perform
-    whatever run-time statistical analysis it is configured to, such as
-    correlation functions, or running averages and standard deviations.
-    See section~\ref{sec:colvar_acf} for details.}
     
 \end{itemize}
 
@@ -454,7 +445,7 @@ The corresponding configuration is given below. The options within the \texttt{c
   \centering
 \cvnamdugonly{\includegraphics[width=12cm]{figures/colvars_diagram}}
 \cvvmdugonly{\includegraphics[width=12cm]{pictures/colvars_diagram}}
-\cvrefmanonly{\includegraphics[width=12cm]{colvars_diagram}}
+\cvrefmanonly{\ifdefined\HCode{\HCode{<img class="diagram" src="colvars_diagram.png" alt="Colvars diagram">}}\else\includegraphics[width=12cm]{colvars_diagram}\fi}
   \caption[Graphical representation of a Colvars configuration.]{Graphical representation of a Colvars configuration\cvlammpsonly{ \textbf{(note:} \emph{currently, the $\alpha$-helical content colvar is unavailable in LAMMPS)}}.
     The colvar called ``$d$'' is defined as the difference between two distances: the first distance ($d_{1}$) is taken between the center of mass of atoms 1 and 2 and that of atoms 3 to 5, the second ($d_{2}$) between atom 7 and the center of mass of atoms 8 to 10.
 The difference $d = d_{1} - d_{2}$ is obtained by multiplying the two by a coefficient $C = +1$ or $C = -1$, respectively.
@@ -2585,15 +2576,14 @@ to perform eABF simulations (\ref{sec:eABF}).
 
 \cvsubsec{Statistical analysis}{sec:colvar_acf}
 
-When the global keyword \texttt{analysis} is defined in the
-configuration file, run-time calculations of statistical properties for
-individual colvars can be performed.  At the moment, several types of
-time correlation functions, running averages and running standard
-deviations are available.
+Run-time calculations of statistical properties that depend explicitly on time can be performed for individual collective variables.
+Currently, several types of time correlation functions, running averages and running standard deviations are implemented.
+For run-time computation of histograms, please see the histogram bias (\ref{sec:colvarbias_histogram}).
 
 \begin{itemize}
 
 \item %
+  \labelkey{colvar|corrFunc}
   \keydef
     {corrFunc}{%
     \texttt{colvar}}{%
@@ -2679,10 +2669,11 @@ deviations are available.
     \texttt{colvar}}{%
     Output file for the time correlation function}{%
     UNIX filename}{%
-    \texttt{$<$name$>$.corrfunc.dat}}{%
+    \outputName\texttt{.$<$name$>$.corrfunc.dat}}{%
     The time correlation function is saved in this file.}
 
 \item %
+  \labelkey{colvar|runAve}
   \keydef
     {runAve}{%
     \texttt{colvar}}{%
@@ -2716,7 +2707,7 @@ deviations are available.
     \texttt{colvar}}{%
     Output file for the running average and standard deviation}{%
     UNIX filename}{%
-    \texttt{$<$name$>$.runave.dat}}{%
+    \outputName\texttt{.$<$name$>$.runave.traj}}{%
     The running average and standard deviation are saved in this file.}
 
 \end{itemize}
@@ -3170,7 +3161,7 @@ In addition, restraint biases (\ref{sec:colvarbias_harmonic}, \ref{sec:colvarbia
 \begin{itemize}
 
 \item %
-  \labelkey{writeTIPMF}{colvarbias|writeTIPMF}
+  \labelkey{colvarbias|writeTIPMF}
   \keydef
     {writeTIPMF}{%
     colvar bias}{%
@@ -3184,7 +3175,7 @@ In addition, restraint biases (\ref{sec:colvarbias_harmonic}, \ref{sec:colvarbia
 
 
 \item %
-  \labelkey{writeTISamples}{colvarbias|writeTISamples}
+  \labelkey{colvarbias|writeTISamples}
   \keydef
     {writeTISamples}{%
     colvar bias}{%
@@ -3232,7 +3223,7 @@ $\bm{F}_\xi$ exerted on $\bm{\xi}$, taken over an iso-$\bm{\xi}$ surface:
 
 \begin{equation}
   \label{eq:gradient}
-  \bm{\nabla}_\xi A(\bm{\xi}) = \left\langle -\bm{F}_\xi \right\rangle_\bm{\xi}
+  \bm{\nabla}_\xi A(\bm{\xi}) = \left\langle -\bm{F}_\xi \right\rangle_{\bm{\xi}}
 \end{equation}
 
 Several formulae that take the form of~(\ref{eq:gradient}) have been
@@ -3242,7 +3233,7 @@ originating in a work by Ruiz-Montero et al.~\cite{Ruiz-Montero1997},
 generalized by den Otter~\cite{denOtter2000} and extended to multiple
 variables by Ciccotti et al.~\cite{Ciccotti2005}.  Consider a system
 subject to constraints of the form $\sigma_{k}(\vx) = 0$.  Let
-($\bm{v}_{i})_{i\in[1,n]}$ be arbitrarily chosen vector fields
+$(\bm{v}_{i})_{i\in[1,n]}$ be arbitrarily chosen vector fields
 ($\mathbb{R}^{3N}\rightarrow\mathbb{R}^{3N}$) verifying, for all $i$,
 $j$, and $k$:
 
@@ -3258,7 +3249,7 @@ then the following holds~\cite{Ciccotti2005}:
 \begin{equation}
 \label{eq:gradient_vector}
 \frac{\partial A}{\partial \xi_{i}} = \left\langle \bm{v}_{i} \cdot \gradx V
-- k_B T \gradx \cdot \bm{v}_{i} \right\rangle_\bm{\xi}
+- k_B T \gradx \cdot \bm{v}_{i} \right\rangle_{\bm{\xi}}
 \end{equation}
 
 where $V$ is the potential energy function.
@@ -3602,7 +3593,7 @@ $(k/2) (z - \lambda)^2$.
 Under eABF dynamics, the adaptive bias on $\lambda$ is
 the running estimate of the average spring force:
 \begin{equation}
-F^\mathrm{bias}(\lambda^*) = \left\langle k(\lambda - z) \right\rangle_{\lambda^*}
+F^{\mathrm{bias}}(\lambda^{*}) = \left\langle k(\lambda{} - z) \right\rangle_{\lambda^{*}}
 \end{equation}
 where the angle brackets indicate a canonical average conditioned by $\lambda=\lambda^*$.
 At long simulation times, eABF produces a flat histogram of the extended variable $\lambda$,
@@ -4869,6 +4860,9 @@ please be aware that \emph{several of these tutorials are not actively maintaine
 
 \item \textbf{Colvars version 2017-01-09 or later \cvnamdonly{(NAMD version 2.13b1 or later)}\cvvmdonly{(VMD version 1.9.4 or later)}\cvlammpsonly{(LAMMPS version 10Mar2017 or later)}.}\\
   A new type of restraint, \texttt{harmonicWalls} (see~\ref{sec:colvarbias_harmonic_walls}), replaces and improves upon the legacy keywords \texttt{lowerWall} and \texttt{upperWall}: these are still supported as short-hands.
+
+\item \textbf{Colvars version 2018-11-15 or later \cvnamdonly{(NAMD version 2.14b1 or later)}\cvvmdonly{(VMD version 1.9.4 or later)}\cvlammpsonly{(LAMMPS version 23Nov2018 or later)}.}\\
+  The global \texttt{analysis} keyword has been discontinued: specific analysis tasks are controlled directly by the keywords \refkey{corrFunc}{colvar|corrFunc} and \refkey{runAve}{colvar|runAve}, which continue to remain \texttt{off} by default.
 
 \item \textbf{Deprecation warning for calculations including wall potentials.}\\
   The legacy keywords \texttt{lowerWall} and \texttt{upperWall} will stop having default values and will need to be set explicitly (preferably as part of the \texttt{harmonicWalls} restraint).
