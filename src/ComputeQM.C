@@ -2660,6 +2660,7 @@ void ComputeQM::saveResults(QMForceMsg *fmsg) {
     bool callReplaceForces = false;
     
     int numQMAtms = Node::Object()->molecule->get_numQMAtoms();
+    int numQMGrps = Node::Object()->molecule->get_qmNumGrps();
     const Real * const qmAtomGroup = Node::Object()->molecule->get_qmAtomGroup() ;
     const int *qmAtmIndx = Node::Object()->molecule->get_qmAtmIndx() ;
     Real *qmAtmChrg = Node::Object()->molecule->get_qmAtmChrg() ;
@@ -2703,7 +2704,7 @@ void ComputeQM::saveResults(QMForceMsg *fmsg) {
         
         // If the atom is in a QM group, update its charge to the local (this homePatch)
         // copy of the qmAtmChrg array.
-        if (qmAtomGroup[results_ptr->id] > 0 && fmsg->PMEOn) {
+        if (qmAtomGroup[results_ptr->id] > 0 && (fmsg->PMEOn || (numQMGrps > 1) ) ) {
             
             // Loops over all QM atoms (in all QM groups) comparing their global indices
             for (int qmIter=0; qmIter<numQMAtms; qmIter++) {
@@ -2841,7 +2842,7 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
         
     }
     baseDir.append("/") ;
-    itosConv << msg->peIter ;
+    itosConv << msg->grpIndx ;
     baseDir += itosConv.str() ;
     
     if (stat(msg->baseDir, &info) != 0 ) {
@@ -3652,14 +3653,33 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
         pcPpme = pcP;
     }
     
+    int retVal = 0;
+    struct stat info;
+    
     // For each QM group, create a subdirectory where files will be palced.
     std::string baseDir(msg->baseDir);
-    baseDir.append("/") ;
     std::ostringstream itosConv ;
-    itosConv << msg->peIter ;
+    if ( CmiNumPartitions() > 1 ) {
+        baseDir.append("/") ;
+        itosConv << CmiMyPartition() ;
+        baseDir += itosConv.str() ;
+        itosConv.str("");
+        itosConv.clear() ;
+        
+        if (stat(msg->baseDir, &info) != 0 ) {
+            CkPrintf( "Node %d cannot access directory %s\n",
+                      CkMyPe(), baseDir.c_str() );
+            NAMD_die("QM calculation could not be ran. Check your qmBaseDir!");
+        }
+        else if (! (stat(baseDir.c_str(), &info) == 0 && S_ISDIR(info.st_mode)) ) {
+            DebugM(4,"Creating directory " << baseDir.c_str() << std::endl);
+            retVal = mkdir(baseDir.c_str(), S_IRWXU);
+        }
+        
+    }
+    baseDir.append("/") ;
+    itosConv << msg->grpIndx ;
     baseDir += itosConv.str() ;
-    
-    struct stat info;
     
     if (stat(msg->baseDir, &info) != 0 ) {
         CkPrintf( "Node %d cannot access directory %s\n",
@@ -4484,14 +4504,33 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
         pcPpme = pcP;
     }
     
+    int retVal = 0;
+    struct stat info;
+    
     // For each QM group, create a subdirectory where files will be palced.
     std::string baseDir(msg->baseDir);
-    baseDir.append("/") ;
     std::ostringstream itosConv ;
-    itosConv << msg->peIter ;
+    if ( CmiNumPartitions() > 1 ) {
+        baseDir.append("/") ;
+        itosConv << CmiMyPartition() ;
+        baseDir += itosConv.str() ;
+        itosConv.str("");
+        itosConv.clear() ;
+        
+        if (stat(msg->baseDir, &info) != 0 ) {
+            CkPrintf( "Node %d cannot access directory %s\n",
+                      CkMyPe(), baseDir.c_str() );
+            NAMD_die("QM calculation could not be ran. Check your qmBaseDir!");
+        }
+        else if (! (stat(baseDir.c_str(), &info) == 0 && S_ISDIR(info.st_mode)) ) {
+            DebugM(4,"Creating directory " << baseDir.c_str() << std::endl);
+            retVal = mkdir(baseDir.c_str(), S_IRWXU);
+        }
+        
+    }
+    baseDir.append("/") ;
+    itosConv << msg->grpIndx ;
     baseDir += itosConv.str() ;
-    
-    struct stat info;
     
     if (stat(msg->baseDir, &info) != 0 ) {
         CkPrintf( "Node %d cannot access directory %s\n",
