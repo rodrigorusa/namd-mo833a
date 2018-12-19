@@ -10057,26 +10057,49 @@ void Molecule::compute_LJcorrection() {
   BigReal rswitch5 = rswitch2*rswitch3;
   BigReal rswitch6 = rswitch3*rswitch3;
 
-  /* Here we tabulate the integrals over the untruncated region. This assumes:
-
-   1.) The energy and virial contribution can be well described by a mean field
-       approximation (i.e. a constant).
-
-   2.) The pair distribution function, g(r), is very close to unity on the
-       interval (i.e. g(r) = 1 for r > switchdist).
-
-   The mean field integrals are of the form:
-
-   4*N^2*PI*int r^2 U(r) dr : for the energy
-
-   (4/3)*N^2*PI*int r^3 dU(r)/dr dr : for the virial
-
-   NB: An extra factor of 1/2 comes from double counting the number of
-       interaction pairs (N*(N-1)/2, approximated as N^2).
-  */
+  /*
+   * Tabulate the integrals over the untruncated region. This assumes:
+   *
+   * 1.) The energy and virial contribution can be well described by a mean
+   *     field approximation (i.e. a constant).
+   *
+   * 2.) The radial distribution function, g(r), is very close to unity on the
+   *     interval (i.e. g(r) = 1 for r > rswitch).
+   *
+   * The mean field integrals are, for the energy (int_U_gofr):
+   *
+   * 2\pi \int_0^{\infty} dr r^2 (1 - S(r; r_s, r_c)) U(r)
+   *
+   * and for the virial (int_rF_gofr):
+   *
+   * -\frac{2\pi}{3) \int_0^{\infty}
+   *     dr r^3 \frac{d}{dr} [(1 - S(r; r_s, r_c)) U(r)]
+   *
+   * Here U(r) is the "mean" LJ-potential and S(r; r_s, r_c) is the switching
+   * function (parameterized by r_s = rswitch and r_c = rcut). These equations
+   * include all factors except NumLJSites^2 and the volume. Because
+   * NumLJSites^2 derives from the approximation N*(N-1)/2 ~= N^2/2 for the
+   * number of interaction pairs, there is an "extra" factor of 1/2.
+   */
   BigReal int_U_gofr_A, int_rF_gofr_A, int_U_gofr_B, int_rF_gofr_B;
   if (simParams->switchingActive) {
     if (!simParams->vdwForceSwitching) {
+      /*
+       * S(r; r_s, r_c)
+       * =
+       * \begin{cases}
+       *   1 & 0 \le r \le r_s
+       *   \\
+       *   \frac{
+       *     (r_c^2 - r^2)^2 (r_c^2 - 3r_s^2 + 2r^2)
+       *   }{
+       *     (r_c^2 - r_s^2)^3
+       *   } 
+       *   & r_s < r < r_c
+       *   \\
+       *   0 & r_c \le r < \infty
+       * \end{cases}
+       */
       BigReal rsum3 = (rcut + rswitch)*(rcut + rswitch)*(rcut + rswitch);
       int_U_gofr_A = int_rF_gofr_A = (16*PI*(3*rcut4 + 9*rcut3*rswitch
                                       + 11*rcut2*rswitch2 + 9*rcut*rswitch3
@@ -10085,28 +10108,93 @@ void Molecule::compute_LJcorrection() {
       int_U_gofr_B = int_rF_gofr_B = -16*PI / (3*rsum3);
     }
     else {
-      /* BKR - This assumes a definition of the vdwForceSwitching potential
-       that differs from the original by Steinbach and Brooks. Here the
-       potential shift is _subtracted_ from the switching region instead of
-       being _added_ to the region inside switchdist (that would require a
-       short-range correction with no obviously good approximation). The new
-       potential is discontinuous at the cutoff, since it is rigorously zero
-       beyond that point but finite and negative inside it. Nonetheless, the
-       force is continuous, so this is ok.
+      /* BKR - There are two choices for the force switching strategy:
 
-       NB: Because the difference is just a constant, the virial correction is
-       the same, regardless which definition is chosen.
+         1) apply a potential shift for 0 <= r <= rswitch (standard)
+         or
+         2) apply the opposite shift for rswitch < r < rcut
+
+         Option 2 was previously implemented, but introduces a potential
+         discontinuity at rcut and thus still causes energy conservation
+         issues. The energy correction for option 1, on the other hand,
+         requires the dubious approximation that g(r) ~= 1 for
+         0 <= r <= rswitch. However, this approximation only needs to hold in
+         so far as the integral out to rswitch is roughly the same -- this is
+         actually sufficiently close in practice. Both options lead to the same
+         virial correction.
+
+         From Steinbach and Brooks:
+
+         U_h(r; r_s, r_c)
+         =
+         \frac{C_n r_c^{n/2}}{r_c^{n/2} - r_s^{n/2}}
+           \left( \frac{1}{r^{n/2}} - \frac{1}{r_c^{n/2}} \right)^2
+
+         \Delta U(r_s, r_c) = -\frac{C_n}{(r_s r_c)^{n/2}}
       */
       BigReal lnr = log(rcut/rswitch);
-      int_rF_gofr_A = 16*PI / (9*rswitch3*rcut3*(rcut3 + rswitch3));
-      int_rF_gofr_B = -4*PI*lnr / (rcut3 - rswitch3);
+      /*
+       * Option 1 (shift below rswitch)
+       *
+       * S(r; r_s, r_c)
+       * =
+       * \begin{cases}
+       *   \frac{
+       *     U(r) + \Delta U(r_s, r_c)
+       *   }{
+       *     U(r)
+       *   }
+       *   & 0 \le r \le r_s
+       *   \\
+       *   \frac{
+       *     U_h(r; r_s, r_c)  
+       *   }{
+       *     U(r)
+       *   }
+       *   & r_s < r < r_c
+       *   \\
+       *   0 & r_c \le r < \infty
+       * \end{cases}
+       */
+      int_U_gofr_A = int_rF_gofr_A =\
+          16*PI / (9*rswitch3*rcut3*(rcut3 + rswitch3));
+      int_U_gofr_B = int_rF_gofr_B = -4*PI*lnr / (rcut3 - rswitch3);
+      /*
+       * Option 2 (shift above rswitch and below rcut)
+       *
+       * S(r; r_s, r_c)
+       * =
+       * \begin{cases}
+       *   1 & 0 \le r \le r_s
+       *   \\
+       *   \frac{
+       *     U_h(r; r_s, r_c) - \Delta U(r_s, r_c)
+       *   }{
+       *     U(r)
+       *   }
+       *   & r_s < r < r_c
+       *   \\
+       *   0 & r_c \le r < \infty
+       * \end{cases}
+       */ 
+/*
       int_U_gofr_A = (2*PI*(5*rswitch3 - 3*rcut3)
                       / (9*rcut3*rswitch6*(rcut3 + rswitch3)));
       int_U_gofr_B = (-2*PI*(rswitch3 - rcut3 + 6*rswitch3*lnr)
                       / (3*rswitch3*(rcut3 - rswitch3)));
+*/
     }
   }
   else {
+    /*
+     * S(r; r_s, r_c)
+     * =
+     * \begin{cases}
+     *   1 & 0 \le r \le r_c
+     *   \\
+     *   0 & r_c \le r < \infty
+     * \end{cases}
+     */
     int_rF_gofr_A = 8*PI / (9*rcut9);
     int_rF_gofr_B = -4*PI / (3*rcut3);
     int_U_gofr_A = 2*PI / (9*rcut9);

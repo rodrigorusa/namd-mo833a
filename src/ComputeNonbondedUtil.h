@@ -357,7 +357,6 @@ public:
   static Bool alchThermIntOn;
   static BigReal alchVdwShiftCoeff;
   static Bool vdwForceSwitching;
-  static Bool LJcorrection;
   static Bool Fep_WCA_repuOn;
   static Bool Fep_WCA_dispOn;
   static Bool Fep_ElecOn;
