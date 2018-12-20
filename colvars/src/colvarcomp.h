@@ -559,6 +559,35 @@ public:
 
 
 
+/// \brief Colvar component:  dipole magnitude of a molecule
+class colvar::dipole_magnitude
+  : public colvar::cvc
+{
+protected:
+  /// Dipole atom group
+  cvm::atom_group  *atoms;
+  cvm::atom_pos dipoleV;
+public:
+  /// Initialize by parsing the configuration
+  dipole_magnitude (std::string const &conf);
+  dipole_magnitude (cvm::atom const &a1);
+  dipole_magnitude();
+  virtual inline ~dipole_magnitude() {}
+  virtual void calc_value();
+  virtual void calc_gradients();
+  //virtual void calc_force_invgrads();
+  //virtual void calc_Jacobian_derivative();
+  virtual void apply_force (colvarvalue const &force);
+  virtual cvm::real dist2 (colvarvalue const &x1,
+                           colvarvalue const &x2) const;
+  virtual colvarvalue dist2_lgrad (colvarvalue const &x1,
+                                   colvarvalue const &x2) const;
+  virtual colvarvalue dist2_rgrad (colvarvalue const &x1,
+                                   colvarvalue const &x2) const;
+};
+
+
+
 /// \brief Colvar component: Radius of gyration of an atom group
 /// (colvarvalue::type_scalar type, range [0:*))
 class colvar::gyration
@@ -1159,6 +1188,7 @@ public:
 
   orientation(std::string const &conf);
   orientation();
+  virtual int init(std::string const &conf);
   virtual ~orientation() {}
   virtual void calc_value();
   virtual void calc_gradients();
@@ -1183,6 +1213,7 @@ public:
 
   orientation_angle(std::string const &conf);
   orientation_angle();
+  virtual int init(std::string const &conf);
   virtual ~orientation_angle() {}
   virtual void calc_value();
   virtual void calc_gradients();
@@ -1207,6 +1238,7 @@ public:
 
   orientation_proj(std::string const &conf);
   orientation_proj();
+  virtual int init(std::string const &conf);
   virtual ~orientation_proj() {}
   virtual void calc_value();
   virtual void calc_gradients();
@@ -1234,6 +1266,7 @@ public:
 
   tilt(std::string const &conf);
   tilt();
+  virtual int init(std::string const &conf);
   virtual ~tilt() {}
   virtual void calc_value();
   virtual void calc_gradients();
@@ -1261,6 +1294,7 @@ public:
 
   spin_angle(std::string const &conf);
   spin_angle();
+  virtual int init(std::string const &conf);
   virtual ~spin_angle() {}
   virtual void calc_value();
   virtual void calc_gradients();

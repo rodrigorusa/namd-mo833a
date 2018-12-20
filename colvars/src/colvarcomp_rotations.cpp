@@ -21,18 +21,22 @@ colvar::orientation::orientation(std::string const &conf)
   : cvc(conf)
 {
   function_type = "orientation";
-  atoms = parse_group(conf, "atoms");
   enable(f_cvc_implicit_gradient);
   x.type(colvarvalue::type_quaternion);
+  init(conf);
+}
 
+
+int colvar::orientation::init(std::string const &conf)
+{
+  atoms = parse_group(conf, "atoms");
   ref_pos.reserve(atoms->size());
 
   if (get_keyval(conf, "refPositions", ref_pos, ref_pos)) {
     cvm::log("Using reference positions from input file.\n");
     if (ref_pos.size() != atoms->size()) {
-      cvm::error("Error: reference positions do not "
-                        "match the number of requested atoms.\n");
-      return;
+      return cvm::error("Error: reference positions do not "
+                        "match the number of requested atoms.\n", INPUT_ERROR);
     }
   }
 
@@ -46,9 +50,8 @@ colvar::orientation::orientation(std::string const &conf)
         // use PDB flags if column is provided
         bool found = get_keyval(conf, "refPositionsColValue", file_col_value, 0.0);
         if (found && file_col_value==0.0) {
-          cvm::error("Error: refPositionsColValue, "
-                            "if provided, must be non-zero.\n");
-          return;
+          return cvm::error("Error: refPositionsColValue, "
+                            "if provided, must be non-zero.\n", INPUT_ERROR);
         }
       }
 
@@ -59,9 +62,8 @@ colvar::orientation::orientation(std::string const &conf)
   }
 
   if (!ref_pos.size()) {
-    cvm::error("Error: must define a set of "
-                      "reference coordinates.\n");
-    return;
+    return cvm::error("Error: must define a set of "
+                      "reference coordinates.\n", INPUT_ERROR);
   }
 
 
@@ -158,10 +160,18 @@ colvarvalue colvar::orientation::dist2_rgrad(colvarvalue const &x1,
 
 
 colvar::orientation_angle::orientation_angle(std::string const &conf)
-  : orientation(conf)
+  : orientation()
 {
   function_type = "orientation_angle";
+  disable(f_cvc_implicit_gradient);
   x.type(colvarvalue::type_scalar);
+  init(conf);
+}
+
+
+int colvar::orientation_angle::init(std::string const &conf)
+{
+  return orientation::init(conf);
 }
 
 
@@ -169,6 +179,7 @@ colvar::orientation_angle::orientation_angle()
   : orientation()
 {
   function_type = "orientation_angle";
+  disable(f_cvc_implicit_gradient);
   x.type(colvarvalue::type_scalar);
 }
 
@@ -214,10 +225,18 @@ simple_scalar_dist_functions(orientation_angle)
 
 
 colvar::orientation_proj::orientation_proj(std::string const &conf)
-  : orientation(conf)
+  : orientation()
 {
   function_type = "orientation_proj";
+  disable(f_cvc_implicit_gradient);
   x.type(colvarvalue::type_scalar);
+  init(conf);
+}
+
+
+int colvar::orientation_proj::init(std::string const &conf)
+{
+  return orientation::init(conf);
 }
 
 
@@ -225,6 +244,7 @@ colvar::orientation_proj::orientation_proj()
   : orientation()
 {
   function_type = "orientation_proj";
+  disable(f_cvc_implicit_gradient);
   x.type(colvarvalue::type_scalar);
 }
 
@@ -261,18 +281,28 @@ simple_scalar_dist_functions(orientation_proj)
 
 
 colvar::tilt::tilt(std::string const &conf)
-  : orientation(conf)
+  : orientation()
 {
   function_type = "tilt";
+  disable(f_cvc_implicit_gradient);
+  x.type(colvarvalue::type_scalar);
+  init(conf);
+}
+
+
+int colvar::tilt::init(std::string const &conf)
+{
+  int error_code = COLVARS_OK;
+
+  error_code |= orientation::init(conf);
 
   get_keyval(conf, "axis", axis, cvm::rvector(0.0, 0.0, 1.0));
-
   if (axis.norm2() != 1.0) {
     axis /= axis.norm();
     cvm::log("Normalizing rotation axis to "+cvm::to_str(axis)+".\n");
   }
 
-  x.type(colvarvalue::type_scalar);
+  return error_code;
 }
 
 
@@ -280,6 +310,7 @@ colvar::tilt::tilt()
   : orientation()
 {
   function_type = "tilt";
+  disable(f_cvc_implicit_gradient);
   x.type(colvarvalue::type_scalar);
 }
 
@@ -322,20 +353,30 @@ simple_scalar_dist_functions(tilt)
 
 
 colvar::spin_angle::spin_angle(std::string const &conf)
-  : orientation(conf)
+  : orientation()
 {
   function_type = "spin_angle";
+  period = 360.0;
+  b_periodic = true;
+  disable(f_cvc_implicit_gradient);
+  x.type(colvarvalue::type_scalar);
+  init(conf);
+}
+
+
+int colvar::spin_angle::init(std::string const &conf)
+{
+  int error_code = COLVARS_OK;
+
+  error_code |= orientation::init(conf);
 
   get_keyval(conf, "axis", axis, cvm::rvector(0.0, 0.0, 1.0));
-
   if (axis.norm2() != 1.0) {
     axis /= axis.norm();
     cvm::log("Normalizing rotation axis to "+cvm::to_str(axis)+".\n");
   }
 
-  period = 360.0;
-  b_periodic = true;
-  x.type(colvarvalue::type_scalar);
+  return error_code;
 }
 
 
@@ -345,6 +386,7 @@ colvar::spin_angle::spin_angle()
   function_type = "spin_angle";
   period = 360.0;
   b_periodic = true;
+  disable(f_cvc_implicit_gradient);
   x.type(colvarvalue::type_scalar);
 }
 

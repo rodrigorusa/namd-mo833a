@@ -761,6 +761,8 @@ int colvar::init_components(std::string const &conf)
     "weighted by inverse power", "distanceInv");
   error_code |= init_components_type<distance_pairs>(conf, "N1xN2-long vector "
     "of pairwise distances", "distancePairs");
+  error_code |= init_components_type<dipole_magnitude>(conf, "dipole magnitude",
+    "dipoleMagnitude");
   error_code |= init_components_type<coordnum>(conf, "coordination "
     "number", "coordNum");
   error_code |= init_components_type<selfcoordnum>(conf, "self-coordination "
@@ -2190,6 +2192,7 @@ int colvar::calc_acf()
       acf_x_history_p = acf_x_history.begin();
       break;
 
+    case acf_notset:
     default:
       break;
     }
@@ -2222,6 +2225,7 @@ int colvar::calc_acf()
       history_incr(acf_x_history, acf_x_history_p);
       break;
 
+    case acf_notset:
     default:
       break;
     }
@@ -2315,6 +2319,9 @@ int colvar::write_acf(std::ostream &os)
     break;
   case acf_p2coor:
     os << "Coordinate (2nd Legendre poly)";
+    break;
+  case acf_notset:
+  default:
     break;
   }
 
