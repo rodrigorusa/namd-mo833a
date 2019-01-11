@@ -507,8 +507,8 @@ int NamdState::loadStructure(const char *molFilename, const char *pdbFilename, i
                 configList->find("lescol"), pdb, NULL, "les");
         }
         if (simParameters->soluteScalingOn) {
-           molecule->build_ss_flags(configList->find("ssfile"),
-                configList->find("sscol"), pdb, NULL);
+           molecule->build_ss_flags(configList->find("soluteScalingFile"),
+                configList->find("soluteScalingCol"), pdb, NULL);
         }
         if (simParameters->pairInteractionOn) {
            molecule->build_fep_flags(configList->find("pairInteractionFile"),

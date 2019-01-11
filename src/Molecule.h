@@ -951,8 +951,10 @@ public:
    * scaled interaction values.
    */
   void build_ss_flags(
-      const StringList *ssfile, ///< config "ssfile = my.pdb" for PDB filename
-      const StringList *sscol,  ///< config "ssfile = O" indicating column
+      const StringList *ssfile,
+      /**< config "soluteScalingFile = my.pdb" for PDB filename */
+      const StringList *sscol,
+      /**< config "soluteScalingCol = O" for column of PDB ATOM records */
       PDB *initial_pdb,         ///< the initial PDB file
       const char *cwd           ///< current working directory
       );
