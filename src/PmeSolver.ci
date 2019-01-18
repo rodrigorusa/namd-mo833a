@@ -49,14 +49,16 @@ module PmeSolver {
 
   array[3D] PmePencilXY {
     entry PmePencilXY();
+    entry void startDoneCallback();
     entry void chargeGridReady(PmeRunMsg *msg);
     entry void recvBlock(PmeBlockMsg *msg);
     entry void start(PmeStartMsg *pmeStartMsg) {
       serial "initFFT" {
         initFFT(pmeStartMsg); 
         delete pmeStartMsg;
-        start();
+        start(CkCallback(CkIndex_PmePencilXY::startDoneCallback(), thisProxy[thisIndex]));
       }
+      when startDoneCallback() serial {}
       while (true) {
         when chargeGridReady(PmeRunMsg *msg) serial "forwardFFT" {
           doEnergy = msg->doEnergy;
@@ -85,14 +87,16 @@ module PmeSolver {
 
   array[3D] PmePencilX {
     entry PmePencilX();
+    entry void startDoneCallback();
     entry void chargeGridReady(PmeRunMsg *msg);
     entry void recvBlock(PmeBlockMsg *msg);
     entry void start(PmeStartMsg *pmeStartMsg) {
       serial "initFFT" {
         initFFT(pmeStartMsg); 
         delete pmeStartMsg;
-        start();
+        start(CkCallback(CkIndex_PmePencilX::startDoneCallback(), thisProxy[thisIndex]));
       }
+      when startDoneCallback() serial {}
       while (true) {
         when chargeGridReady(PmeRunMsg *msg) serial "forwardFFT" {
           doEnergy = msg->doEnergy;
@@ -121,13 +125,15 @@ module PmeSolver {
 
   array[3D] PmePencilY {
     entry PmePencilY();
+    entry void startDoneCallback();
     entry void recvBlock(PmeBlockMsg *msg);
     entry void start(PmeStartMsg *pmeStartMsg) {
       serial "initFFT" {
         initFFT(pmeStartMsg); 
         delete pmeStartMsg;
-        start();
+        start(CkCallback(CkIndex_PmePencilY::startDoneCallback(), thisProxy[thisIndex]));
       }
+      when startDoneCallback() serial {}
       while (true) {
         for (imsg=0;imsg < pmeGrid.yBlocks;++imsg) {
           when recvBlock(PmeBlockMsg *msg) serial "recvDataFromX" {
@@ -161,14 +167,16 @@ module PmeSolver {
 
   array[3D] PmePencilZ {
     entry PmePencilZ();
+    entry void startDoneCallback();
     entry void recvBlock(PmeBlockMsg *msg);
     entry void skip();
     entry void start(PmeStartMsg *pmeStartMsg) {
       serial "initFFT" {
         initFFT(pmeStartMsg); 
         delete pmeStartMsg;
-        start();
+        start(CkCallback(CkIndex_PmePencilZ::startDoneCallback(), thisProxy[thisIndex]));
       }
+      when startDoneCallback() serial {}
       while (true) {
         for (imsg=0;imsg < pmeGrid.zBlocks;++imsg) {
           when recvBlock(PmeBlockMsg *msg) serial "recvDataFromY" {

@@ -136,8 +136,8 @@ void CudaPmePencilXY::initializeDevice(InitDeviceMsg *msg) {
 //
 // CUDA specific start
 //
-void CudaPmePencilXY::start() {
-  recvDeviceBuffers();
+void CudaPmePencilXY::start(const CkCallback &cb) {
+  thisProxy[thisIndex].recvDeviceBuffers(cb);
 }
 
 void CudaPmePencilXY::setDeviceBuffers() {
@@ -306,8 +306,8 @@ void CudaPmePencilX::initializeDevice(InitDeviceMsg *msg) {
 //
 // CUDA specific start
 //
-void CudaPmePencilX::start() {
-  recvDeviceBuffers();
+void CudaPmePencilX::start(const CkCallback &cb) {
+  thisProxy[thisIndex].recvDeviceBuffers(cb);
 }
 
 //
@@ -498,8 +498,8 @@ void CudaPmePencilY::initializeDevice(InitDeviceMsg2 *msg) {
 //
 // CUDA specific start
 //
-void CudaPmePencilY::start() {
-  recvDeviceBuffers();
+void CudaPmePencilY::start(const CkCallback &cb) {
+  thisProxy[thisIndex].recvDeviceBuffers(cb);
 }
 
 //
@@ -796,8 +796,8 @@ void CudaPmePencilZ::initializeDevice(InitDeviceMsg2 *msg) {
 //
 // CUDA specific start
 //
-void CudaPmePencilZ::start() {
-  recvDeviceBuffers();
+void CudaPmePencilZ::start(const CkCallback &cb) {
+  thisProxy[thisIndex].recvDeviceBuffers(cb);
 }
 
 void CudaPmePencilZ::setDeviceBuffers() {

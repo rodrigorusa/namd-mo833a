@@ -179,7 +179,7 @@ void PmePencilXY::recvDataFromZ(PmeBlockMsg *msg) {
   NAMD_bug("PmePencilXY::recvDataFromZ(), base class method called");
 }
 
-void PmePencilXY::start() {
+void PmePencilXY::start(const CkCallback &) {
   NAMD_bug("PmePencilXY::start(), base class method called");
 }
 
@@ -281,7 +281,7 @@ void PmePencilX::recvDataFromY(PmeBlockMsg *msg) {
   NAMD_bug("PmePencilX::recvDataFromY(), base class method called");
 }
 
-void PmePencilX::start() {
+void PmePencilX::start(const CkCallback &) {
   NAMD_bug("PmePencilX::start(), base class method called");
 }
 
@@ -355,7 +355,7 @@ void PmePencilY::recvDataFromZ(PmeBlockMsg *msg) {
   NAMD_bug("PmePencilY::recvDataFromZ(), base class method called");
 }
 
-void PmePencilY::start() {
+void PmePencilY::start(const CkCallback &) {
   NAMD_bug("PmePencilY::start(), base class method called");
 }
 
@@ -455,7 +455,7 @@ void PmePencilZ::recvDataFromY(PmeBlockMsg *msg) {
   NAMD_bug("PmePencilY::recvDataFromY(), base class method called");
 }
 
-void PmePencilZ::start() {
+void PmePencilZ::start(const CkCallback &) {
   NAMD_bug("PmePencilZ::start(), base class method called");
 }
 

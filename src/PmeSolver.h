@@ -177,7 +177,7 @@ private:
   virtual void forwardDone();
   virtual void backwardDone();
   virtual void recvDataFromZ(PmeBlockMsg *msg);
-  virtual void start();
+  virtual void start(const CkCallback &);
 
 };
 
@@ -204,7 +204,7 @@ private:
   virtual void forwardDone();
   virtual void backwardDone();
   virtual void recvDataFromY(PmeBlockMsg *msg);
-  virtual void start();
+  virtual void start(const CkCallback &);
 
 };
 
@@ -232,7 +232,7 @@ private:
   virtual void backwardDone();
   virtual void recvDataFromX(PmeBlockMsg *msg);
   virtual void recvDataFromZ(PmeBlockMsg *msg);
-  virtual void start();
+  virtual void start(const CkCallback &);
 
 };
 
@@ -262,7 +262,7 @@ private:
   void initFFT(PmeStartMsg *msg);
   virtual void backwardDone();
   virtual void recvDataFromY(PmeBlockMsg *msg);
-  virtual void start();
+  virtual void start(const CkCallback &);
 
   SubmitReduction* reduction;
 

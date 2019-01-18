@@ -93,7 +93,7 @@ private:
 	void forwardDone();
 	void backwardDone();
 	void recvDataFromZ(PmeBlockMsg *msg);
-	void start();
+	void start(const CkCallback &);
 	void setDeviceBuffers();
 	float2* getData(const int i, const bool sameDevice);
 	int deviceID;
@@ -121,7 +121,7 @@ private:
 	void forwardDone();
 	void backwardDone();
 	void recvDataFromY(PmeBlockMsg *msg);
-	void start();
+	void start(const CkCallback &);
 	void setDeviceBuffers();
 	float2* getData(const int i, const bool sameDevice);
 	int deviceID;
@@ -150,7 +150,7 @@ private:
 	void backwardDone();
 	void recvDataFromX(PmeBlockMsg *msg);
 	void recvDataFromZ(PmeBlockMsg *msg);
-	void start();
+	void start(const CkCallback &);
 	void setDeviceBuffers();
 	float2* getDataForX(const int i, const bool sameDevice);
 	float2* getDataForZ(const int i, const bool sameDevice);
@@ -185,7 +185,7 @@ public:
 private:
 	void backwardDone();
 	void recvDataFromY(PmeBlockMsg *msg);
-	void start();
+	void start(const CkCallback &);
 	void setDeviceBuffers();
 	float2* getData(const int i, const bool sameDevice);
 	int deviceID;
