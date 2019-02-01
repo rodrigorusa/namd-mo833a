@@ -1378,14 +1378,14 @@ public:
     // This really only applies when order = 2.
     if ( simParams->alchBondDecouple ) order++;
 
-    if ( typeSum == 0 ) return 0; // Most interactions get caught here.
+    // The majority of interactions are type 0, so catch those first.
+    if ( typeSum == 0 || abs(typeSum) == order ) return 0;
     else if ( 0 < typeSum && typeSum < order ) return 1;
-    else if ( 0 > typeSum && typeSum > -order ) return 2;
+    else if ( -order < typeSum && typeSum < 0 ) return 2;
 
-    if ( simParams->alchBondDecouple ) {
-      // Alchemify should always keep this from bombing, but just in case...
-      NAMD_die("Unexpected alchemical bonded interaction!");
-    }
+    // Alchemify should always keep this from bombing, but just in case...
+    NAMD_die("Unexpected alchemical bonded interaction!");
+    return 0;
   }
 //fepe
 
