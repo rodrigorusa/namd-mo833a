@@ -766,14 +766,22 @@ will contain the charge of the point charge.
 OUTPUT: The expected output file whould be placed in the same directory
 as the input file, and should be named \texttt{"*inputfile*.result"}
 (meaning it will have the same path and name of the input file, plus the
-suffix \texttt{".result"}). This file should have, on its first line,
-the energy of the system, and on the following X lines (where X is the
-number of QM atoms passed in the input file), four (4) fields: the x, y,
-and z components of the TOTAL FORCE applied on that atom, and on the
-fourth field, the charge of the atom. If the user indicates that charges
-from the QM software should not be used (see ``qmChargeMode"), the fourth
-field should have zeroes, but should not be empty. Energy should be
-in Kcal/mol and forces in Kcal/mol/Angstrom.
+suffix \texttt{".result"}). 
+This file should have, on its first line, the energy of the system and 
+the number of point charges that were passed to ORCA, and that ORCA 
+calculated forces on (zero, if using mechanical embedding). The two 
+numbers should be separated by a single white space. Following the standard 
+for the INPUT file, there will be another X+Y lines in the OUTPUT file. 
+On the following X lines (where X is the number of QM atoms passed in 
+the input file), there must be four (4) fields: the x, y and z 
+components of the TOTAL FORCE applied on that atom, and on the fourth 
+field, the charge of the atom. If the user indicates that charges from 
+the QM software should not be used (see ``qmChargeMode"), the fourth 
+field should have zeroes, but should not be empty. On the following 
+Y lines (where Y is the number of point charges), there must be only 
+three (3) fields: the x, y and z components of the electrostatic force 
+applied on that point charge. Energy should be in Kcal/mol and forces 
+in Kcal/mol/Angstrom.
 }
 
 \item
