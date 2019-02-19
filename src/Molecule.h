@@ -470,7 +470,7 @@ public:
   BigReal tail_corr_dUdl_1, tail_corr_dUdl_2;
   BigReal tail_corr_virial_1, tail_corr_virial_2;
   void compute_LJcorrection();
-  BigReal getEnergyTailCorr(const BigReal);
+  BigReal getEnergyTailCorr(const BigReal, const int);
   BigReal getVirialTailCorr(const BigReal);
 
   int const * getLcpoParamType() {

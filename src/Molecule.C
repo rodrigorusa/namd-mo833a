@@ -9926,7 +9926,7 @@ void Molecule::compute_LJcorrection() {
     alternative would be to count "fractional interactions," but that makes
     TI derivatives a bit harder and for no obvious gain.
   */
-  if (simParams->alchOn && simParams->alchVdwLambdaEnd) {
+  if (simParams->alchOn && simParams->alchVdwLambdaEnd > 0.0) {
     BigReal sumOfAs1 = sumOfAs;
     BigReal sumOfAs2 = sumOfAs;
     BigReal sumOfBs1 = sumOfBs;
@@ -9981,7 +9981,10 @@ void Molecule::compute_LJcorrection() {
           B = 4.0*sigma_ij*epsilon_ij;
         }
         if (!A && !B) continue; // don't count zeroed interactions
-
+        // remove all alchemical interactions from group 0
+        sumOfAs -= 2*A;
+        sumOfBs -= 2*B;
+        count -= 2;
         if ( alchFlagSum > 0 ){ // in group 1, remove from group 2
           sumOfAs2 -= 2*A;
           sumOfBs2 -= 2*B;
@@ -10006,17 +10009,21 @@ void Molecule::compute_LJcorrection() {
       if ( alchFlagi == 1 || alchFlagi == -1 ) alch_counter++;
       if ( alch_counter == (numFepInitial + numFepFinal) ) break;
     }
-    if ( count1 ) { // Avoid divide by zero for empty groups.
+    LJAvgA = sumOfAs / count;
+    LJAvgB = sumOfBs / count;
+    if ( count1 ) {
       LJAvgA1 = sumOfAs1 / count1;
       LJAvgB1 = sumOfBs1 / count1;
-    } else { // Avoid trailing decimals due to finite precision.
-      LJAvgA1 = LJAvgB1 = 0.0;
+    } else { // This endpoint is only non-alchemical atoms.
+      LJAvgA1 = LJAvgA;
+      LJAvgB1 = LJAvgB;
     }
     if ( count2 ) {
       LJAvgA2 = sumOfAs2 / count2;
       LJAvgB2 = sumOfBs2 / count2;
-    } else {
-      LJAvgA2 = LJAvgB2 = 0.0;
+    } else { // This endpoint is only non-alchemical atoms.
+      LJAvgA2 = LJAvgA;
+      LJAvgB2 = LJAvgB;
     }
     if ( ! CkMyPe() ) {
       iout << iINFO << "LONG-RANGE LJ: APPLYING ANALYTICAL CORRECTIONS TO "
@@ -10026,6 +10033,7 @@ void Molecule::compute_LJcorrection() {
       iout << iINFO << "LONG-RANGE LJ: AVERAGE A1 AND B1 COEFFICIENTS "
            << LJAvgA1 << " AND " << LJAvgB1 << "\n" << endi;
     }
+    numLJsites = (numLJsites1 + numLJsites2 - numLJsites);
     LJAvgA1 *= BigReal(numLJsites1)*numLJsites1; 
     LJAvgB1 *= BigReal(numLJsites1)*numLJsites1;
     LJAvgA2 *= BigReal(numLJsites2)*numLJsites2;
@@ -10200,23 +10208,31 @@ void Molecule::compute_LJcorrection() {
     int_U_gofr_A = 2*PI / (9*rcut9);
     int_U_gofr_B = -2*PI / (3*rcut3);
   }
-  // For alchOn, these represent all atoms, with no sorting by group.
+  // For alchOn, these are the averages for all non-alchemical atoms.
   tail_corr_virial = int_rF_gofr_A*LJAvgA + int_rF_gofr_B*LJAvgB;
   tail_corr_ener = int_U_gofr_A*LJAvgA + int_U_gofr_B*LJAvgB;
 
-  tail_corr_dUdl_1 = int_U_gofr_A*LJAvgA1 + int_U_gofr_B*LJAvgB1;
-  tail_corr_virial_1 = int_rF_gofr_A*LJAvgA1 + int_rF_gofr_B*LJAvgB1;
-  tail_corr_dUdl_2 = int_U_gofr_A*LJAvgA2 + int_U_gofr_B*LJAvgB2;
-  tail_corr_virial_2 = int_rF_gofr_A*LJAvgA2 + int_rF_gofr_B*LJAvgB2;
+  tail_corr_dUdl_1 = int_U_gofr_A*LJAvgA1 + int_U_gofr_B*LJAvgB1 -
+      tail_corr_ener;
+  tail_corr_virial_1 = int_rF_gofr_A*LJAvgA1 + int_rF_gofr_B*LJAvgB1 -
+      tail_corr_virial;
+  tail_corr_dUdl_2 = int_U_gofr_A*LJAvgA2 + int_U_gofr_B*LJAvgB2 -
+      tail_corr_ener;
+  tail_corr_virial_2 = int_rF_gofr_A*LJAvgA2 + int_rF_gofr_B*LJAvgB2 -
+      tail_corr_virial;
 }
 
 // Convenience function to simplify lambda scaling.
-BigReal Molecule::getEnergyTailCorr(const BigReal alchLambda){
+// Setting doti TRUE and alchLambda = 0 or 1 will return the thermodynamic
+// derivative at the corresponding endpoint.
+BigReal Molecule::getEnergyTailCorr(const BigReal alchLambda, const int doti){
   const BigReal scl = simParams->nonbondedScaling;
-  if (simParams->alchOn && simParams->alchVdwLambdaEnd) {
+  if (simParams->alchOn && simParams->alchVdwLambdaEnd > 0.0) {
     const BigReal vdw_lambda_1 = simParams->getVdwLambda(alchLambda);
     const BigReal vdw_lambda_2 = simParams->getVdwLambda(1-alchLambda);
-    return scl*(vdw_lambda_1*tail_corr_dUdl_1 + vdw_lambda_2*tail_corr_dUdl_2);
+    const BigReal corr = (doti ? 0.0 : tail_corr_ener);
+    return scl*(corr + vdw_lambda_1*tail_corr_dUdl_1 +
+                       vdw_lambda_2*tail_corr_dUdl_2);
   }
   else {
     return scl*tail_corr_ener;
@@ -10226,11 +10242,11 @@ BigReal Molecule::getEnergyTailCorr(const BigReal alchLambda){
 // Convenience function to simplify lambda scaling.
 BigReal Molecule::getVirialTailCorr(const BigReal alchLambda){
   const BigReal scl = simParams->nonbondedScaling;
-  if (simParams->alchOn && simParams->alchVdwLambdaEnd) {
+  if (simParams->alchOn && simParams->alchVdwLambdaEnd > 0.0) {
     const BigReal vdw_lambda_1 = simParams->getVdwLambda(alchLambda);
     const BigReal vdw_lambda_2 = simParams->getVdwLambda(1-alchLambda);
-    return scl*(vdw_lambda_1*tail_corr_virial_1 +
-                vdw_lambda_2*tail_corr_virial_2);
+    return scl*(tail_corr_virial + vdw_lambda_1*tail_corr_virial_1 +
+                                   vdw_lambda_2*tail_corr_virial_2);
   }
   else {
     return scl*tail_corr_virial;
