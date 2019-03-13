@@ -113,16 +113,7 @@ BigReal         ComputeNonbondedUtil::c8;
 // fepb
 Bool      ComputeNonbondedUtil::alchFepOn;
 Bool      ComputeNonbondedUtil::alchThermIntOn;
-Bool      ComputeNonbondedUtil::Fep_WCA_repuOn;
-Bool      ComputeNonbondedUtil::Fep_WCA_dispOn;
-Bool      ComputeNonbondedUtil::Fep_ElecOn;
-Bool      ComputeNonbondedUtil::Fep_Wham; 
-BigReal   ComputeNonbondedUtil::WCA_rcut1;
-BigReal   ComputeNonbondedUtil::WCA_rcut2;
-BigReal   ComputeNonbondedUtil::WCA_rcut3;
-BigReal   ComputeNonbondedUtil::alchRepLambda;
-BigReal   ComputeNonbondedUtil::alchDispLambda;
-BigReal   ComputeNonbondedUtil::alchElecLambda;
+Bool      ComputeNonbondedUtil::alchWCAOn;
 BigReal   ComputeNonbondedUtil::alchVdwShiftCoeff;
 Bool      ComputeNonbondedUtil::vdwForceSwitching;
 Bool      ComputeNonbondedUtil::alchDecouple;
@@ -202,7 +193,6 @@ void ComputeNonbondedUtil::submitReductionData(BigReal *data, SubmitReduction *r
   reduction->item(REDUCTION_ELECT_ENERGY_F) += data[electEnergyIndex_s];
   reduction->item(REDUCTION_ELECT_ENERGY_SLOW_F) += data[fullElectEnergyIndex_s];
   reduction->item(REDUCTION_LJ_ENERGY_F) += data[vdwEnergyIndex_s];
-  reduction->item(REDUCTION_LJ_ENERGY_F_LEFT) += data[vdwEnergyIndex_s_Left];
 
   reduction->item(REDUCTION_ELECT_ENERGY_TI_1) += data[electEnergyIndex_ti_1];
   reduction->item(REDUCTION_ELECT_ENERGY_SLOW_TI_1) += data[fullElectEnergyIndex_ti_1];
@@ -293,25 +283,16 @@ void ComputeNonbondedUtil::select(void)
 
 //fepb
   alchFepOn = simParams->alchFepOn;
-  Fep_WCA_repuOn = simParams->alchFepWCARepuOn;
-  Fep_WCA_dispOn = simParams->alchFepWCADispOn;
-  Fep_ElecOn = simParams->alchFepElecOn;
-  Fep_Wham = simParams->alchFepWhamOn;
   alchThermIntOn = simParams->alchThermIntOn;
+  alchWCAOn = simParams->alchWCAOn;
+  alchDecouple = simParams->alchDecouple;
+
   lesOn = simParams->lesOn;
   lesScaling = lesFactor = 0;
+
   Bool tabulatedEnergies = simParams->tabulatedEnergies;
   alchVdwShiftCoeff = simParams->alchVdwShiftCoeff;
   vdwForceSwitching = simParams->vdwForceSwitching;
-  WCA_rcut1 = simParams->alchFepWCArcut1;
-  WCA_rcut2 = simParams->alchFepWCArcut2;
-  WCA_rcut3 = simParams->alchFepWCArcut3;
-
-  alchRepLambda = simParams->alchRepLambda;
-  alchDispLambda = simParams->alchDispLambda;
-  alchElecLambda = simParams->alchElecLambda;
-
-  alchDecouple = simParams->alchDecouple;
 
   delete [] lambda_table;
   lambda_table = 0;

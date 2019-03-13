@@ -4057,24 +4057,12 @@ void ComputePme::ungridForces() {
       if (alchOn) {
         float scale = 1.;
         BigReal elecLambdaUp, elecLambdaDown;
-        if ( simParams->alchFepWhamOn ) {
-	  if ( simParams->alchFepElecOn ) {
-            elecLambdaUp = simParams->alchElecLambda;
-            elecLambdaDown = 1.0 - simParams->alchElecLambda;
-	  }
-	  else {
-            elecLambdaUp = 0.0;
-            elecLambdaDown = 1.0;
-	  }
-        }
-        else {
-          BigReal alchLambda = simParams->getCurrentLambda(patch->flags.step);
-          myMgr->alchLambda = alchLambda;
-          BigReal alchLambda2 = simParams->getCurrentLambda2(patch->flags.step);
-          myMgr->alchLambda2 = alchLambda2;
-	  elecLambdaUp = simParams->getElecLambda(alchLambda);
-	  elecLambdaDown = simParams->getElecLambda(1. - alchLambda);
-        }
+        BigReal alchLambda = simParams->getCurrentLambda(patch->flags.step);
+        myMgr->alchLambda = alchLambda;
+        BigReal alchLambda2 = simParams->getCurrentLambda2(patch->flags.step);
+        myMgr->alchLambda2 = alchLambda2;
+        elecLambdaUp = simParams->getElecLambda(alchLambda);
+        elecLambdaDown = simParams->getElecLambda(1. - alchLambda);
 	
         if ( g == 0 ) scale = elecLambdaUp;
         else if ( g == 1 ) scale = elecLambdaDown;
@@ -4117,25 +4105,13 @@ void ComputePme::ungridForces() {
         }
       } else if ( lesOn ) {
         float scale = 1.;
-        if ( alchFepOn ) {
-	  if(simParams->alchFepWhamOn) {
-	    if(simParams->alchFepElecOn) {
-	      if ( g == 0 ) scale = simParams->alchElecLambda;
-	      else if ( g == 1 ) scale = 1. - simParams->alchElecLambda;
-	    }
-	    else {
-	      if ( g == 0 ) scale = 0.0;
-	      else if ( g == 1 ) scale = 1.0;
-	    }
-	  }
-	  else {
-            BigReal alchLambda = simParams->getCurrentLambda(patch->flags.step);
-            myMgr->alchLambda = alchLambda;
-            BigReal alchLambda2 = simParams->getCurrentLambda2(patch->flags.step);
-            myMgr->alchLambda2 = alchLambda2;
-            if ( g == 0 ) scale = alchLambda;
-            else if ( g == 1 ) scale = 1. - alchLambda;
-	  }
+        if ( alchFepOn ) { 
+          BigReal alchLambda = simParams->getCurrentLambda(patch->flags.step);
+          myMgr->alchLambda = alchLambda;
+          BigReal alchLambda2 = simParams->getCurrentLambda2(patch->flags.step);
+          myMgr->alchLambda2 = alchLambda2;
+          if ( g == 0 ) scale = alchLambda;
+          else if ( g == 1 ) scale = 1. - alchLambda;
         } else if ( lesOn ) {
           scale = 1.0 / (float)lesFactor;
         }
@@ -4218,24 +4194,12 @@ void ComputePmeMgr::submitReductions() {
       float scale = 1.;
       if (alchOn) {
         BigReal elecLambdaUp, elecLambdaDown;
-        if( simParams->alchFepWhamOn ) {
-          if( simParams->alchFepElecOn ) {
-            elecLambdaUp = simParams->alchElecLambda;
-            elecLambdaDown = 1.0 - simParams->alchElecLambda;
-          }
-          else {
-            elecLambdaUp = 0.0;
-            elecLambdaDown = 1.0;
-          }
+        // alchLambda set on each step in ComputePme::ungridForces()
+        if ( alchLambda < 0 || alchLambda > 1 ) {
+          NAMD_bug("ComputePmeMgr::submitReductions alchLambda out of range");
         }
-        else {
-          // alchLambda set on each step in ComputePme::ungridForces()
-          if ( alchLambda < 0 || alchLambda > 1 ) {
-            NAMD_bug("ComputePmeMgr::submitReductions alchLambda out of range");
-          }
-          elecLambdaUp = simParams->getElecLambda(alchLambda);
-          elecLambdaDown = simParams->getElecLambda(1-alchLambda);
-        }
+        elecLambdaUp = simParams->getElecLambda(alchLambda);
+        elecLambdaDown = simParams->getElecLambda(1-alchLambda);
         if ( g == 0 ) scale = elecLambdaUp;
         else if ( g == 1 ) scale = elecLambdaDown;
         else if ( g == 2 ) scale = (elecLambdaUp + elecLambdaDown - 1)*(-1);
@@ -4267,33 +4231,14 @@ void ComputePmeMgr::submitReductions() {
 
       if (alchFepOn) {
       	BigReal elecLambda2Up=0.0, elecLambda2Down=0.0;
-        if(simParams->alchFepWhamOn) {
-          if(simParams->alchFepElecOn) {
-            elecLambda2Up = simParams->alchElecLambda;
-            elecLambda2Down =  1.0 - simParams->alchElecLambda;
-          }
-          else {
-            elecLambda2Up = 0.0;
-            elecLambda2Down =  1.0;
-          }
-        }
-        else {
-          elecLambda2Up = simParams->getElecLambda(alchLambda2);
-          elecLambda2Down = simParams->getElecLambda(1.-alchLambda2);
-        }
-        
+        elecLambda2Up = simParams->getElecLambda(alchLambda2);
+        elecLambda2Down = simParams->getElecLambda(1.-alchLambda2);        
         if ( g == 0 ) scale2 = elecLambda2Up;
         else if ( g == 1 ) scale2 = elecLambda2Down;
         else if ( g == 2 ) scale2 = (elecLambda2Up + elecLambda2Down - 1)*(-1);
         if (alchDecouple && g == 2 ) scale2 = 1 - elecLambda2Up;
         else if (alchDecouple && g == 3 ) scale2 = 1 - elecLambda2Down;
         else if (alchDecouple && g == 4 ) scale2 = (elecLambda2Up + elecLambda2Down - 1)*(-1);
-      }
-      if(simParams->alchFepWhamOn && simParams->alchFepElecOn)	{	// FEP with wham post-process
-      	if( g==0 )	scale2 = scale + 1.0;
-      	else if( g==1 )	scale2 = scale - 1.0;
-      	else if( g==2 )	scale2 = scale - 1.0;
-      	else if( g==3 )	scale2 = scale + 1.0;
       }
       reduction->item(REDUCTION_ELECT_ENERGY_SLOW_F) += evir[g][0] * scale2;
       

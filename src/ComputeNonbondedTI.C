@@ -9,68 +9,115 @@
 */
 
 #include "ComputeNonbondedInl.h"
-
-// 3 inline functions to handle explicit calculation of separation-shifted
-// vdW for FEP and TI, and a shifted electrostatics potential for decoupling
+#include "ComputeNonbondedAlch.h"
 
 /* ********************************** */
 /* vdW energy, force and dU/dl for TI */
 /* ********************************** */
 inline void ti_vdw_force_energy_dUdl (BigReal A, BigReal B, BigReal r2, 
-  BigReal myVdwShift, BigReal switchdist2, BigReal cutoff2, 
-  BigReal myVdwLambda, BigReal alchVdwShiftCoeff, BigReal switchfactor, 
-  Bool vdwForceSwitching, BigReal* alch_vdw_energy, BigReal* alch_vdw_force,
-  BigReal* alch_vdw_dUdl) {
-  //myVdwShift already multplied by relevant (1-vdwLambda)
-  const BigReal r2_1 = 1./(r2 + myVdwShift);
-  const BigReal r6_1 = r2_1*r2_1*r2_1;
-    
-  // switching function (this is correct whether switching is active or not)
-  const BigReal switchmul = (r2 > switchdist2 ? switchfactor*(cutoff2 - r2) \
-			     *(cutoff2 - r2) \
-			     *(cutoff2 - 3.*switchdist2 + 2.*r2) : 1.);
-  const BigReal switchmul2 = (r2 > switchdist2 ?                      \
-                              12.*switchfactor*(cutoff2 - r2)       \
-                              *(r2 - switchdist2) : 0.);
-
-  // separation-shifted vdW force and energy
-  const BigReal U = A*r6_1*r6_1 - B*r6_1; // NB: unscaled! for shorthand only!
-  *alch_vdw_energy = myVdwLambda*switchmul*U;
-  *alch_vdw_force = (myVdwLambda*(switchmul*(12.*U + 6.*B*r6_1)*r2_1 \
-                                  + switchmul2*U));
-  *alch_vdw_dUdl = (switchmul*(U + myVdwLambda*alchVdwShiftCoeff \
-                                   *(6.*U + 3.*B*r6_1)*r2_1));
-
-  // BKR - separation-shifted vdW force switching and potential shifting
-  if(vdwForceSwitching){ // add potential shifts and additional dU/dl terms
-    const BigReal cutoff6 = cutoff2*cutoff2*cutoff2;
-    const BigReal cutoff3 = cutoff2*sqrt(cutoff2);
-    const BigReal shifted_switchdist2 = switchdist2 + myVdwShift;
-    const BigReal shifted_switchdist = sqrt(shifted_switchdist2);
-    const BigReal shifted_switchdist6 = \
-        shifted_switchdist2*shifted_switchdist2*shifted_switchdist2;
-    const BigReal shifted_switchdist3 = shifted_switchdist2*shifted_switchdist;
-
-    if(r2 > switchdist2) {
-      const BigReal k_vdwa = A*cutoff6 / (cutoff6 - shifted_switchdist6);
-      const BigReal k_vdwb = B*cutoff3 / (cutoff3 - shifted_switchdist3);
-      const BigReal tmpa = r6_1 - (1./cutoff6);
-      const BigReal r_1 = sqrt(r2_1);
-      const BigReal tmpb = r2_1*r_1 - (1./cutoff3);
-      const BigReal Uh = k_vdwa*tmpa*tmpa - k_vdwb*tmpb*tmpb;
-      *alch_vdw_energy = myVdwLambda*Uh;
-      *alch_vdw_force = (myVdwLambda*r2_1*(12.*k_vdwa*tmpa*r6_1
-                                           - 6.*k_vdwb*tmpb*r2_1*r_1));
-      *alch_vdw_dUdl = (Uh + alchVdwShiftCoeff*myVdwLambda*r2_1 \
-                        *(6.*k_vdwa*tmpa*r6_1                   \
-                          - 3.*k_vdwb*tmpb*r2_1*r_1));
-    }else{
-      const BigReal v_vdwa = -A / (cutoff6*shifted_switchdist6);
-      const BigReal v_vdwb = -B / (cutoff3*shifted_switchdist3);
-      const BigReal dU = v_vdwa - v_vdwb; //deltaV2 from Steinbach & Brooks
-
-      *alch_vdw_energy += myVdwLambda*dU;
-      *alch_vdw_dUdl += dU;
+    BigReal myVdwShift, BigReal switchdist2, BigReal cutoff2,
+    BigReal switchfactor, Bool vdwForceSwitching, BigReal myVdwLambda,
+    BigReal alchVdwShiftCoeff, Bool alchWCAOn, BigReal myRepLambda,
+    BigReal* alch_vdw_energy, BigReal* alch_vdw_force,
+    BigReal* alch_vdw_dUdl) {
+  BigReal U, F, dU, switchmul, switchmul2;
+  /*
+   * The variable naming here is unavoidably awful. A number immediately after
+   * a variable implies a distance to that power. The suffix "_2" indicates an
+   * evaluation at alchLambda2. The prefix "inv" means the inverse (previously
+   * this also used underscores - it was awful).
+   */
+  if (alchWCAOn) {
+    // WCA-on, auxilliary, lambda-dependent cutoff based on Rmin
+    //
+    // Avoid divide by zero - correctly zeroes interaction below.
+    const BigReal Rmin2 = (B <= 0.0 ? 0.0 : powf(2.0*A/B, 1.f/3));
+    if (myRepLambda < 1.0) {
+      // modified repulsive soft-core
+      // All of the scaling is baked into the shift and cutoff values. There
+      // are no linear coupling terms out front.
+      const BigReal WCAshift = Rmin2*(1 - myRepLambda)*(1 - myRepLambda);
+      if (r2 <= Rmin2 - WCAshift) {
+        const BigReal epsilon = B*B/(4.0*A);
+        vdw_forceandenergy(A, B, r2 + WCAshift, &U, &F);
+        *alch_vdw_energy = U + epsilon;
+        *alch_vdw_force = F;
+        *alch_vdw_dUdl = Rmin2*(1 - myRepLambda)*F;
+      } else {
+        *alch_vdw_energy = 0.0;
+        *alch_vdw_force = 0.0;
+        *alch_vdw_dUdl = 0.0;
+      }
+    } else { // myRepLambda == 1.0
+      if (vdwForceSwitching) {
+        // force and potential switching
+        if (r2 <= Rmin2) {
+          // normal LJ, potential w/two shifts 
+          const BigReal epsilon = B*B/(4.0*A); 
+          vdw_fswitch_shift(A, B, switchdist2, cutoff2, &dU);
+          vdw_forceandenergy(A, B, r2, &U, &F);
+          *alch_vdw_energy = U + (1 - myVdwLambda)*epsilon + myVdwLambda*dU;
+          *alch_vdw_force = F;
+          *alch_vdw_dUdl = dU - epsilon;
+        } else if (r2 <= switchdist2) {
+          // normal LJ potential w/shift
+          vdw_fswitch_shift(A, B, switchdist2, cutoff2, &dU);
+          vdw_forceandenergy(A, B, r2, &U, &F);
+          *alch_vdw_energy = myVdwLambda*(U + dU);
+          *alch_vdw_force = myVdwLambda*F;
+          *alch_vdw_dUdl = U + dU;
+        } else { // r2 > switchdist
+          // normal LJ potential with linear coupling
+          vdw_fswitch_forceandenergy(A, B, r2, switchdist2, cutoff2, &U, &F);
+          *alch_vdw_energy = myVdwLambda*U;
+          *alch_vdw_force = myVdwLambda*F;
+          *alch_vdw_dUdl = U;
+        }
+      } else {
+        // potential switching - also correct for no switching
+        if (r2 <= Rmin2) {
+          // normal LJ potential w/shift
+          const BigReal epsilon = B*B/(4.0*A);
+          vdw_forceandenergy(A, B, r2, &U, &F);
+          *alch_vdw_energy = U + (1 - myVdwLambda)*epsilon;
+          *alch_vdw_force = F;
+          *alch_vdw_dUdl = -epsilon;
+        } else { // r2 > Rmin2
+          // normal LJ potential with linear coupling
+          vdw_switch(r2, switchdist2, cutoff2, switchfactor, &switchmul, \
+              &switchmul2);
+          vdw_forceandenergy(A, B, r2, &U, &F);
+          *alch_vdw_energy = myVdwLambda*switchmul*U;
+          *alch_vdw_force = myVdwLambda*(switchmul*F + switchmul2*U);
+          *alch_vdw_dUdl = switchmul*U;
+        }
+      }
+    }
+  } else { // WCA-off
+    if (vdwForceSwitching) {
+      // force and potential switching
+      if (r2 <= switchdist2) {
+        // normal LJ potential w/shift
+        vdw_forceandenergy(A, B, r2 + myVdwShift, &U, &F);
+        vdw_fswitch_shift(A, B, switchdist2 + myVdwShift, cutoff2, &dU);
+        *alch_vdw_energy = myVdwLambda*(U + dU);
+        *alch_vdw_force = myVdwLambda*F;
+        *alch_vdw_dUdl = U + 0.5*myVdwLambda*alchVdwShiftCoeff*F + dU;
+      } else { // r2 > switchdist2
+        vdw_fswitch_forceandenergy(A, B, r2 + myVdwShift, \
+            switchdist2 + myVdwShift, cutoff2, &U, &F);
+        *alch_vdw_energy = myVdwLambda*U;
+        *alch_vdw_force = myVdwLambda*F;
+        *alch_vdw_dUdl = U + 0.5*myVdwLambda*alchVdwShiftCoeff*F;
+      }
+    } else {
+      // potential switching - also correct for no switching
+      vdw_switch(r2, switchdist2, cutoff2, switchfactor, &switchmul, \
+          &switchmul2);
+      vdw_forceandenergy(A, B, r2 + myVdwShift, &U, &F);
+      *alch_vdw_energy = myVdwLambda*switchmul*U;
+      *alch_vdw_force = myVdwLambda*(switchmul*F + switchmul2*U);
+      *alch_vdw_dUdl = switchmul*(U + 0.5*myVdwLambda*alchVdwShiftCoeff*F);
     }
   }
 }

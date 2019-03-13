@@ -3022,7 +3022,6 @@ void Controller::printEnergies(int step, int minimize)
       bondedEnergyDiff_f = reduction->item(REDUCTION_BONDED_ENERGY_F);
       electEnergy_f = reduction->item(REDUCTION_ELECT_ENERGY_F);
       ljEnergy_f = reduction->item(REDUCTION_LJ_ENERGY_F);
-      ljEnergy_f_left = reduction->item(REDUCTION_LJ_ENERGY_F_LEFT);
 
       bondedEnergy_ti_1 = reduction->item(REDUCTION_BONDED_ENERGY_TI_1);
       electEnergy_ti_1 = reduction->item(REDUCTION_ELECT_ENERGY_TI_1);
@@ -3613,53 +3612,50 @@ void Controller::enqueueCollections(int timestep)
 
 //Modifications for alchemical fep
 void Controller::outputFepEnergy(int step) {
- if (simParams->alchOn && simParams->alchFepOn) {
-  const int stepInRun = step - simParams->firstTimestep;
-  const int alchEquilSteps = simParams->alchEquilSteps;
-  const BigReal alchLambda = simParams->alchLambda;
-  const bool alchEnsembleAvg = simParams->alchEnsembleAvg; 
-  const bool FepWhamOn = simParams->alchFepWhamOn;
+  if (simParams->alchOn && simParams->alchFepOn) {
+    const int stepInRun = step - simParams->firstTimestep;
+    const int alchEquilSteps = simParams->alchEquilSteps;
+    const BigReal alchLambda = simParams->alchLambda;
+    const bool alchEnsembleAvg = simParams->alchEnsembleAvg;
 
-  if (alchEnsembleAvg && (stepInRun == 0 || stepInRun == alchEquilSteps)) {
-    FepNo = 0;
-    exp_dE_ByRT = 0.0;
-    net_dE = 0.0;
-  }
-  dE = bondedEnergyDiff_f + electEnergy_f + electEnergySlow_f + ljEnergy_f -
-       electEnergy - electEnergySlow - ljEnergy;
-  BigReal RT = BOLTZMANN * simParams->alchTemp;
+    if (alchEnsembleAvg && (stepInRun == 0 || stepInRun == alchEquilSteps)) {
+      FepNo = 0;
+      exp_dE_ByRT = 0.0;
+      net_dE = 0.0;
+    }
+    dE = bondedEnergyDiff_f + electEnergy_f + electEnergySlow_f + ljEnergy_f -
+         electEnergy - electEnergySlow - ljEnergy;
+    BigReal RT = BOLTZMANN * simParams->alchTemp;
 
-  if (alchEnsembleAvg && (simParams->alchLambdaIDWS < 0. || (step / simParams->alchIDWSFreq) % 2 == 1 )){
-    // with IDWS, only accumulate stats on those timesteps where target lambda is "forward"
-    FepNo++;
-    exp_dE_ByRT += exp(-dE/RT);
-    net_dE += dE;
-  }
+    if (alchEnsembleAvg && (simParams->alchLambdaIDWS < 0. ||
+        (step / simParams->alchIDWSFreq) % 2 == 1 )) {
+      // with IDWS, only accumulate stats on those timesteps where target lambda is "forward"
+      FepNo++;
+      exp_dE_ByRT += exp(-dE/RT);
+      net_dE += dE;
+    }
 
-  if (simParams->alchOutFreq) { 
-    if (stepInRun == 0) {
-      if (!fepFile.is_open()) {
-        NAMD_backup_file(simParams->alchOutFile);
-        fepFile.open(simParams->alchOutFile);
-        iout << "OPENING FEP ENERGY OUTPUT FILE\n" << endi;
-        if(alchEnsembleAvg){
-          fepSum = 0.0;
-          fepFile << "#            STEP                 Elec                            "
-                  << "vdW                    dE           dE_avg         Temp             dG\n"
-                  << "#                           l             l+dl      "
-                  << "       l            l+dl         E(l+dl)-E(l)" << std::endl;
-        }
-        else{
-          if(!FepWhamOn){ 
+    if (simParams->alchOutFreq) {
+      if (stepInRun == 0) {
+        if (!fepFile.is_open()) {
+          NAMD_backup_file(simParams->alchOutFile);
+          fepFile.open(simParams->alchOutFile);
+          iout << "OPENING FEP ENERGY OUTPUT FILE\n" << endi;
+          if(alchEnsembleAvg){
+            fepSum = 0.0;
+            fepFile << "#            STEP                 Elec                            "
+                    << "vdW                    dE           dE_avg         Temp             dG\n"
+                    << "#                           l             l+dl      "
+                    << "       l            l+dl         E(l+dl)-E(l)" << std::endl;
+          }
+          else{
             fepFile << "#            STEP                 Elec                            "
                     << "vdW                    dE         Temp\n"
                     << "#                           l             l+dl      "
                     << "       l            l+dl         E(l+dl)-E(l)" << std::endl;
-          } 
+          }
         }
-      }
-      if(!step){
-        if(!FepWhamOn){
+        if(!step){
           fepFile << "#NEW FEP WINDOW: "
                   << "LAMBDA SET TO " << alchLambda << " LAMBDA2 " 
                   << simParams->alchLambda2;
@@ -3669,25 +3665,24 @@ void Controller::outputFepEnergy(int step) {
           fepFile << std::endl;
         }
       }
-    }
-    if ((alchEquilSteps) && (stepInRun == alchEquilSteps)) {
-      fepFile << "#" << alchEquilSteps << " STEPS OF EQUILIBRATION AT "
-              << "LAMBDA " << simParams->alchLambda << " COMPLETED\n"
-              << "#STARTING COLLECTION OF ENSEMBLE AVERAGE" << std::endl;
-    }
-    if ((simParams->N) && ((step%simParams->alchOutFreq) == 0)) {
-      writeFepEnergyData(step, fepFile);
-      fepFile.flush();
-    }
-    if (alchEnsembleAvg && (step == simParams->N)) {
-      fepSum = fepSum + dG;
-      fepFile << "#Free energy change for lambda window [ " << alchLambda
-              << " " << simParams->alchLambda2 << " ] is " << dG 
-              << " ; net change until now is " << fepSum << std::endl;
-      fepFile.flush();
+      if ((alchEquilSteps) && (stepInRun == alchEquilSteps)) {
+        fepFile << "#" << alchEquilSteps << " STEPS OF EQUILIBRATION AT "
+                << "LAMBDA " << simParams->alchLambda << " COMPLETED\n"
+                << "#STARTING COLLECTION OF ENSEMBLE AVERAGE" << std::endl;
+      }
+      if ((simParams->N) && ((step%simParams->alchOutFreq) == 0)) {
+        writeFepEnergyData(step, fepFile);
+        fepFile.flush();
+      }
+      if (alchEnsembleAvg && (step == simParams->N)) {
+        fepSum = fepSum + dG;
+        fepFile << "#Free energy change for lambda window [ " << alchLambda
+                << " " << simParams->alchLambda2 << " ] is " << dG
+                << " ; net change until now is " << fepSum << std::endl;
+        fepFile.flush();
+      }
     }
   }
- }
 }
 
 void Controller::outputTiEnergy(int step) {
@@ -3851,81 +3846,36 @@ BigReal Controller::computeAlchWork(const int step) {
 void Controller::writeFepEnergyData(int step, ofstream_namd &file) {
   BigReal eeng = electEnergy + electEnergySlow;
   BigReal eeng_f = electEnergy_f + electEnergySlow_f;
-  BigReal dE_Left = eeng_f + ljEnergy_f_left - eeng - ljEnergy;
   BigReal RT = BOLTZMANN * simParams->alchTemp;
 
   const bool alchEnsembleAvg = simParams->alchEnsembleAvg;
   const int stepInRun = step - simParams->firstTimestep;
-  const bool FepWhamOn = simParams->alchFepWhamOn;
-  const bool WCARepuOn = simParams->alchFepWCARepuOn;
-  const BigReal WCArcut1 = simParams->alchFepWCArcut1;
-  const BigReal WCArcut2 = simParams->alchFepWCArcut2;
-  const BigReal WCArcut3 = simParams->alchFepWCArcut3;
   const BigReal alchLambda = simParams->alchLambda;
-	
-  const BigReal alchRepLambda = simParams->alchRepLambda;
-  const BigReal alchDispLambda = simParams->alchDispLambda;
-  const BigReal alchElecLambda = simParams->alchElecLambda;
 
   if(stepInRun){
-    if(!FepWhamOn){
-      if ( simParams->alchLambdaIDWS >= 0. && (step / simParams->alchIDWSFreq) % 2 == 0 ) {
-        // IDWS is active and we are on a "backward" timestep
-        fepFile << FEPTITLE_BACK(step);
-      } else {
-        // "forward" timestep
-        fepFile << FEPTITLE(step);
-      }
-      fepFile << FORMAT(eeng);
-      fepFile << FORMAT(eeng_f);
-      fepFile << FORMAT(ljEnergy);
-      fepFile << FORMAT(ljEnergy_f);
+    if ( simParams->alchLambdaIDWS >= 0. &&
+        (step / simParams->alchIDWSFreq) % 2 == 0 ) {
+      // IDWS is active and we are on a "backward" timestep
+      fepFile << FEPTITLE_BACK(step);
+    } else {
+      // "forward" timestep
+      fepFile << FEPTITLE(step);
     }
-    else{ // FepWhamOn = ON
-      if(WCARepuOn){
-        if(WCArcut1<WCArcut2) { // [s1,s2]
-          fepFile << "FEP_WCA_REP  ";
-          fepFile << FORMAT(WCArcut1);
-          fepFile << FORMAT(WCArcut2);
-          fepFile << FORMAT(1.0);
-          fepFile << FORMAT(dE_Left);
-        }
-        if(WCArcut2<WCArcut3) { // [s2,s3]
-          if(WCArcut1<WCArcut2) fepFile << " BREAK ";
-          fepFile << "FEP_WCA_REP  ";
-          fepFile << FORMAT(WCArcut2);
-          fepFile << FORMAT(WCArcut3);
-          fepFile << FORMAT(0.0);
-          fepFile << FORMAT(dE);
-        }
-        fepFile << std::endl;
-      }
-      else if(simParams->alchFepWCADispOn) {
-        fepFile << "FEP_WCA_DISP ";
-        fepFile << FORMAT(alchDispLambda);
-      }
-      else if(simParams->alchFepElecOn)	{
-        fepFile << "FEP_ELEC     ";
-        fepFile << FORMAT(alchElecLambda);
-      }
-    }
-    if( ! WCARepuOn ) {
-      fepFile << FORMAT(dE);
-    }
+    fepFile << FORMAT(eeng);
+    fepFile << FORMAT(eeng_f);
+    fepFile << FORMAT(ljEnergy);
+    fepFile << FORMAT(ljEnergy_f);
+    fepFile << FORMAT(dE);
     if(alchEnsembleAvg){
-      BigReal dE_avg = net_dE/FepNo;
+      BigReal dE_avg = net_dE / FepNo;
       fepFile << FORMAT(dE_avg);
     }
-    if(!FepWhamOn){
-      fepFile << FORMAT(temperature);
-    }
+    fepFile << FORMAT(temperature);
     if(alchEnsembleAvg){
-      dG = -(RT * log(exp_dE_ByRT/FepNo));
+      dG = -(RT * log(exp_dE_ByRT / FepNo));
       fepFile << FORMAT(dG);
-    } 
-    if( ! WCARepuOn ) {
-      fepFile << std::endl;
     }
+    fepFile << std::endl;
   }
 }
 

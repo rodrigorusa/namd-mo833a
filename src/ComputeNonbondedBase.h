@@ -294,7 +294,7 @@ void ComputeNonbondedUtil :: NAME
 
   FEP
   (
-  ENERGY( BigReal vdwEnergy_s = 0; BigReal vdwEnergy_s_Left = 0; )
+  ENERGY( BigReal vdwEnergy_s = 0; )
   SHORT
   (
   ENERGY( BigReal electEnergy_s = 0; )
@@ -380,16 +380,11 @@ void ComputeNonbondedUtil :: NAME
   ALCH(
     const BigReal switchdist2 = ComputeNonbondedUtil::switchOn2;
     const BigReal cutoff2 = ComputeNonbondedUtil::cutoff2;
-    const BigReal switchfactor = 1./((cutoff2 - switchdist2)*(cutoff2 - switchdist2)*(cutoff2 - switchdist2));
+    const BigReal diff = cutoff2 - switchdist2;
+    const BigReal switchfactor = 1./(diff*diff*diff);
     const BigReal alchVdwShiftCoeff = ComputeNonbondedUtil::alchVdwShiftCoeff;
+    const Bool alchWCAOn = ComputeNonbondedUtil::alchWCAOn;
     const Bool vdwForceSwitching = ComputeNonbondedUtil::vdwForceSwitching;
-    const Bool Fep_WCA_repuOn = ComputeNonbondedUtil::Fep_WCA_repuOn;
-    const Bool Fep_WCA_dispOn = ComputeNonbondedUtil::Fep_WCA_dispOn;
-    const Bool Fep_ElecOn = ComputeNonbondedUtil::Fep_ElecOn;
-    const Bool Fep_Wham = ComputeNonbondedUtil::Fep_Wham;
-    const BigReal WCA_rcut1 = ComputeNonbondedUtil::WCA_rcut1;
-    const BigReal WCA_rcut2 = ComputeNonbondedUtil::WCA_rcut2;
-    const BigReal WCA_rcut3 = ComputeNonbondedUtil::WCA_rcut3;
 
     /* BKR - Enable dynamic lambda by passing the timestep to simParams.
        The SimParameters object now has all knowledge of the lambda schedule
@@ -402,53 +397,25 @@ void ComputeNonbondedUtil :: NAME
     BigReal lambdaUp = alchLambda; // needed in ComputeNonbondedBase2.h!
     BigReal elecLambdaUp = simParams->getElecLambda(lambdaUp);
     BigReal vdwLambdaUp = simParams->getVdwLambda(lambdaUp);
+    BigReal repLambdaUp = simParams->getRepLambda(lambdaUp);
     BigReal vdwShiftUp = alchVdwShiftCoeff*(1 - vdwLambdaUp);
     FEP(BigReal lambda2Up = simParams->getCurrentLambda2(params->step);)
     FEP(BigReal elecLambda2Up = simParams->getElecLambda(lambda2Up);)
     FEP(BigReal vdwLambda2Up = simParams->getVdwLambda(lambda2Up);)
+    FEP(BigReal repLambda2Up = simParams->getRepLambda(lambda2Up);)
     FEP(BigReal vdwShift2Up = alchVdwShiftCoeff*(1 - vdwLambda2Up);)
 
-    FEP( if( (Fep_Wham) && (Fep_WCA_repuOn) ) {
-    	elecLambdaUp=0.0; 
-    	vdwLambdaUp=ComputeNonbondedUtil::alchRepLambda;
-    })
-    FEP( if( (Fep_Wham) && (Fep_WCA_dispOn) ) {
-    	elecLambdaUp=0.0; 
-    	vdwLambdaUp=ComputeNonbondedUtil::alchDispLambda;
-    })
-    FEP( if( (Fep_Wham) && (Fep_ElecOn) ) {
-    	elecLambdaUp=ComputeNonbondedUtil::alchElecLambda; 
-    	vdwLambdaUp=1.0;
-    	vdwLambda2Up=1.0;
-	vdwShiftUp = 0.0;
-	vdwShift2Up = 0.0;
-    })
-        
     /*lambda values 'down' are for atoms scaled down with lambda (partition 2)*/
     BigReal lambdaDown = 1 - alchLambda; // needed in ComputeNonbondedBase2.h!
     BigReal elecLambdaDown = simParams->getElecLambda(lambdaDown);
     BigReal vdwLambdaDown = simParams->getVdwLambda(lambdaDown);
+    BigReal repLambdaDown = simParams->getRepLambda(lambdaDown);
     BigReal vdwShiftDown = alchVdwShiftCoeff*(1 - vdwLambdaDown);
     FEP(BigReal lambda2Down = 1 - simParams->getCurrentLambda2(params->step);)
     FEP(BigReal elecLambda2Down = simParams->getElecLambda(lambda2Down);)
     FEP(BigReal vdwLambda2Down = simParams->getVdwLambda(lambda2Down);)
+    FEP(BigReal repLambda2Down = simParams->getRepLambda(lambda2Down);)
     FEP(BigReal vdwShift2Down = alchVdwShiftCoeff*(1 - vdwLambda2Down);)
-
-    FEP( if( (Fep_Wham) && (Fep_WCA_repuOn) ) {
-    	elecLambdaDown=0.0; 
-    	vdwLambdaDown = 1.0 - ComputeNonbondedUtil::alchRepLambda;
-    })
-    FEP( if( (Fep_Wham) && (Fep_WCA_dispOn) ) {
-    	elecLambdaDown=0.0; 
-    	vdwLambdaDown = 1.0 - ComputeNonbondedUtil::alchDispLambda;
-    })
-    FEP( if( (Fep_Wham) && (Fep_ElecOn) ) {
-    	elecLambdaDown = 1.0 - ComputeNonbondedUtil::alchElecLambda; 
-    	vdwLambdaDown = 1.0;
-    	vdwLambda2Down = 1.0;
-	vdwShiftDown = 0.0;
-	vdwShift2Down = 0.0;
-    })
   
   // Thermodynamic Integration Notes: 
   // Separation of atom pairs into different pairlist according to lambda
@@ -2038,9 +2005,10 @@ void ComputeNonbondedUtil :: NAME
     BigReal myLambda; FEP(BigReal myLambda2;)
     BigReal myElecLambda;  FEP(BigReal myElecLambda2;)
     BigReal myVdwLambda; FEP(BigReal myVdwLambda2;)
+    BigReal myRepLambda; FEP(BigReal myRepLambda2;)
     BigReal myVdwShift; FEP(BigReal myVdwShift2;)
     BigReal alch_vdw_energy; BigReal alch_vdw_force;
-    FEP(BigReal alch_vdw_energy_2; BigReal alch_vdw_energy_2_Left;) TI(BigReal alch_vdw_dUdl;)
+    FEP(BigReal alch_vdw_energy_2; ) TI(BigReal alch_vdw_dUdl;)
     BigReal shiftedElec; BigReal shiftedElecForce;
     
     /********************************************************************/
@@ -2267,7 +2235,6 @@ PAIR(
     TI(reduction[vdwEnergyIndex_ti_1] += vdwEnergy_ti_1;) 
     TI(reduction[vdwEnergyIndex_ti_2] += vdwEnergy_ti_2;) 
     FEP( reduction[vdwEnergyIndex_s] += vdwEnergy_s; )
-    FEP( reduction[vdwEnergyIndex_s_Left] += vdwEnergy_s_Left; )
   SHORT
   (
     FEP( reduction[electEnergyIndex_s] += electEnergy_s; )
