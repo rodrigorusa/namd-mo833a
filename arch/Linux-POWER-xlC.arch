@@ -4,13 +4,9 @@ NAMD_ARCH = Linux-POWER
 CHARMARCH = pami-linux-ppc64le-smp
 
 CXX = xlC_r -w -std=c++11
-
-# Originally, these had -qfloat=rsqrt:fltint and CXXTHREADOPTS had -O3 -qhot,
-# but they were removed because they cause a CthThread crash with xlC on Summit
-CXXOPTS = -O3 -qhot -qaggrcopy=nooverlap -qalias=ansi -qarch=auto -qtune=auto -qfloat=rsqrt -DARCH_POWERPC
-CXXNOALIASOPTS = -O3 -qaggrcopy=nooverlap -qalias=noallptrs -qarch=auto -qtune=auto -qfloat=rsqrt -DARCH_POWERPC
-CXXTHREADOPTS = -O0 -qstrict -qaggrcopy=nooverlap -qalias=ansi -qarch=auto -qtune=auto -qfloat=rsqrt -DARCH_POWERPC
-
+CXXOPTS = -O3 -qhot -qaggrcopy=nooverlap -qalias=ansi -qarch=auto -qtune=auto -qfloat=rsqrt:fltint -DARCH_POWERPC
+CXXNOALIASOPTS = -O3 -qaggrcopy=nooverlap -qalias=noallptrs -qarch=auto -qtune=auto -qfloat=rsqrt:fltint -DARCH_POWERPC
+CXXTHREADOPTS = -O3 -qhot -qstrict -qaggrcopy=nooverlap -qalias=ansi -qarch=auto -qtune=auto -qfloat=rsqrt:fltint -DARCH_POWERPC
 CC = xlc_r -w
 COPTS = -O4 -qarch=auto -qtune=auto
 
