@@ -1362,9 +1362,7 @@ void Node::enableEarlyExit(void) {
 }
 
 void Node::earlyExit(void) {
-  iout << iERROR << "Exiting prematurely; see error messages above.\n" << endi;
-  if ( CmiNumPartitions() > 1 ) NAMD_quit("Exiting prematurely; see error messages above.");
-  BackEnd::exit();
+  NAMD_die("Exiting prematurely; see error messages above.");
 }
 
 
