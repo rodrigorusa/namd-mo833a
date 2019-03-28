@@ -1929,7 +1929,7 @@ int HomePatch::hardWallDrude(const BigReal timestep, Tensor *virial,
     r_wall_SQ = r_wall*r_wall;
     // Count++;
     for (i=1; i<numAtoms; i++)	{
-      if ( (atom[i].mass > 0.01) && ((atom[i].mass < 1.0)) ) { // drude particle
+      if ( (0.05 < atom[i].mass) && ((atom[i].mass < 1.0)) ) { // drude particle
         ia = i-1;
         ib = i;
 

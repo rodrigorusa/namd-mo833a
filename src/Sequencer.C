@@ -748,7 +748,7 @@ void Sequencer::newMinimizeDirection(BigReal c) {
   for ( int i = 0; i < numAtoms; ++i ) {
     a[i].velocity *= c;
     a[i].velocity += f1[i];
-    if ( drudeHardWallOn && i && (a[i].mass > 0.01) && ((a[i].mass < 1.0)) ) { // drude particle
+    if ( drudeHardWallOn && i && (0.05 < a[i].mass) && ((a[i].mass < 1.0)) ) { // drude particle
       a[i].velocity = a[i-1].velocity;
     }
     if ( fixedAtomsOn && a[i].atomFixed ) a[i].velocity = 0;
@@ -760,10 +760,10 @@ void Sequencer::newMinimizeDirection(BigReal c) {
 
   maxv2 = 0.;
   for ( int i = 0; i < numAtoms; ++i ) {
-    if ( drudeHardWallOn && i && (a[i].mass > 0.01) && ((a[i].mass < 1.0)) ) { // drude particle
+    if ( drudeHardWallOn && i && (0.05 < a[i].mass) && ((a[i].mass < 1.0)) ) { // drude particle
       a[i].velocity = a[i-1].velocity;
-      if ( fixedAtomsOn && a[i].atomFixed ) a[i].velocity = 0;
     }
+    if ( fixedAtomsOn && a[i].atomFixed ) a[i].velocity = 0;
     BigReal v2 = a[i].velocity.length2();
     if ( v2 > maxv2 ) maxv2 = v2;
   }
@@ -806,7 +806,7 @@ void Sequencer::newMinimizePosition(BigReal c) {
 
   if ( simParams->drudeHardWallOn ) {
     for ( int i = 1; i < numAtoms; ++i ) {
-      if ( (a[i].mass > 0.01) && ((a[i].mass < 1.0)) ) { // drude particle
+      if ( (0.05 < a[i].mass) && ((a[i].mass < 1.0)) ) { // drude particle
         a[i].position -= a[i-1].position;
       }
     }
@@ -816,7 +816,7 @@ void Sequencer::newMinimizePosition(BigReal c) {
 
   if ( simParams->drudeHardWallOn ) {
     for ( int i = 1; i < numAtoms; ++i ) {
-      if ( (a[i].mass > 0.01) && ((a[i].mass < 1.0)) ) { // drude particle
+      if ( (0.05 < a[i].mass) && ((a[i].mass < 1.0)) ) { // drude particle
         a[i].position += a[i-1].position;
       }
     }
@@ -1208,7 +1208,7 @@ void Sequencer::langevinVelocitiesBBK1(BigReal dt_fs)
       for (i = 0;  i < numAtoms;  i++) {
 
         if (i < numAtoms-1 &&
-            a[i+1].mass < 1.0 && a[i+1].mass >= 0.001) {
+            a[i+1].mass < 1.0 && a[i+1].mass > 0.05) {
           //printf("*** Found Drude particle %d\n", a[i+1].id);
           // i+1 is a Drude particle with parent i
 
@@ -1295,7 +1295,7 @@ void Sequencer::langevinVelocitiesBBK2(BigReal dt_fs)
       for (i = 0;  i < numAtoms;  i++) {
 
         if (i < numAtoms-1 &&
-            a[i+1].mass < 1.0 && a[i+1].mass >= 0.001) {
+            a[i+1].mass < 1.0 && a[i+1].mass > 0.05) {
           //printf("*** Found Drude particle %d\n", a[i+1].id);
           // i+1 is a Drude particle with parent i
 
@@ -1637,7 +1637,7 @@ void Sequencer::reinitVelocities(void)
           a[i].mass <= 0.) ? Vector(0,0,0) :
         sqrt(kbT * (a[i].partition ? tempFactor : 1.0) * a[i].recipMass) * 
         random->gaussian_vector() );
-    if ( simParams->drudeOn && i+1 < numAtoms && a[i+1].mass < 1.0 && a[i+1].mass >= 0.001 ) {
+    if ( simParams->drudeOn && i+1 < numAtoms && a[i+1].mass < 1.0 && a[i+1].mass > 0.05 ) {
       a[i+1].velocity = a[i].velocity;  // zero is good enough
       ++i;
     }
@@ -2105,7 +2105,7 @@ void Sequencer::submitReductions(int step)
 
         for (i = 0;  i < numAtoms;  i++) {
           if (i < numAtoms-1 &&
-              a[i+1].mass < 1.0 && a[i+1].mass >= 0.001) {
+              a[i+1].mass < 1.0 && a[i+1].mass > 0.05) {
             // i+1 is a Drude particle with parent i
 
             // convert from Cartesian coordinates to (COM,bond) coordinates
@@ -2319,7 +2319,7 @@ void Sequencer::submitMinimizeReductions(int step, BigReal fmax2)
 
   for ( int i = 0; i < numAtoms; ++i ) {
     f1[i] += f2[i] + f3[i];  // add all forces
-    if ( drudeHardWallOn && i && (a[i].mass > 0.01) && ((a[i].mass < 1.0)) ) { // drude particle
+    if ( drudeHardWallOn && i && (a[i].mass > 0.05) && ((a[i].mass < 1.0)) ) { // drude particle
       if ( ! fixedAtomsOn || ! a[i].atomFixed ) {
         if ( drudeStep2 * f1[i].length2() > drudeMove2 ) {
           a[i].position += drudeMove * f1[i].unit();
@@ -2361,7 +2361,7 @@ void Sequencer::submitMinimizeReductions(int step, BigReal fmax2)
   int numHuge = 0;
   for ( int i = 0; i < numAtoms; ++i ) {
     if ( simParams->fixedAtomsOn && a[i].atomFixed ) continue;
-    if ( drudeHardWallOn && (a[i].mass > 0.01) && ((a[i].mass < 1.0)) ) continue; // drude particle
+    if ( drudeHardWallOn && (a[i].mass > 0.05) && ((a[i].mass < 1.0)) ) continue; // drude particle
     Force f = f1[i];
     BigReal ff = f * f;
     if ( ff > fmax2 ) {

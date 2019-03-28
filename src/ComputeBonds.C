@@ -89,11 +89,10 @@ void BondElem::computeForce(BondElem *tuples, int ntuple, BigReal *reduction,
     // TODO: Instead flag by mass for Drude particles, otherwise mixing and 
     // matching Drude and alchemical "twin" particles will likely not work as 
     // expected.
-    if(simParams->drudeOn) { // for Drude bonds
+    if( simParams->drudeOn && !simParams->drudeHardWallOn ) { // for Drude bonds
       BigReal drudeBondLen = simParams->drudeBondLen;
       BigReal drudeBondConst = simParams->drudeBondConst;
-      if ( (drudeBondConst > 0) && ( ! simParams->drudeHardWallOn ) &&
-          (r2 > drudeBondLen*drudeBondLen) ) {
+      if ( drudeBondConst > 0 && r2 > drudeBondLen*drudeBondLen ) {
         // add a quartic restraining potential to keep Drude bond short
         BigReal r = sqrt(r2);
         BigReal diff = r - drudeBondLen;
