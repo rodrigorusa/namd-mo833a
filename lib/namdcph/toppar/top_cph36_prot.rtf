@@ -1,13 +1,35 @@
 *> CHARMM36 All-Hydrogen Topology File for Titratable Proteins <
 *>>>>>>>>>>>>>>>>>>>>>>>>>> Jun 2017 <<<<<<<<<<<<<<<<<<<<<<<<<<<
-*This supplements the CHARMM36 force field for making hybrid 
-*residues for single-topology/dual-coordinate simulations.
+* Patches and residues for constant-pH MD in NAMD
 *
 36   1
 
-MASS   131 HD     1.00800 ! polar H dummy
-MASS   132 HCD    1.00800 ! N-ter H dummy
-MASS   140 HSD    1.00800 ! thiol hydrogen dummy
+MASS    -1 H      1.00800 ! polar H
+MASS    -1 HD     1.00800 ! polar H dummy
+MASS    -1 HC     1.00800 ! N-ter H
+MASS    -1 HCD    1.00800 ! N-ter H dummy
+MASS    -1 HR1    1.00800 ! his he1, (+) his HG,HD2
+MASS    -1 HR2    1.00800 ! (+) his HE1
+MASS    -1 HR3    1.00800 ! neutral his HG, HD2
+MASS    -1 HS     1.00800 ! thiol hydrogen
+MASS    -1 HSD    1.00800 ! thiol hydrogen dummy
+MASS    -1 HA2    1.00800 ! alkane, CH2, new LJ params (see toppar_all22_prot_aliphatic_c27.str)
+MASS    -1 CT2   12.01100 ! aliphatic sp3 C for CH2
+MASS    -1 CT2A  12.01100 ! from CT2 (asp, glu, hsp chi1/chi2 fitting)
+MASS    -1 CPH1  12.01100 ! his CG and CD2 carbons
+MASS    -1 CPH2  12.01100 ! his CE1 carbon
+MASS    -1 CC    12.01100 ! carbonyl C, asn,asp,gln,glu,cter,ct2
+MASS    -1 CD    12.01100 ! carbonyl C, pres aspp,glup,ct1
+MASS    -1 NR1   14.00700 ! neutral his protonated ring nitrogen
+MASS    -1 NR2   14.00700 ! neutral his unprotonated ring nitrogen
+MASS    -1 NR3   14.00700 ! charged his ring nitrogen
+MASS    -1 NH2   14.00700 ! amide nitrogen
+MASS    -1 NH3   14.00700 ! ammonium nitrogen
+MASS    -1 OB    15.99900 ! carbonyl oxygen in acetic acid
+MASS    -1 OC    15.99900 ! carboxylate oxygen
+MASS    -1 OH1   15.99900 ! hydroxyl oxygen
+MASS    -1 OS    15.99900 ! ester oxygen
+MASS    -1 S     32.06000 ! sulphur
 
 !==============================================================================
 ! AA sidechain patches
@@ -109,7 +131,7 @@ BOND CB1 CA   CG1 CB1  OD11 CG1
 BOND CB1 HB11 CB1 HB21
 DOUBLE CG1 OD21
 BOND OD11 HD11 OD21 HD21
-IMPR CG1 CB1 OD21 OD11
+IMPR CG1 CB1 OD11 OD21
 IC N    C    *CA  CB1   1.4490 105.6300  122.3300 114.1000  1.5619
 IC N    CA   CB1  CG1   1.4490 111.1000  180.0000 112.6000  1.5218
 IC CG1  CA   *CB1 HB11  1.5218 112.6000  119.2200 109.2300  1.1086
@@ -235,11 +257,11 @@ ATOM OE11 OH1    -0.61 !   |     \\
 ATOM HE11 H       0.44 !   HG21   OE21..HE21
 ATOM OE21 OB     -0.55
 ATOM HE21 HD      0.00
-BOND CG1 CB   CD1 CG1  OE21 CD1
+BOND CG1 CB   CD1 CG1  OE11 CD1
 BOND CG1 HG11 CG1 HG21
-DOUBLE CD1 OE11
+DOUBLE CD1 OE21
 BOND OE11 HE11 OE21 HE21
-IMPR CD1 CG1 OE21 OE11
+IMPR CD1 CG1 OE11 OE21
 IC N    CA   CB   CG1   1.4512 111.0400  180.0000 115.6900  1.5557
 IC CG1  CA   *CB  HB1   1.5557 115.6900  121.2200 108.1600  1.1145
 IC CG1  CA   *CB  HB2   1.5557 115.6900 -123.6500 109.8100  1.1131
@@ -534,6 +556,7 @@ ATOM HB1  HA2     0.09  !   |
 ATOM HB2  HA2     0.09  ! --CB--SG  
 ATOM SG   S      -0.23  !   |     \
 ATOM HG1  HS      0.16  !   HB2    HG1
+IC CA   CB   SG   HG1   1.5584 113.8700  176.9600  97.1500  1.3341
 
 PRES CYSHN        0.00
 GROUP

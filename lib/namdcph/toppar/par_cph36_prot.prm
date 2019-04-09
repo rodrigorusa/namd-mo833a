@@ -1,7 +1,6 @@
 *> CHARMM36 All-Hydrogen Parameter File for Titratable Proteins <<
 *>>>>>>>>>>>>>>>>>>>>>>>>>>> Jun 2017 <<<<<<<<<<<<<<<<<<<<<<<<<<<<
-*This supplements the CHARMM36 force field for making hybrid
-*residues for single-topology/dual-coordinate simulations.
+* Dummy proton parameters for constant-pH MD in NAMD
 *
 
 ATOMS
@@ -62,8 +61,12 @@ CT2  CC   OC   HD       0.8800  2   180.00
 CT2  CC   OC   HD       0.8800  1     0.00
 CT2A CC   OC   HD       0.8800  2   180.00 
 CT2A CC   OC   HD       0.8800  1     0.00
+CT1  CC   OC   HD       0.8800  2   180.00
+CT1  CC   OC   HD       0.8800  1     0.00
+CT1  CD   OB   HD       0.8800  2   180.00
+CT1  CD   OB   HD       0.8800  1     0.00
 OC   CC   OC   HD       0.0000  0   180.00 ! dummy torsions
-OH1  CD   OB   HD       0.0000  0   180.00 
+OH1  CD   OB   HD       0.0000  0   180.00
 ! histidine
 CPH1 CPH1 NR2  HD      12.0000  0   180.00 ! from HSP/TIP3P PMF of HD1/HE2
 CT2  CPH1 NR2  HD       0.0000  0   180.00 ! dummy torsions 
