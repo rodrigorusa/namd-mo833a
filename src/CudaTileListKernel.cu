@@ -197,6 +197,11 @@ __global__ void fillSortKeys(const int numComputes, const int maxTileListLen,
     int minlen = minmax.x;
     int maxlen = minmax.y;
     // minlen, maxlen are in range [1 ... maxTileListLen]
+    // as long as i is in tileListsSrc[].icompute above
+    if ( maxlen < minlen ) {
+      minlen = 1;
+      maxlen = maxTileListLen;
+    }
     unsigned int minKey = sortKeys[i*maxTileListLen + minlen-1];
     unsigned int maxKey = sortKeys[i*maxTileListLen + maxlen-1];
     unsigned int aveKey = (maxKey + minKey)/2;
