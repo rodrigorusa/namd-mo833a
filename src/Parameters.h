@@ -279,9 +279,9 @@ private:
 
 	void skip_stream_read(char *, FILE *);  // skip part of stream file
 
-	void add_bond_param(char *);		//  Add a bond parameter
+	void add_bond_param(const char *, Bool);//  Add a bond parameter
 	struct bond_params *add_to_bond_tree(struct bond_params * , 
-				     struct bond_params *);
+				     struct bond_params *, Bool overwrite);
 
 	void add_angle_param(char *);		//  Add an angle parameter
 	struct angle_params *add_to_angle_tree(struct angle_params * , 
@@ -400,7 +400,7 @@ public:
 
 	//  Signal the parameter object that all of
 	//  the parameter files have been read in
-	void done_reading_files();
+	void done_reading_files(Bool);
 
 	//  Signal the parameter object that the
 	//  structure file has been read in

@@ -569,11 +569,12 @@ public:
   int64 numTotalExclusions; //  Real Total Number of Exclusions // hack
 
   // DRUDE
-  int numLonepairs; // Number of lone pairs
-  int numDrudeAtoms;  // Number of Drude particles
-  int numTholes;  // Number of Thole terms
-  int numAnisos;  // Number of anisotropic terms
-  int numLphosts;  ///< Number of lone pair host records in PSF
+  int numLonepairs;     ///< Number of lone pairs
+  int numDrudeAtoms;    ///< Number of Drude particles
+  int numTholes;        ///< Number of Thole terms
+  int numAnisos;        ///< Number of anisotropic terms
+  int numLphosts;       ///< Number of lone pair host records in PSF
+  int numZeroMassAtoms; ///< Number of atoms with zero mass
   // DRUDE
   
   int numConstraints; //  Number of atoms constrained

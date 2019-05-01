@@ -320,8 +320,6 @@ void Molecule::initialize(SimParameters *simParams, Parameters *param)
   numAngles=0;
   numDihedrals=0;
   numImpropers=0;
-  numTholes=0;
-  numAnisos=0;
   numCrossterms=0;
   // JLai
   numLJPair=0;
@@ -333,8 +331,10 @@ void Molecule::initialize(SimParameters *simParams, Parameters *param)
   // DRUDE
   numLonepairs=0;
   numDrudeAtoms=0;
-  numLphosts=0;
+  numTholes=0;
   numAnisos=0;
+  numLphosts=0;
+  numZeroMassAtoms=0;
   // DRUDE
 
   numConstraints=0;
@@ -1273,6 +1273,27 @@ void Molecule::read_psf_file(char *fname, Parameters *params)
   /*  Close the .psf file.  */
   Fclose(psf_file);
 
+  if (is_drude_psf && numDrudeAtoms) {
+    // Automatically build Drude bonds that were previously ignored.
+    Bond *newbonds = new Bond[numBonds+numDrudeAtoms];
+    memcpy(newbonds, bonds, numBonds*sizeof(Bond));
+    delete [] bonds;
+    bonds = newbonds;
+    int origNumBonds = numBonds;
+    for (i=0; i < numAtoms; i++) {
+      if (!is_drude(i)) continue;
+      Bond *b = &(bonds[numBonds++]);
+      b->atom1 = i-1;
+      b->atom2 = i;
+      params->assign_bond_index(
+          atomNames[i-1].atomtype, atomNames[i].atomtype, b
+      );
+    }
+    if (numBonds-origNumBonds != numDrudeAtoms) {
+      NAMD_die("must have same number of Drude particles and parents");
+    }
+  }
+
   //  analyze the data and find the status of each atom
   numRealBonds = numBonds;
   build_atom_status();
@@ -1351,6 +1372,7 @@ void Molecule::read_atoms(FILE *fd, Parameters *params)
     read_count=sscanf(buffer, "%d %s %s %s %s %s %f %f",
        &atom_number, segment_name, residue_number,
        residue_name, atom_name, atom_type, &charge, &mass);
+    if (mass <= 0.05) ++numZeroMassAtoms;
 
     /*  Check to make sure we found what we were expecting  */
     if (read_count != 8)
@@ -1385,6 +1407,7 @@ void Molecule::read_atoms(FILE *fd, Parameters *params)
       }
       drudeConsts[atom_number-1].alpha = alpha;
       drudeConsts[atom_number-1].thole = thole;
+      if (fabs(alpha) >= 1e-6) ++numDrudeAtoms;
     }
     // DRUDE
 
@@ -1483,6 +1506,9 @@ void Molecule::read_bonds(FILE *fd, Parameters *params)
   register int j;      // Loop counter
   int num_read=0;    // Number of bonds read so far
   int origNumBonds = numBonds;   // number of bonds in file header
+  int numZeroFrcBonds = 0;
+  int numLPBonds = 0;
+  int numDrudeBonds = 0;
 
   /*  Allocate the array to hold the bonds      */
   bonds=new Bond[numBonds];
@@ -1529,23 +1555,34 @@ void Molecule::read_bonds(FILE *fd, Parameters *params)
     /*  Make sure this isn't a fake bond meant for shake in x-plor.  */
     Real k, x0;
     params->get_bond_params(&k,&x0,b->bond_type);
-    if (is_lonepairs_psf) {
-      // need to retain Lonepair bonds for Drude
-      if ( k == 0. && !is_lp(b->atom1) && !is_lp(b->atom2)) --numBonds;
-      else ++num_read;
-    }
-    else {
-      if ( k == 0. ) --numBonds;  // fake bond
-      else ++num_read;  // real bond
-    }
+
+    Bool is_lp_bond = (is_lp(b->atom1) || is_lp(b->atom2));
+    Bool is_drude_bond = (is_drude(b->atom1) || is_drude(b->atom2));
+    numZeroFrcBonds += (k == 0.);
+    numLPBonds += is_lp_bond;
+    numDrudeBonds += is_drude_bond;
+    if (k == 0. || is_lp_bond || is_drude_bond) --numBonds;  // fake bond
+    else ++num_read;  // real bond
   }
 
   /*  Tell user about our subterfuge  */
   if ( numBonds != origNumBonds ) {
-    iout << iWARN << "Ignored " << origNumBonds - numBonds <<
-            " bonds with zero force constants.\n" << endi;
-    iout << iWARN <<
-	"Will get H-H distance in rigid H2O from H-O-H angle.\n" << endi;
+    if (numZeroFrcBonds) {
+      iout << iWARN << "Ignored " << numZeroFrcBonds <<
+          " bonds with zero force constants.\n" <<
+          iWARN << "Will get H-H distance in rigid H2O from H-O-H angle.\n" <<
+          endi;
+    }
+    if (numLPBonds) {
+      iout << iWARN << "Ignored " << numLPBonds <<
+          " bonds with lone pairs.\n" <<
+          iWARN << "Will infer lonepair bonds from LPhost entries.\n" << endi;
+    }
+    if (numDrudeBonds) {
+      iout << iWARN << "Ignored " << numDrudeBonds <<
+          " bonds with Drude particles.\n" <<
+          iWARN << "Will use polarizability to assign Drude bonds.\n" << endi;
+    }
   }
 
   return;
@@ -2363,6 +2400,11 @@ void Molecule::read_lphosts(FILE *fd)
       lphosts[i].dihedral = value3 * (M_PI/180);  // convert to radians
     }
   }
+  // Resize bonds to accommodate the lonepairs.
+  Bond *newbonds = new Bond[numBonds+numLphosts];
+  memcpy(newbonds, bonds, numBonds*sizeof(Bond));
+  delete [] bonds;
+  bonds = newbonds;
   for (i = 0;  i < numLphosts;  i++) {
     // Subtract 1 to get 0-based atom index
     lphosts[i].atom1 = NAMD_read_int(fd, "LPHOSTS")-1;
@@ -2371,6 +2413,11 @@ void Molecule::read_lphosts(FILE *fd)
     // For numhosts==2, set unused atom4 to atom1
     lphosts[i].atom4 = ( lphosts[i].numhosts == 3 ?
         NAMD_read_int(fd, "LPHOSTS")-1 : lphosts[i].atom1 );
+    // Add dummy bond entry for connectivity.
+    Bond *b = &(bonds[numBonds++]);
+    b->atom1 = lphosts[i].atom1;
+    b->atom2 = lphosts[i].atom2;
+    b->bond_type = -1; // dummy index, never used
   }
 }
 /*      END OF FUNCTION read_lphosts    */
@@ -9170,31 +9217,22 @@ void Molecule::build_atom_status(void) {
   int a1, a2, a3;
   int numDrudeWaters = 0;
 
-  // if any atoms have a mass of zero set to 0.001 and warn user
-  int numZeroMassAtoms = 0;
-  for (i=0; i < numAtoms; i++) {
-    if ( atoms[i].mass <= 0. ) {
-      if (simParams->watmodel == WAT_TIP4 || is_lonepairs_psf) {
-        ++numLonepairs;
-      } else {
-        atoms[i].mass = 0.001;
-        ++numZeroMassAtoms;
-      }
-    }
-    else if (atoms[i].mass < 1.) {
-      ++numDrudeAtoms;
-    }
-  }
-  // DRUDE: verify number of LPs
-  if (is_lonepairs_psf && numLonepairs != numLphosts) {
-    NAMD_die("must have same number of LP hosts as lone pairs");
-  }
-  // DRUDE
-  if ( ! CkMyPe() ) {
-    if (simParams->watmodel == WAT_TIP4 || is_lonepairs_psf) {
+  if (simParams->watmodel == WAT_TIP4 || is_lonepairs_psf) {
+    numLonepairs = numZeroMassAtoms; // These MUST be lonepairs.
+    if ( ! CkMyPe() ) {
       iout << iWARN << "CORRECTION OF ZERO MASS ATOMS TURNED OFF "
         "BECAUSE LONE PAIRS ARE USED\n" << endi;
-    } else if ( numZeroMassAtoms ) {
+    }
+    // Compare the number of massless particles against the number of lonepair
+    // entries in the PSF -- these must match.
+    if (numLonepairs != numLphosts) {
+      NAMD_die("must have same number of LP hosts as lone pairs");
+    }
+  } else if (numZeroMassAtoms) {
+    for (i=0; i < numAtoms; i++) {
+      if ( atoms[i].mass < 0.001 ) atoms[i].mass = 0.001;
+    }
+    if ( ! CkMyPe() ) {
       iout << iWARN << "FOUND " << numZeroMassAtoms <<
         " ATOMS WITH ZERO OR NEGATIVE MASSES!  CHANGED TO 0.001\n" << endi;
     }

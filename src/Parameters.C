@@ -295,7 +295,7 @@ Parameters::Parameters(SimParameters *simParams, StringList *f)
       f = f->next;
     } while ( f != NULL );
 
-    done_reading_files();
+    done_reading_files(simParams->drudeOn && paramType == paraCharmm);
   }
 
 }
@@ -457,7 +457,7 @@ void Parameters::read_parameter_file(char *fname)
       /*  on the type of parameter we have    */
       if (strncasecmp(first_word, "bond", 4)==0)
       {
-        add_bond_param(buffer);
+        add_bond_param(buffer, TRUE);
         NumBondParams++;
       }
       else if (strncasecmp(first_word, "angl", 4)==0)
@@ -715,7 +715,7 @@ void Parameters::read_charmm_parameter_file(char *fname)
       /*  I know, this should really be a switch ...  */
       if (par_type == 1)
       {
-        add_bond_param(buffer);
+        add_bond_param(buffer, TRUE);
         NumBondParams++;
       }
       else if (par_type == 2)
@@ -839,7 +839,7 @@ void Parameters::skip_stream_read(char *buf, FILE *fd) {
 /*                  */
 /************************************************************************/
 
-void Parameters::add_bond_param(char *buf)
+void Parameters::add_bond_param(const char *buf, Bool overwrite)
 
 {
   char atom1name[11];    //  Atom type for atom 1
@@ -914,7 +914,7 @@ void Parameters::add_bond_param(char *buf)
 
   /*  Make call to recursive call to actually add the node to the */
   /*  tree              */
-  bondp=add_to_bond_tree(new_node, bondp);
+  bondp=add_to_bond_tree(new_node, bondp, overwrite);
 
   return;
 }
@@ -939,7 +939,7 @@ void Parameters::add_bond_param(char *buf)
 /************************************************************************/
 
 struct bond_params *Parameters::add_to_bond_tree(struct bond_params *new_node,
-             struct bond_params *tree)
+             struct bond_params *tree, Bool overwrite)
 
 {
   int compare_code;  //  Results from strcasecmp
@@ -962,13 +962,14 @@ struct bond_params *Parameters::add_to_bond_tree(struct bond_params *new_node,
     /*  If atom 1 AND atom 2 are the same, we have a duplicate */
     if (compare_code == 0)
     {
+
       /*  We have a duplicate.  So print out a warning*/
       /*  message.  Then assign the new values to the */
       /*  tree and free the new_node      */
       //****** BEGIN CHARMM/XPLOR type changes
       /* we do not care about identical replacement */
       if ((tree->forceconstant != new_node->forceconstant) || 
-          (tree->distance != new_node->distance))
+          (tree->distance != new_node->distance) && overwrite)
       {
         iout << "\n" << iWARN << "DUPLICATE BOND ENTRY FOR "
           << new_node->atom1name << "-"
@@ -995,11 +996,11 @@ struct bond_params *Parameters::add_to_bond_tree(struct bond_params *new_node,
   /*  otherwise add it to the right child        */
   if (compare_code < 0)
   {
-    tree->left = add_to_bond_tree(new_node, tree->left);
+    tree->left = add_to_bond_tree(new_node, tree->left, overwrite);
   }
   else
   {
-    tree->right = add_to_bond_tree(new_node, tree->right);
+    tree->right = add_to_bond_tree(new_node, tree->right, overwrite);
   }
 
   return(tree);
@@ -2955,11 +2956,16 @@ void Parameters::add_to_nbthole_pair_list(struct nbthole_pair_params *new_node)
 /*                  */
 /************************************************************************/
 
-void Parameters::done_reading_files()
+void Parameters::done_reading_files(Bool addDrudeBond)
 
 {
   AllFilesRead = TRUE;
 
+  if (addDrudeBond) {
+    // default definition for Drude bonds if none given
+    NumBondParams++;
+    add_bond_param("X DRUD 500.0 0.0\n", FALSE);
+  }
   //  Allocate space for all of the arrays
   if (NumBondParams)
   {
