@@ -3459,9 +3459,9 @@ Index Parameters::index_vdw(struct vdw_params *tree, Index index)
 /*                  */
 /************************************************************************/
 #ifdef MEM_OPT_VERSION
-void Parameters::assign_vdw_index(char *atomtype, AtomCstInfo *atom_ptr)
+void Parameters::assign_vdw_index(const char *atomtype, AtomCstInfo *atom_ptr)
 #else    
-void Parameters::assign_vdw_index(char *atomtype, Atom *atom_ptr)
+void Parameters::assign_vdw_index(const char *atomtype, Atom *atom_ptr)
 #endif
 {
   struct vdw_params *ptr;    //  Current position in trees
@@ -3749,13 +3749,12 @@ int Parameters::get_vdw_pair_params(Index ind1, Index ind2, Real *A,
 /*                  */
 /************************************************************************/
 
-void Parameters::assign_bond_index(char *atom1, char *atom2, Bond *bond_ptr)
+void Parameters::assign_bond_index(const char *atom1, const char *atom2, Bond *bond_ptr)
 
 {
   struct bond_params *ptr;  //  Current location in tree
   int found=0;      //  Flag 1-> found a match
   int cmp_code;      //  return code from strcasecmp
-  char tmp_name[15];    //  Temporary atom name
 
   /*  Check to make sure the files have all been read    */
   if (!AllFilesRead)
@@ -3767,9 +3766,9 @@ void Parameters::assign_bond_index(char *atom1, char *atom2, Bond *bond_ptr)
   /*  were passed, flip them          */
   if (strcasecmp(atom1, atom2) > 0)
   {
-    strcpy(tmp_name, atom1);
-    strcpy(atom1, atom2);
-    strcpy(atom2, tmp_name);
+    const char *tmp_name = atom1;
+    atom1 = atom2;
+    atom2 = tmp_name;
   }
 
   /*  Start at the top            */
@@ -3846,14 +3845,13 @@ void Parameters::assign_bond_index(char *atom1, char *atom2, Bond *bond_ptr)
 /*                  */
 /************************************************************************/
 
-void Parameters::assign_angle_index(char *atom1, char *atom2, char*atom3,
+void Parameters::assign_angle_index(const char *atom1, const char *atom2, const char*atom3,
           Angle *angle_ptr, int notFoundIndex)
 
 {
   struct angle_params *ptr;  //  Current position in tree
   int comp_val;      //  value from strcasecmp
   int found=0;      //  flag 1->found a match
-  char tmp_name[15];    //  Temporary atom name
 
   /*  Check to make sure the files have all been read    */
   if (!AllFilesRead)
@@ -3865,9 +3863,9 @@ void Parameters::assign_angle_index(char *atom1, char *atom2, char*atom3,
   /*  passed, switch them            */
   if (strcasecmp(atom1, atom3) > 0)
   {
-    strcpy(tmp_name, atom1);
-    strcpy(atom1, atom3);
-    strcpy(atom3, tmp_name);
+    const char *tmp_name = atom1;
+    atom1 = atom3;
+    atom3 = tmp_name;
   }
 
   /*  Start at the top            */
@@ -3949,8 +3947,8 @@ void Parameters::assign_angle_index(char *atom1, char *atom2, char*atom3,
 /*                  */
 /************************************************************************/
 
-void Parameters::assign_dihedral_index(char *atom1, char *atom2, char *atom3,
-        char *atom4, Dihedral *dihedral_ptr,
+void Parameters::assign_dihedral_index(const char *atom1, const char *atom2, const char *atom3,
+        const char *atom4, Dihedral *dihedral_ptr,
         int multiplicity, int notFoundIndex)
 
 {
@@ -4058,8 +4056,8 @@ void Parameters::assign_dihedral_index(char *atom1, char *atom2, char *atom3,
 /*                  */
 /************************************************************************/
 
-void Parameters::assign_improper_index(char *atom1, char *atom2, char *atom3,
-        char *atom4, Improper *improper_ptr,
+void Parameters::assign_improper_index(const char *atom1, const char *atom2, const char *atom3,
+        const char *atom4, Improper *improper_ptr,
         int multiplicity)
 
 {
@@ -4157,9 +4155,9 @@ void Parameters::assign_improper_index(char *atom1, char *atom2, char *atom3,
 /*                  */
 /************************************************************************/
 
-void Parameters::assign_crossterm_index(char *atom1, char *atom2, char *atom3,
-        char *atom4, char *atom5, char *atom6, char *atom7,
-        char *atom8, Crossterm *crossterm_ptr)
+void Parameters::assign_crossterm_index(const char *atom1, const char *atom2, const char *atom3,
+        const char *atom4, const char *atom5, const char *atom6, const char *atom7,
+        const char *atom8, Crossterm *crossterm_ptr)
 {
   struct crossterm_params *ptr;  //  Current position in list
   int found=0;      //  Flag 1->found a match

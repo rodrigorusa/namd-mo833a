@@ -411,24 +411,24 @@ public:
 	//  or bond type can't be found, then the program 
 	//  terminates
     #ifdef MEM_OPT_VERSION
-    void assign_vdw_index(char *, AtomCstInfo *);
+    void assign_vdw_index(const char *, AtomCstInfo *);
     #else
-	void assign_vdw_index(char *, Atom *);	//  Assign a vdw index to
+	void assign_vdw_index(const char *, Atom *);	//  Assign a vdw index to
     #endif
 						//  an atom
-	void assign_bond_index(char *, char *, Bond *); 
+	void assign_bond_index(const char *, const char *, Bond *); 
 						//  Assign a bond index
 						//  to a bond
-	void assign_angle_index(char *, char *, char *, Angle *, int);
+	void assign_angle_index(const char *, const char *, const char *, Angle *, int);
 						//  Assign an angle index
 						//  to an angle
-	void assign_dihedral_index(char *, char*, char*, char *, Dihedral *, int, int);
+	void assign_dihedral_index(const char *, const char*, const char*, const char *, Dihedral *, int, int);
 						//  Assign a dihedral index
 						//  to a dihedral
-	void assign_improper_index(char *, char*, char*, char *, Improper *, int);
+	void assign_improper_index(const char *, const char*, const char*, const char *, Improper *, int);
 						//  Assign an improper index
 						//  to an improper
-	void assign_crossterm_index(char *, char*, char*, char *, char *, char*, char*, char *, Crossterm *);
+	void assign_crossterm_index(const char *, const char*, const char*, const char *, const char *, const char*, const char*, const char *, Crossterm *);
 
 	//  send_parameters is used by the master process to
 	//  communicate the paramters to all the other processors

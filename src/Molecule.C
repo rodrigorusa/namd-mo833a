@@ -1480,8 +1480,6 @@ void Molecule::read_bonds(FILE *fd, Parameters *params)
 
 {
   int atom_nums[2];  // Atom indexes for the bonded atoms
-  char atom1name[11];  // Atom type for atom #1
-  char atom2name[11];  // Atom type for atom #2
   register int j;      // Loop counter
   int num_read=0;    // Number of bonds read so far
   int origNumBonds = numBonds;   // number of bonds in file header
@@ -1516,21 +1514,6 @@ void Molecule::read_bonds(FILE *fd, Parameters *params)
       }
     }
 
-    /*  Get the atom type for the two atoms.  When we query */
-    /*  the parameter object, we need to send the atom type */
-    /*  that is alphabetically first as atom 1.    */
-    if (strcasecmp(atomNames[atom_nums[0]].atomtype, 
-         atomNames[atom_nums[1]].atomtype) < 0)
-    {
-      strcpy(atom1name, atomNames[atom_nums[0]].atomtype);
-      strcpy(atom2name, atomNames[atom_nums[1]].atomtype);
-    }
-    else
-    {
-      strcpy(atom2name, atomNames[atom_nums[0]].atomtype);
-      strcpy(atom1name, atomNames[atom_nums[1]].atomtype);
-    }
-
     /*  Assign the atom indexes to the array element  */
     Bond *b = &(bonds[num_read]);
     b->atom1=atom_nums[0];
@@ -1538,7 +1521,10 @@ void Molecule::read_bonds(FILE *fd, Parameters *params)
 
     /*  Query the parameter object for the constants for    */
     /*  this bond            */
-    params->assign_bond_index(atom1name, atom2name, b);
+    params->assign_bond_index(
+        atomNames[atom_nums[0]].atomtype,
+        atomNames[atom_nums[1]].atomtype,
+        b);
 
     /*  Make sure this isn't a fake bond meant for shake in x-plor.  */
     Real k, x0;
@@ -1586,9 +1572,6 @@ void Molecule::read_angles(FILE *fd, Parameters *params)
 
 {
   int atom_nums[3];  //  Atom numbers for the three atoms
-  char atom1name[11];  //  Atom type for atom 1
-  char atom2name[11];  //  Atom type for atom 2
-  char atom3name[11];  //  Atom type for atom 3
   register int j;      //  Loop counter
   int num_read=0;    //  Number of angles read so far
   int origNumAngles = numAngles;  // Number of angles in file
@@ -1623,25 +1606,6 @@ void Molecule::read_angles(FILE *fd, Parameters *params)
       }
     }
 
-    /*  Place the bond name that is alphabetically first  */
-    /*  in the atom1name.  This is OK since the order of    */
-    /*  atom1 and atom3 are interchangable.  And to search  */
-    /*  the tree of angle parameters, we need the order     */
-    /*  to be predictable.          */
-    if (strcasecmp(atomNames[atom_nums[0]].atomtype, 
-         atomNames[atom_nums[2]].atomtype) < 0)
-    {
-      strcpy(atom1name, atomNames[atom_nums[0]].atomtype);
-      strcpy(atom2name, atomNames[atom_nums[1]].atomtype);
-      strcpy(atom3name, atomNames[atom_nums[2]].atomtype);
-    }
-    else
-    {
-      strcpy(atom1name, atomNames[atom_nums[2]].atomtype);
-      strcpy(atom2name, atomNames[atom_nums[1]].atomtype);
-      strcpy(atom3name, atomNames[atom_nums[0]].atomtype);
-    }
-
     /*  Assign the three atom indices      */
     angles[num_read].atom1=atom_nums[0];
     angles[num_read].atom2=atom_nums[1];
@@ -1649,8 +1613,11 @@ void Molecule::read_angles(FILE *fd, Parameters *params)
 
     /*  Get the constant values for this bond from the  */
     /*  parameter object          */
-    params->assign_angle_index(atom1name, atom2name, 
-       atom3name, &(angles[num_read]), simParams->alchOn ? -1 : 0);
+    params->assign_angle_index(
+      atomNames[atom_nums[0]].atomtype,
+      atomNames[atom_nums[1]].atomtype,
+      atomNames[atom_nums[2]].atomtype,
+      &(angles[num_read]), simParams->alchOn ? -1 : 0);
     if ( angles[num_read].angle_type == -1 ) {
       iout << iWARN << "ALCHEMY MODULE WILL REMOVE ANGLE OR RAISE ERROR\n"
            << endi;
@@ -1693,10 +1660,6 @@ void Molecule::read_dihedrals(FILE *fd, Parameters *params)
 {
   int atom_nums[4];  // The 4 atom indexes
   int last_atom_nums[4];  // Atom numbers from previous bond
-  char atom1name[11];  // Atom type for atom 1
-  char atom2name[11];  // Atom type for atom 2
-  char atom3name[11];  // Atom type for atom 3
-  char atom4name[11];  // Atom type for atom 4
   register int j;      // loop counter
   int num_read=0;    // number of dihedrals read so far
   int multiplicity=1;  // multiplicity of the current bond
@@ -1747,13 +1710,6 @@ void Molecule::read_dihedrals(FILE *fd, Parameters *params)
       last_atom_nums[j] = atom_nums[j];
     }
 
-    /*  Get the atom types for the 4 atoms so we can look  */
-    /*  up the constants in the parameter object    */
-    strcpy(atom1name, atomNames[atom_nums[0]].atomtype);
-    strcpy(atom2name, atomNames[atom_nums[1]].atomtype);
-    strcpy(atom3name, atomNames[atom_nums[2]].atomtype);
-    strcpy(atom4name, atomNames[atom_nums[3]].atomtype);
-
     //  Check to see if this is really a new bond or just
     //  a repeat of the last one
     if (duplicate_bond)
@@ -1779,8 +1735,12 @@ void Molecule::read_dihedrals(FILE *fd, Parameters *params)
     dihedrals[num_unique-1].atom4=atom_nums[3];
 
     /*  Get the constants for this dihedral bond    */
-    params->assign_dihedral_index(atom1name, atom2name, 
-       atom3name, atom4name, &(dihedrals[num_unique-1]),
+    params->assign_dihedral_index(
+       atomNames[atom_nums[0]].atomtype,
+       atomNames[atom_nums[1]].atomtype,
+       atomNames[atom_nums[2]].atomtype,
+       atomNames[atom_nums[3]].atomtype,
+       &(dihedrals[num_unique-1]),
        multiplicity, simParams->alchOn ? -1 : 0);
     if ( dihedrals[num_unique-1].dihedral_type == -1 ) {
       iout << iWARN << "ALCHEMY MODULE WILL REMOVE DIHEDRAL OR RAISE ERROR\n"
@@ -1815,10 +1775,6 @@ void Molecule::read_impropers(FILE *fd, Parameters *params)
 {
   int atom_nums[4];  //  Atom indexes for the 4 atoms
   int last_atom_nums[4];  //  Atom indexes from previous bond
-  char atom1name[11];  //  Atom type for atom 1
-  char atom2name[11];  //  Atom type for atom 2
-  char atom3name[11];  //  Atom type for atom 3
-  char atom4name[11];  //  Atom type for atom 4
   register int j;      //  Loop counter
   int num_read=0;    //  Number of impropers read so far
   int multiplicity=1;  // multiplicity of the current bond
@@ -1869,12 +1825,6 @@ void Molecule::read_impropers(FILE *fd, Parameters *params)
       last_atom_nums[j] = atom_nums[j];
     }
 
-    /*  Get the atom types so we can look up the parameters */
-    strcpy(atom1name, atomNames[atom_nums[0]].atomtype);
-    strcpy(atom2name, atomNames[atom_nums[1]].atomtype);
-    strcpy(atom3name, atomNames[atom_nums[2]].atomtype);
-    strcpy(atom4name, atomNames[atom_nums[3]].atomtype);
-
     //  Check to see if this is a duplicate improper
     if (duplicate_bond)
     {
@@ -1903,8 +1853,12 @@ void Molecule::read_impropers(FILE *fd, Parameters *params)
     impropers[num_unique-1].atom4=atom_nums[3];
 
     /*  Look up the constants for this bond      */
-    params->assign_improper_index(atom1name, atom2name, 
-       atom3name, atom4name, &(impropers[num_unique-1]),
+    params->assign_improper_index(
+       atomNames[atom_nums[0]].atomtype,
+       atomNames[atom_nums[1]].atomtype,
+       atomNames[atom_nums[2]].atomtype,
+       atomNames[atom_nums[3]].atomtype,
+       &(impropers[num_unique-1]),
        multiplicity);
 
     num_read++;
@@ -1938,14 +1892,6 @@ void Molecule::read_crossterms(FILE *fd, Parameters *params)
 {
   int atom_nums[8];  //  Atom indexes for the 4 atoms
   int last_atom_nums[8];  //  Atom indexes from previous bond
-  char atom1name[11];  //  Atom type for atom 1
-  char atom2name[11];  //  Atom type for atom 2
-  char atom3name[11];  //  Atom type for atom 3
-  char atom4name[11];  //  Atom type for atom 4
-  char atom5name[11];  //  Atom type for atom 5
-  char atom6name[11];  //  Atom type for atom 6
-  char atom7name[11];  //  Atom type for atom 7
-  char atom8name[11];  //  Atom type for atom 8
   register int j;      //  Loop counter
   int num_read=0;    //  Number of items read so far
   Bool duplicate_bond;  // Is this a duplicate of the last bond
@@ -1994,16 +1940,6 @@ void Molecule::read_crossterms(FILE *fd, Parameters *params)
       last_atom_nums[j] = atom_nums[j];
     }
 
-    /*  Get the atom types so we can look up the parameters */
-    strcpy(atom1name, atomNames[atom_nums[0]].atomtype);
-    strcpy(atom2name, atomNames[atom_nums[1]].atomtype);
-    strcpy(atom3name, atomNames[atom_nums[2]].atomtype);
-    strcpy(atom4name, atomNames[atom_nums[3]].atomtype);
-    strcpy(atom5name, atomNames[atom_nums[4]].atomtype);
-    strcpy(atom6name, atomNames[atom_nums[5]].atomtype);
-    strcpy(atom7name, atomNames[atom_nums[6]].atomtype);
-    strcpy(atom8name, atomNames[atom_nums[7]].atomtype);
-
     //  Check to see if this is a duplicate term
     if (duplicate_bond)
     {
@@ -2021,9 +1957,16 @@ void Molecule::read_crossterms(FILE *fd, Parameters *params)
     crossterms[num_read].atom8=atom_nums[7];
 
     /*  Look up the constants for this bond      */
-    params->assign_crossterm_index(atom1name, atom2name, 
-       atom3name, atom4name, atom5name, atom6name,
-       atom7name, atom8name, &(crossterms[num_read]));
+    params->assign_crossterm_index(
+       atomNames[atom_nums[0]].atomtype,
+       atomNames[atom_nums[1]].atomtype,
+       atomNames[atom_nums[2]].atomtype,
+       atomNames[atom_nums[3]].atomtype,
+       atomNames[atom_nums[4]].atomtype,
+       atomNames[atom_nums[5]].atomtype,
+       atomNames[atom_nums[6]].atomtype,
+       atomNames[atom_nums[7]].atomtype,
+       &(crossterms[num_read]));
 
     if(!duplicate_bond) num_read++;
   }
@@ -2848,27 +2791,16 @@ void Molecule::plgLoadAtomBasics(molfile_atom_t *atomarray){
 
 void Molecule::plgLoadBonds(int *from, int *to){
     bonds = new Bond[numBonds];
-    char atom1name[11];
-    char atom2name[11];
     int realNumBonds = 0;
     for(int i=0; i<numBonds; i++) {
         Bond *thisBond = bonds+realNumBonds;
         thisBond->atom1 = from[i]-1;
         thisBond->atom2 = to[i]-1;
-        /* Get the atom type for the two atoms.
-         * When we query the parameter object, we
-         * need to send the atom type that is alphabetically
-         * first as atom 1.
-         */
-        if(strcasecmp(atomNames[thisBond->atom1].atomtype,
-                      atomNames[thisBond->atom2].atomtype)<0) {
-            strcpy(atom1name, atomNames[thisBond->atom1].atomtype);
-            strcpy(atom2name, atomNames[thisBond->atom2].atomtype);
-        }else{
-            strcpy(atom2name, atomNames[thisBond->atom1].atomtype);
-            strcpy(atom1name, atomNames[thisBond->atom2].atomtype);
-        }
-        params->assign_bond_index(atom1name, atom2name, thisBond);
+
+        params->assign_bond_index(
+            atomNames[thisBond->atom1].atomtype,
+            atomNames[thisBond->atom2].atomtype,
+            thisBond);
 
         //Make sure this isn't a fake bond meant for shake in x-plor
         Real k, x0;
@@ -2894,10 +2826,6 @@ void Molecule::plgLoadBonds(int *from, int *to){
 
 void Molecule::plgLoadAngles(int *plgAngles)
 {    
-    char atom1name[11];
-    char atom2name[11];
-    char atom3name[11];
-
     angles=new Angle[numAngles];
     int *atomid = plgAngles;
     int numRealAngles = 0;
@@ -2908,18 +2836,10 @@ void Molecule::plgLoadAngles(int *plgAngles)
         thisAngle->atom3 = atomid[2]-1;
         atomid += 3;
 
-        if(strcasecmp(atomNames[thisAngle->atom1].atomtype,
-                      atomNames[thisAngle->atom2].atomtype)<0) {
-            strcpy(atom1name, atomNames[thisAngle->atom1].atomtype);
-            strcpy(atom2name, atomNames[thisAngle->atom2].atomtype);
-            strcpy(atom3name, atomNames[thisAngle->atom3].atomtype);
-        }else{
-            strcpy(atom1name, atomNames[thisAngle->atom3].atomtype);
-            strcpy(atom2name, atomNames[thisAngle->atom2].atomtype);
-            strcpy(atom3name, atomNames[thisAngle->atom1].atomtype);
-        }
-
-        params->assign_angle_index(atom1name, atom2name, atom3name,
+        params->assign_angle_index(
+            atomNames[thisAngle->atom1].atomtype,
+            atomNames[thisAngle->atom2].atomtype,
+            atomNames[thisAngle->atom3].atomtype,
 				thisAngle, simParams->alchOn ? -1 : 0);
         if ( thisAngle->angle_type == -1 ) {
           iout << iWARN << "ALCHEMY MODULE WILL REMOVE ANGLE OR RAISE ERROR\n"
@@ -2986,18 +2906,12 @@ void Molecule::plgLoadDihedrals(int *plgDihedrals)
       if ( search != cache.end() ) { 
         thisDihedral->dihedral_type = search->second;
       } else {
-        char atom1name[11];
-        char atom2name[11];
-        char atom3name[11];
-        char atom4name[11];
-        strcpy(atom1name, atomNames[atomid[0]-1].atomtype);
-        strcpy(atom2name, atomNames[atomid[1]-1].atomtype);
-        strcpy(atom3name, atomNames[atomid[2]-1].atomtype);
-        strcpy(atom4name, atomNames[atomid[3]-1].atomtype);
-
-        params->assign_dihedral_index(atom1name, atom2name,
-                                      atom3name, atom4name, thisDihedral,
-                                      multiplicity, simParams->alchOn ? -1 : 0);
+        params->assign_dihedral_index(
+            atomNames[atomid[0]-1].atomtype,
+            atomNames[atomid[1]-1].atomtype,
+            atomNames[atomid[2]-1].atomtype,
+            atomNames[atomid[3]-1].atomtype,
+            thisDihedral, multiplicity, simParams->alchOn ? -1 : 0);
         if ( thisDihedral->dihedral_type == -1 ) {
           iout << iWARN << "ALCHEMY MODULE WILL REMOVE DIHEDRAL OR RAISE ERROR\n"
                << endi;
@@ -3011,10 +2925,6 @@ void Molecule::plgLoadDihedrals(int *plgDihedrals)
 
 void Molecule::plgLoadImpropers(int *plgImpropers)
 {
-    char atom1name[11];
-    char atom2name[11];
-    char atom3name[11];
-    char atom4name[11];
     int lastAtomIds[4];
     int multiplicity = 1; //multiplicity of the current bond
 
@@ -3032,11 +2942,6 @@ void Molecule::plgLoadImpropers(int *plgImpropers)
             lastAtomIds[j] = atomid[j];
         }
 
-        strcpy(atom1name, atomNames[atomid[0]-1].atomtype);
-        strcpy(atom2name, atomNames[atomid[1]-1].atomtype);
-        strcpy(atom3name, atomNames[atomid[2]-1].atomtype);
-        strcpy(atom4name, atomNames[atomid[3]-1].atomtype);
-
         if(duplicate_bond) {
             multiplicity++;
             if(multiplicity==2) {
@@ -3052,9 +2957,12 @@ void Molecule::plgLoadImpropers(int *plgImpropers)
         thisImproper->atom3 = atomid[2]-1;
         thisImproper->atom4 = atomid[3]-1;
 
-        params->assign_improper_index(atom1name, atom2name,
-                                      atom3name, atom4name, thisImproper,
-                                      multiplicity);
+        params->assign_improper_index(
+            atomNames[atomid[0]-1].atomtype,
+            atomNames[atomid[1]-1].atomtype,
+            atomNames[atomid[2]-1].atomtype,
+            atomNames[atomid[3]-1].atomtype,
+            thisImproper, multiplicity);
     }
 
     numImpropers = numRealImpropers;
@@ -3062,14 +2970,6 @@ void Molecule::plgLoadImpropers(int *plgImpropers)
 
 void Molecule::plgLoadCrossterms(int *plgCterms)
 {
-    char atom1name[11];
-    char atom2name[11];
-    char atom3name[11];
-    char atom4name[11];
-    char atom5name[11];
-    char atom6name[11];
-    char atom7name[11];
-    char atom8name[11];
     int lastAtomIds[8];    
 
     for(int i=0; i<8; i++)
@@ -3088,15 +2988,6 @@ void Molecule::plgLoadCrossterms(int *plgCterms)
             lastAtomIds[j] = atomid[j];
         }
 
-        strcpy(atom1name, atomNames[atomid[0]-1].atomtype);
-        strcpy(atom2name, atomNames[atomid[1]-1].atomtype);
-        strcpy(atom3name, atomNames[atomid[2]-1].atomtype);
-        strcpy(atom4name, atomNames[atomid[3]-1].atomtype);
-        strcpy(atom5name, atomNames[atomid[4]-1].atomtype);
-        strcpy(atom6name, atomNames[atomid[5]-1].atomtype);
-        strcpy(atom7name, atomNames[atomid[6]-1].atomtype);
-        strcpy(atom8name, atomNames[atomid[7]-1].atomtype);
-
         if(duplicate_bond) {
             iout << iWARN <<"Duplicate cross-term detected.\n" << endi;
         } else
@@ -3111,10 +3002,16 @@ void Molecule::plgLoadCrossterms(int *plgCterms)
         thisCrossterm->atom7 = atomid[6]-1;
         thisCrossterm->atom8 = atomid[7]-1;
 
-        params->assign_crossterm_index(atom1name, atom2name,
-                                       atom3name, atom4name, atom5name,
-                                       atom6name, atom7name, atom8name,
-                                       thisCrossterm);
+        params->assign_crossterm_index(
+            atomNames[atomid[0]-1].atomtype,
+            atomNames[atomid[1]-1].atomtype,
+            atomNames[atomid[2]-1].atomtype,
+            atomNames[atomid[3]-1].atomtype,
+            atomNames[atomid[4]-1].atomtype,
+            atomNames[atomid[5]-1].atomtype,
+            atomNames[atomid[6]-1].atomtype,
+            atomNames[atomid[7]-1].atomtype,
+            thisCrossterm);
     }
 
     numCrossterms = numRealCrossterms;
@@ -9781,12 +9678,11 @@ void Molecule::build_atom_status(void) {
         }
         Bond btmp;
         btmp.atom1 = h_i[1].atomID;
-        char atom1name[11];
-	strcpy(atom1name,get_atomtype(btmp.atom1));
         btmp.atom2 = h_i[2].atomID;
-        char atom2name[11];
-	strcpy(atom2name,get_atomtype(btmp.atom2));
-        params->assign_bond_index(atom1name,atom2name,&btmp);
+        params->assign_bond_index(
+	    get_atomtype(btmp.atom1),
+	    get_atomtype(btmp.atom2),
+	    &btmp);
         Real k, x0;
 	x0 = 0.;
         params->get_bond_params(&k,&x0,btmp.bond_type);
