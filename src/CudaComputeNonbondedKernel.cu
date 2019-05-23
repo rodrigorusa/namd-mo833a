@@ -31,7 +31,7 @@ void calcForceEnergy(const float r2, const float qi, const float qj,
 #if __CUDA_ARCH__ >= 350
   float2 ljab = __ldg(&vdwCoefTable[vdwIndex]);
 #else
-  float2 ljab = tex1D<float2>(vdwCoefTableTex, vdwIndex);
+  float2 ljab = tex1Dfetch<float2>(vdwCoefTableTex, vdwIndex);
 #endif
 
   float rinv = rsqrtf(r2);
