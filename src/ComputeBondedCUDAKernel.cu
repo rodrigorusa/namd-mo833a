@@ -261,7 +261,7 @@ __device__ void modifiedExclusionForce(
 #if __CUDA_ARCH__ >= 350
     float2 ljab = __ldg(&vdwCoefTable[vdwIndex]);
 #else
-    float2 ljab = tex1D<float2>(vdwCoefTableTex, vdwIndex);
+    float2 ljab = tex1Dfetch<float2>(vdwCoefTableTex, vdwIndex);
 #endif
 
     float4 fi = tex1D<float4>(forceTableTex, rinv);
@@ -385,7 +385,7 @@ __device__ void exclusionForce(
 #if __CUDA_ARCH__ >= 350
     float r2_table_val = __ldg(&r2_table[table_i]);
 #else
-    float r2_table_val = tex1D<float>(r2_table_tex, table_i);
+    float r2_table_val = tex1Dfetch<float>(r2_table_tex, table_i);
 #endif
     float diffa = r2 - r2_table_val;
     float qq = xyzqi.w * xyzqj.w;
@@ -393,7 +393,7 @@ __device__ void exclusionForce(
 #if __CUDA_ARCH__ >= 350
     float4 slow = __ldg(&exclusionTable[table_i]);
 #else
-    float4 slow = tex1D<float4>(exclusionTableTex, table_i);
+    float4 slow = tex1Dfetch<float4>(exclusionTableTex, table_i);
 #endif
 
     if (doEnergy) {
