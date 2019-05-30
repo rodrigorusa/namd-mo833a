@@ -968,8 +968,8 @@ struct bond_params *Parameters::add_to_bond_tree(struct bond_params *new_node,
       /*  tree and free the new_node      */
       //****** BEGIN CHARMM/XPLOR type changes
       /* we do not care about identical replacement */
-      if ((tree->forceconstant != new_node->forceconstant) || 
-          (tree->distance != new_node->distance) && overwrite)
+      if ( ((tree->forceconstant != new_node->forceconstant) || 
+          (tree->distance != new_node->distance)) && overwrite)
       {
         iout << "\n" << iWARN << "DUPLICATE BOND ENTRY FOR "
           << new_node->atom1name << "-"
