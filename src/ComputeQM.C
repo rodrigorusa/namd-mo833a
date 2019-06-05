@@ -3162,7 +3162,7 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
             break;
         }
         
-        char result[10] ;
+        char result[20] ;
         size_t strIndx = 0;
         
         if (chargeFields) {
@@ -3206,11 +3206,19 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
             
         }
         
+ 	int gradLength ; // Change for variable length MOPAC output
         if (gradFields) {
-            while ((strIndx < (strlen(line)-9)) && (strlen(line)-1 >=9 ) ) {
+            if (atmIndx == 0) {
+                double buf[10];
+                int numfirstline = sscanf(line,"%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+                                          &buf[0],&buf[1],&buf[2],&buf[3],&buf[4],&buf[5],
+                                          &buf[6],&buf[7],&buf[8],&buf[9]);
+                gradLength = strlen(line)/numfirstline;
+            }
+            while ((strIndx < (strlen(line)-gradLength)) && (strlen(line)-1 >= gradLength ) ) {
                 
-                strncpy(result, line+strIndx,9) ;
-                result[9] = '\0';
+                strncpy(result, line+strIndx,gradLength) ;
+                result[gradLength] = '\0';
                 
                 gradient[gradCount] = atof(result);
                 if (gradCount == 2) {
@@ -3280,7 +3288,7 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
                     gradCount++;
                 }
                 
-                strIndx += 9;
+                strIndx += gradLength;
                 
                 // If we found all gradients for QM atoms, break the loop
                 // and keep the next gradient line from being read, if there
