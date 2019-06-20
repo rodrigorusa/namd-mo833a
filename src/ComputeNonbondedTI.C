@@ -28,6 +28,22 @@ inline void ti_vdw_force_energy_dUdl (BigReal A, BigReal B, BigReal r2,
    * this also used underscores - it was awful).
    */
   if (alchWCAOn) {
+    /* THIS BRANCH IS PARTIALLY INCOMPLETE AND BLOCKED INSIDE SimParameters
+     *
+     * The problem is that WCA creates TWO energy terms and thus two different
+     * TI derivatives, but the reduction code is currently only set up for
+     * one derivative. There is no such problem with FEP because the energy
+     * is not decomposed. In principle, the contribution to the free energy
+     * from each derivative is zero while the other is changing (e.g. while
+     * repulsion is changing dispersion is not), but the derivatives are still
+     * non-zero and it is NAMD convention to report them even as such.
+     * However, even if we were willing to break this convention, both
+     * derivatives still compute to the free energy at the boundary where
+     * repulsion is completely on and dispersion is exactly zero - two
+     * derivatives are thus required for a complete working implementation.
+     *
+     */
+
     // WCA-on, auxilliary, lambda-dependent cutoff based on Rmin
     //
     // Avoid divide by zero - correctly zeroes interaction below.

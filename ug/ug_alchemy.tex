@@ -337,6 +337,34 @@ energy calculations, whether FEP or TI.
 %if only {\tt alchLambda} is specified; {\tt fep} if {\tt alchLambdaPlusDelta} / {\tt alchLambdaMinusDelta} are specified} 
 {Turns on Hamiltonian scaling and ensemble averaging for alchemical FEP or TI.}
 
+\item
+\NAMDCONFWDEF{alchWCA}
+{Turn on/off Weeks-Chandler-Andersen (WCA) decomposition.}
+{{\tt on} or {\tt off}}
+{{\tt off}}
+{
+When active, WCA decomposition changes the lambda dependence of the van der
+  Waals perturbation following the repulsion/dispersion scheme proposed by
+  Deng and Roux~\cite{Deng2004}.
+For example, for appearing atoms, all interactions are still fully coupled at
+  {\tt alchLambda} = {\tt alchVdwLambdaEnd}, but repulsive components are
+  instead fully coupled according to the new {\tt alchRepLambdaEnd} keyword.
+No dispersive interactions (including terms from {\tt LJcorrection}) are
+  coupled until the repulsive interactions are fully coupled.
+By virtue of the formulation, {\tt alchVdwShiftCoeff} does not have any effect
+  in this scheme and any non-zero values are ignored.
+Note that this scheduling is completely separate from electrostatic coupling
+  and the two may overlap in any way desired (this may not be stable!).
+In order to achieve the exact decoupling scheme proposed by Deng and Roux,
+  one ought to set {\tt alchRepLambdaEnd} $<$ {\tt alchVdwLambdaEnd} =
+  {\tt alchElecLambdaStart} $<$ 1.
+\textbf{
+This scheme has only been widely tested when a single alchemical group is
+  being used.
+}
+Due to current limitations, this scheme is not available when {\tt alchType}
+  is set to {\tt ti}.
+}
 
 \item
 \NAMDCONF{alchLambda}{ Current value of the coupling parameter } {positive
@@ -479,6 +507,19 @@ than the old behavior of averaging both endpoints together.  However, the
 kinetic energy component of the virial \emph{does} still count the endpoints
 together, as if annihilated alchemical atoms were an ideal gas.  Again, this is
 likely quite negligible, nor is it clear that this should be treated specially.
+}
+
+\item
+\NAMDCONFWDEF{alchRepLambdaEnd}
+{Value of $\lambda$ to cancel van der Waals repulsive interactions}
+{positive decimal}
+{0.5}
+{
+This parameter is only used when {\tt alchWCA} is {\tt on}, in which case it
+  MUST be less than or equal to {\tt alchVdwLambdaEnd}.
+For appearing atoms, this marks both the value at which repulsive interactions
+  are completely coupled and at which dispersive interactions beging to become
+  coupled (but are still zero).
 }
 
 \item
