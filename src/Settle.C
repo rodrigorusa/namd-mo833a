@@ -328,8 +328,7 @@ void settle1_SIMD(const Vector *ref, Vector *pos,
     pos2zt[i] = pos[i*3+2].z;
   }
 
-// XXX Assert fails to vectorize when veclen=1
-//#pragma simd assert
+#pragma simd
   for (int i=0;i < veclen;i++) {
 
     BigReal ref0x = ref0xt[i];
