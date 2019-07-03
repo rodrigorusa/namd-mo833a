@@ -11,6 +11,18 @@
  * $Revision: 1.1230 $
  *****************************************************************************/
 
+// The UPPER_BOUND macro is used to eliminate all of the per atom
+// computation done for the numerical integration in Sequencer::integrate()
+// other than the actual force computation and atom migration.
+// The idea is to "turn off" the integration for doing performance
+// profiling in order to get an upper bound on the speedup available
+// by moving the integration parts to the GPU.
+//
+// Define it in the Make.config file, i.e. CXXOPTS += -DUPPER_BOUND
+// or simply uncomment the line below.
+//
+//#define UPPER_BOUND
+
 //for gbis debugging; print net force on each atom
 #define PRINT_FORCES 0
 
@@ -33,15 +45,23 @@
 #include "PatchMap.inl"
 #include "ComputeMgr.h"
 #include "ComputeGlobal.h"
+#include "NamdEventsProfiling.h"
 
 #define MIN_DEBUG_LEVEL 4
 //#define DEBUGM
+//
+// Define NL_DEBUG below to activate D_*() macros in integrate_SOA()
+// for debugging.
+//
+//#define NL_DEBUG
 #include "Debug.h"
 
 #if USE_HPM
 #define START_HPM_STEP  1000
 #define STOP_HPM_STEP   1500
 #endif
+
+#define SPECIAL_PATCH_ID  91
 
 Sequencer::Sequencer(HomePatch *p) :
 	simParams(Node::Object()->simParameters),
@@ -207,6 +227,20 @@ void Sequencer::integrate(int scriptTask) {
     //
     //patch->copy_all_to_SOA();
 
+#ifdef TIMER_COLLECTION
+    TimerSet& t = patch->timerSet;
+#endif
+    TIMER_INIT_WIDTH(t, KICK, simParams->timerBinWidth);
+    TIMER_INIT_WIDTH(t, MAXMOVE, simParams->timerBinWidth);
+    TIMER_INIT_WIDTH(t, DRIFT, simParams->timerBinWidth);
+    TIMER_INIT_WIDTH(t, PISTON, simParams->timerBinWidth);
+    TIMER_INIT_WIDTH(t, SUBMITHALF, simParams->timerBinWidth);
+    TIMER_INIT_WIDTH(t, VELBBK1, simParams->timerBinWidth);
+    TIMER_INIT_WIDTH(t, VELBBK2, simParams->timerBinWidth);
+    TIMER_INIT_WIDTH(t, RATTLE1, simParams->timerBinWidth);
+    TIMER_INIT_WIDTH(t, SUBMITFULL, simParams->timerBinWidth);
+    TIMER_INIT_WIDTH(t, SUBMITCOLLECT, simParams->timerBinWidth);
+
     int &step = patch->flags.step;
     step = simParams->firstTimestep;
 
@@ -247,6 +281,7 @@ void Sequencer::integrate(int scriptTask) {
 					maxForceMerged = Results::slow;
     if ( doFullElectrostatics ) maxForceUsed = Results::slow;
 
+//#ifndef UPPER_BOUND
     const Bool accelMDOn = simParams->accelMDOn;
     const Bool accelMDdihe = simParams->accelMDdihe;
     const Bool accelMDdual = simParams->accelMDdual;
@@ -279,21 +314,29 @@ void Sequencer::integrate(int scriptTask) {
     // Do we need to return forces to TCL script or Colvar module?
     int doTcl = simParams->tclForcesOn;
 	int doColvars = simParams->colvarsOn;
+//#endif
     ComputeGlobal *computeGlobal = Node::Object()->computeMgr->computeGlobalObject;
 
     // Bother to calculate energies?
     int &doEnergy = patch->flags.doEnergy;
     int energyFrequency = simParams->outputEnergies;
-
+#ifndef UPPER_BOUND
     const int reassignFreq = simParams->reassignFreq;
+#endif
 
     int &doVirial = patch->flags.doVirial;
     doVirial = 1;
 
   if ( scriptTask == SCRIPT_RUN ) {
 
+#ifndef UPPER_BOUND
 //    printf("Doing initial rattle\n");
+#ifndef UPPER_BOUND
+D_MSG("rattle1()");
+    TIMER_START(t, RATTLE1);
     rattle1(0.,0);  // enforce rigid bond constraints on initial positions
+    TIMER_STOP(t, RATTLE1);
+#endif
 
     if (simParams->lonepairs) {
       patch->atomMapper->registerIDsFullAtom(
@@ -303,47 +346,85 @@ void Sequencer::integrate(int scriptTask) {
     if ( !commOnly && ( reassignFreq>0 ) && ! (step%reassignFreq) ) {
        reassignVelocities(timestep,step);
     }
+#endif
 
     doEnergy = ! ( step % energyFrequency );
+#ifndef UPPER_BOUND
     if ( accelMDOn && !accelMDdihe ) doEnergy=1;
     //Update energy every timestep for adaptive tempering
     if ( adaptTempOn ) doEnergy=1;
+#endif
+D_MSG("runComputeObjects()");
     runComputeObjects(1,step<numberOfSteps); // must migrate here!
+#ifndef UPPER_BOUND
     rescaleaccelMD(step, doNonbonded, doFullElectrostatics); // for accelMD 
     adaptTempUpdate(step); // update adaptive tempering temperature
+#endif
 
+#ifndef UPPER_BOUND
     if ( staleForces || doTcl || doColvars ) {
       if ( doNonbonded ) saveForce(Results::nbond);
       if ( doFullElectrostatics ) saveForce(Results::slow);
     }
     if ( ! commOnly ) {
+D_MSG("newtonianVelocities()");
+      TIMER_START(t, KICK);
       newtonianVelocities(-0.5,timestep,nbondstep,slowstep,0,1,1);
+      TIMER_STOP(t, KICK);
     }
     minimizationQuenchVelocity();
+#ifndef UPPER_BOUND
+D_MSG("rattle1()");
+    TIMER_START(t, RATTLE1);
     rattle1(-timestep,0);
+    TIMER_STOP(t, RATTLE1);
+#endif
+D_MSG("submitHalfstep()");
+    TIMER_START(t, SUBMITHALF);
     submitHalfstep(step);
+    TIMER_STOP(t, SUBMITHALF);
     if ( ! commOnly ) {
+D_MSG("newtonianVelocities()");
+      TIMER_START(t, KICK);
       newtonianVelocities(1.0,timestep,nbondstep,slowstep,0,1,1);
+      TIMER_STOP(t, KICK);
     }
+D_MSG("rattle1()");
+    TIMER_START(t, RATTLE1);
     rattle1(timestep,1);
+    TIMER_STOP(t, RATTLE1);
     if (doTcl || doColvars)  // include constraint forces
       computeGlobal->saveTotalForces(patch);
+D_MSG("submitHalfstep()");
+    TIMER_START(t, SUBMITHALF);
     submitHalfstep(step);
+    TIMER_STOP(t, SUBMITHALF);
     if ( zeroMomentum && doFullElectrostatics ) submitMomentum(step);
     if ( ! commOnly ) {
+D_MSG("newtonianVelocities()");
+      TIMER_START(t, KICK);
       newtonianVelocities(-0.5,timestep,nbondstep,slowstep,0,1,1);
+      TIMER_STOP(t, KICK);
     }
+#endif
+D_MSG("submitReductions()");
+    TIMER_START(t, SUBMITFULL);
     submitReductions(step);
+    TIMER_STOP(t, SUBMITFULL);
+#ifndef UPPER_BOUND
     if(0){ // if(traceIsOn()){
         traceUserEvent(eventEndOfTimeStep);
         sprintf(traceNote, "%s%d",tracePrefix,step); 
         traceUserSuppliedNote(traceNote);
     }
+#endif
     rebalanceLoad(step);
 
   } // scriptTask == SCRIPT_RUN
 
+#ifndef UPPER_BOUND
   bool doMultigratorRattle = false;
+#endif
 
   //
   // DJH: There are a lot of mod operations below and elsewhere to
@@ -351,10 +432,36 @@ void Sequencer::integrate(int scriptTask) {
   // Mod and integer division are expensive!
   // Might be better to replace with counters and test equality.
   //
+#if 0
+    for(int i = 0; i < NamdProfileEvent::EventsCount; i++)
+	CkPrintf("-------------- [%d] %s -------------\n", i, NamdProfileEventStr[i]);
+#endif
 
+#if defined(NAMD_NVTX_ENABLED) || defined(NAMD_CMK_TRACE_ENABLED)
+  int& eon = patch->flags.event_on;
+  int epid = (simParams->beginEventPatchID <= patch->getPatchID()
+      && patch->getPatchID() <= simParams->endEventPatchID);
+  int beginStep = simParams->beginEventStep;
+  int endStep = simParams->endEventStep;
+  bool controlProfiling = patch->getPatchID() == 0;
+#endif
+ 
     for ( ++step; step <= numberOfSteps; ++step )
     {
-      PUSH_RANGE("integrate 1", 0);
+#if defined(NAMD_NVTX_ENABLED) || defined(NAMD_CMK_TRACE_ENABLED)
+      eon = epid && (beginStep < step && step <= endStep);
+
+      if (controlProfiling && step == beginStep) {
+        NAMD_PROFILE_START();
+      }
+      if (controlProfiling && step == endStep) {
+        NAMD_PROFILE_STOP();
+      }
+      char buf[32];
+      sprintf(buf, "%s: %d", NamdProfileEventStr[NamdProfileEvent::INTEGRATE_1], patch->getPatchID());
+      NAMD_EVENT_START_EX(eon, NamdProfileEvent::INTEGRATE_1, buf);
+#endif
+#ifndef UPPER_BOUND
 
       rescaleVelocities(step);
       tcoupleVelocities(timestep,step);
@@ -362,7 +469,9 @@ void Sequencer::integrate(int scriptTask) {
       berendsenPressure(step);
 
       if ( ! commOnly ) {
+        TIMER_START(t, KICK);
         newtonianVelocities(0.5,timestep,nbondstep,slowstep,staleForces,doNonbonded,doFullElectrostatics); 
+        TIMER_STOP(t, KICK);
       }
 
       // We do RATTLE here if multigrator thermostat was applied in the previous step
@@ -379,12 +488,18 @@ void Sequencer::integrate(int scriptTask) {
          rattle1(timestep,0);
          } */
 
+      TIMER_START(t, MAXMOVE);
       maximumMove(timestep);
+      TIMER_STOP(t, MAXMOVE);
 
-      POP_RANGE;  // integrate 1
+      NAMD_EVENT_STOP(eon, NamdProfileEvent::INTEGRATE_1);  // integrate 1
 
       if ( simParams->langevinPistonOn || (simParams->langevinOn && simParams->langevin_useBAOAB) ) {
-        if ( ! commOnly ) addVelocityToPosition(0.5*timestep);
+        if ( ! commOnly ) {
+          TIMER_START(t, DRIFT);
+          addVelocityToPosition(0.5*timestep);
+          TIMER_STOP(t, DRIFT);
+        }
         // We add an Ornstein-Uhlenbeck integration step for the case of BAOAB (Langevin)
         langevinVelocities(timestep);
 
@@ -393,22 +508,32 @@ void Sequencer::integrate(int scriptTask) {
         // so split profiling around this conditional block.
         langevinPiston(step);
 
-        if ( ! commOnly ) addVelocityToPosition(0.5*timestep);
+        if ( ! commOnly ) {
+          TIMER_START(t, DRIFT);
+          addVelocityToPosition(0.5*timestep);
+          TIMER_STOP(t, DRIFT);
+        }
       } else {
         // If Langevin is not used, take full time step directly instread of two half steps      
-        if ( ! commOnly ) addVelocityToPosition(timestep); 
+        if ( ! commOnly ) {
+          TIMER_START(t, DRIFT);
+          addVelocityToPosition(timestep); 
+          TIMER_STOP(t, DRIFT);
+        }
       }
 
-      PUSH_RANGE("integrate 2", 1);
+      NAMD_EVENT_START(eon, NamdProfileEvent::INTEGRATE_2);
 
       // impose hard wall potential for Drude bond length
       hardWallDrude(timestep, 1);
 
       minimizationQuenchVelocity();
+#endif // UPPER_BOUND
 
       doNonbonded = !(step%nonbondedFrequency);
       doFullElectrostatics = (dofull && !(step%fullElectFrequency));
 
+#ifndef UPPER_BOUND 
       if ( zeroMomentum && doFullElectrostatics ) {
         // There is a blocking receive inside of correctMomentum().
         correctMomentum(step,slowstep);
@@ -416,7 +541,9 @@ void Sequencer::integrate(int scriptTask) {
 
       // There are NO sends in submitHalfstep() just local summation 
       // into the Reduction struct.
+      TIMER_START(t, SUBMITHALF);
       submitHalfstep(step);
+      TIMER_STOP(t, SUBMITHALF);
 
       doMolly = simParams->mollyOn && doFullElectrostatics;
       // BEGIN LA
@@ -444,14 +571,15 @@ void Sequencer::integrate(int scriptTask) {
         doKineticEnergy = 1;
         doMomenta = 1;
       }
-
-      POP_RANGE;  // integrate 2
+#endif
+      NAMD_EVENT_STOP(eon, NamdProfileEvent::INTEGRATE_2);  // integrate 2
 
       // The current thread of execution will suspend in runComputeObjects().
       runComputeObjects(!(step%stepsPerCycle),step<numberOfSteps);
 
-      PUSH_RANGE("integrate 3", 2);
+      NAMD_EVENT_START(eon, NamdProfileEvent::INTEGRATE_3);
 
+#ifndef UPPER_BOUND
       rescaleaccelMD(step, doNonbonded, doFullElectrostatics); // for accelMD
      
       if ( staleForces || doTcl || doColvars ) {
@@ -467,30 +595,48 @@ void Sequencer::integrate(int scriptTask) {
       }
 
       if ( ! commOnly ) {
+        TIMER_START(t, VELBBK1);
         langevinVelocitiesBBK1(timestep);
+        TIMER_STOP(t, VELBBK1);
+        TIMER_START(t, KICK);
         newtonianVelocities(1.0,timestep,nbondstep,slowstep,staleForces,doNonbonded,doFullElectrostatics);
+        TIMER_STOP(t, KICK);
+        TIMER_START(t, VELBBK2);
         langevinVelocitiesBBK2(timestep);
+        TIMER_STOP(t, VELBBK2);
       }
 
       // add drag to each atom's positions
       if ( ! commOnly && movDragOn ) addMovDragToPosition(timestep);
       if ( ! commOnly && rotDragOn ) addRotDragToPosition(timestep);
 
+      TIMER_START(t, RATTLE1);
       rattle1(timestep,1);
+      TIMER_STOP(t, RATTLE1);
       if (doTcl || doColvars)  // include constraint forces
         computeGlobal->saveTotalForces(patch);
 
+      TIMER_START(t, SUBMITHALF);
       submitHalfstep(step);
+      TIMER_STOP(t, SUBMITHALF);
       if ( zeroMomentum && doFullElectrostatics ) submitMomentum(step);
 
       if ( ! commOnly ) {
+        TIMER_START(t, KICK);
         newtonianVelocities(-0.5,timestep,nbondstep,slowstep,staleForces,doNonbonded,doFullElectrostatics);
+        TIMER_STOP(t, KICK);
       }
 
 	// rattle2(timestep,step);
+#endif
 
+        TIMER_START(t, SUBMITFULL);
 	submitReductions(step);
+        TIMER_STOP(t, SUBMITFULL);
+        TIMER_START(t, SUBMITCOLLECT);
 	submitCollections(step);
+        TIMER_STOP(t, SUBMITCOLLECT);
+#ifndef UPPER_BOUND
        //Update adaptive tempering temperature
         adaptTempUpdate(step);
 
@@ -501,7 +647,8 @@ void Sequencer::integrate(int scriptTask) {
       multigratorTemperature(step, 2);
       doMultigratorRattle = (simParams->multigratorOn && !(step % simParams->multigratorTemperatureFreq));
 
-      POP_RANGE;  // integrate 3
+      NAMD_EVENT_STOP(eon, NamdProfileEvent::INTEGRATE_3); // integrate 3
+#endif
 
 #if CYCLE_BARRIER
         cycleBarrier(!((step+1) % stepsPerCycle), step);
@@ -511,6 +658,7 @@ void Sequencer::integrate(int scriptTask) {
         cycleBarrier(1, step);
 #endif
 
+#ifndef UPPER_BOUND
 	 if(Node::Object()->specialTracing || simParams->statsOn){
 		 int bstep = simParams->traceStartStep;
 		 int estep = bstep + simParams->numTraceSteps;
@@ -534,6 +682,7 @@ void Sequencer::integrate(int scriptTask) {
             sprintf(traceNote, "%s%d",tracePrefix,step); 
             traceUserSuppliedNote(traceNote);
         }
+#endif // UPPER_BOUND
 	rebalanceLoad(step);
 
 #if PME_BARRIER
@@ -551,6 +700,14 @@ void Sequencer::integrate(int scriptTask) {
 
     }
 
+  TIMER_DONE(t);
+#ifdef TIMER_COLLECTION
+  if (patch->patchID == SPECIAL_PATCH_ID) {
+    printf("Timer collection reporting in microseconds for "
+        "Patch %d\n", patch->patchID);
+    TIMER_REPORT(t);
+  }
+#endif // TIMER_COLLECTION
     //
     // DJH: Copy updates of SOA back into AOS.
     //
@@ -1140,7 +1297,8 @@ void Sequencer::newtonianVelocities(BigReal stepscale, const BigReal timestep,
                                     const int doNonbonded,
                                     const int doFullElectrostatics)
 {
-  RANGE("newtonianVelocities", 3);
+  NAMD_EVENT_RANGE_2(patch->flags.event_on,
+      NamdProfileEvent::NEWTONIAN_VELOCITIES);
 
   // Deterministic velocity update, account for multigrator
   if (staleForces || (doNonbonded && doFullElectrostatics)) {
@@ -1195,7 +1353,8 @@ void Sequencer::langevinVelocities(BigReal dt_fs)
 
 void Sequencer::langevinVelocitiesBBK1(BigReal dt_fs)
 {
-  RANGE("langevinVelocitiesBBK1", 7);
+  NAMD_EVENT_RANGE_2(patch->flags.event_on,
+      NamdProfileEvent::LANGEVIN_VELOCITIES_BBK1);
   if ( simParams->langevinOn && !simParams->langevin_useBAOAB )
   {
     FullAtom *a = patch->atom.begin();
@@ -1267,14 +1426,17 @@ void Sequencer::langevinVelocitiesBBK1(BigReal dt_fs)
 
 void Sequencer::langevinVelocitiesBBK2(BigReal dt_fs)
 {
-  RANGE("langevinVelocitiesBBK2", 8);
+  NAMD_EVENT_RANGE_2(patch->flags.event_on,
+      NamdProfileEvent::LANGEVIN_VELOCITIES_BBK2);
   if ( simParams->langevinOn && !simParams->langevin_useBAOAB ) 
   {
     //
     // DJH: This call is expensive. Avoid calling when gammas don't differ.
     // Set flag in SimParameters and make this call conditional.
     // 
+    TIMER_START(patch->timerSet, RATTLE1);
     rattle1(dt_fs,1);  // conserve momentum if gammas differ
+    TIMER_STOP(patch->timerSet, RATTLE1);
 
     FullAtom *a = patch->atom.begin();
     int numAtoms = patch->numAtoms;
@@ -1445,6 +1607,7 @@ void Sequencer::langevinPiston(int step)
    int numAtoms = patch->numAtoms;
    // Blocking receive for the updated lattice scaling factor.
    Tensor factor = broadcast->positionRescaleFactor.get(step);
+   TIMER_START(patch->timerSet, PISTON);
    // JCP FIX THIS!!!
    Vector velFactor(1/factor.xx,1/factor.yy,1/factor.zz);
    patch->lattice.rescale(factor);
@@ -1508,6 +1671,7 @@ void Sequencer::langevinPiston(int step)
       a[i].velocity.z *= velFactor.z;
     }
    }
+   TIMER_STOP(patch->timerSet, PISTON);
   }
 }
 
@@ -1740,6 +1904,8 @@ void Sequencer::saveForce(const int ftag)
 void Sequencer::addForceToMomentum(
     BigReal timestep, const int ftag, const int useSaved
     ) {
+  NAMD_EVENT_RANGE_2(patch->flags.event_on,
+      NamdProfileEvent::ADD_FORCE_TO_MOMENTUM);
 #if CMK_BLUEGENEL
   CmiNetworkProgressAfter (0);
 #endif
@@ -1755,6 +1921,8 @@ void Sequencer::addForceToMomentum3(
     const BigReal timestep2, const int ftag2, const int useSaved2,
     const BigReal timestep3, const int ftag3, const int useSaved3
     ) {
+  NAMD_EVENT_RANGE_2(patch->flags.event_on,
+      NamdProfileEvent::ADD_FORCE_TO_MOMENTUM);
 #if CMK_BLUEGENEL
   CmiNetworkProgressAfter (0);
 #endif
@@ -1774,7 +1942,8 @@ void Sequencer::addForceToMomentum3(
 
 void Sequencer::addVelocityToPosition(BigReal timestep)
 {
-  RANGE("addVelocityToPosition", 5);
+  NAMD_EVENT_RANGE_2(patch->flags.event_on,
+      NamdProfileEvent::ADD_VELOCITY_TO_POSITION);
 #if CMK_BLUEGENEL
   CmiNetworkProgressAfter (0);
 #endif
@@ -1800,7 +1969,7 @@ void Sequencer::hardWallDrude(BigReal dt, int pressure)
 
 void Sequencer::rattle1(BigReal dt, int pressure)
 {
-  RANGE("rattle1", 9);
+  NAMD_EVENT_RANGE_2(patch->flags.event_on, NamdProfileEvent::RATTLE1);
   if ( simParams->rigidBonds != RIGID_NONE ) {
     Tensor virial;
     Tensor *vp = ( pressure ? &virial : 0 );
@@ -1810,7 +1979,34 @@ void Sequencer::rattle1(BigReal dt, int pressure)
       Node::Object()->enableEarlyExit();
       terminate();
     }
+#if 0
+    printf("virial = %g %g %g  %g %g %g  %g %g %g\n",
+        virial.xx, virial.xy, virial.xz,
+        virial.yx, virial.yy, virial.yz,
+        virial.zx, virial.zy, virial.zz);
+#endif
     ADD_TENSOR_OBJECT(reduction,REDUCTION_VIRIAL_NORMAL,virial);
+#if 0
+    {
+      const FullAtom *a = patch->atom.const_begin();
+      for (int n=0;  n < patch->numAtoms;  n++) {
+        printf("pos[%d] =  %g %g %g\n", n,
+            a[n].position.x, a[n].position.y, a[n].position.z);
+      }
+      for (int n=0;  n < patch->numAtoms;  n++) {
+        printf("vel[%d] =  %g %g %g\n", n,
+            a[n].velocity.x, a[n].velocity.y, a[n].velocity.z);
+      }
+      if (pressure) {
+        for (int n=0;  n < patch->numAtoms;  n++) {
+          printf("force[%d] =  %g %g %g\n", n,
+              patch->f[Results::normal][n].x,
+              patch->f[Results::normal][n].y,
+              patch->f[Results::normal][n].z);
+        }
+      }
+    }
+#endif
   }
 }
 
@@ -1830,7 +2026,7 @@ void Sequencer::rattle1(BigReal dt, int pressure)
 
 void Sequencer::maximumMove(BigReal timestep)
 {
-  RANGE("maximumMove", 4);
+  NAMD_EVENT_RANGE_2(patch->flags.event_on, NamdProfileEvent::MAXIMUM_MOVE);
 
   FullAtom *a = patch->atom.begin();
   int numAtoms = patch->numAtoms;
@@ -1886,7 +2082,7 @@ void Sequencer::minimizationQuenchVelocity(void)
 
 void Sequencer::submitHalfstep(int step)
 {
-  RANGE("submitHalfstep", 6);
+  NAMD_EVENT_RANGE_2(patch->flags.event_on, NamdProfileEvent::SUBMIT_HALFSTEP);
 
   // velocity-dependent quantities *** ONLY ***
   // positions are not at half-step when called
@@ -2065,8 +2261,11 @@ void Sequencer::calcFixVirial(Tensor& fixVirialNormal, Tensor& fixVirialNbond, T
 
 void Sequencer::submitReductions(int step)
 {
-  RANGE("submitReductions", 10);
+#ifndef UPPER_BOUND
+  NAMD_EVENT_RANGE_2(patch->flags.event_on,
+      NamdProfileEvent::SUBMIT_REDUCTIONS);
   FullAtom *a = patch->atom.begin();
+#endif
   int numAtoms = patch->numAtoms;
 
 #if CMK_BLUEGENEL
@@ -2076,6 +2275,7 @@ void Sequencer::submitReductions(int step)
   reduction->item(REDUCTION_ATOM_CHECKSUM) += numAtoms;
   reduction->item(REDUCTION_MARGIN_VIOLATIONS) += patch->marginViolations;
 
+#ifndef UPPER_BOUND
   // For non-Multigrator doKineticEnergy = 1 always
   if (doKineticEnergy || doMomenta || patch->flags.doVirial)
   {
@@ -2294,9 +2494,12 @@ void Sequencer::submitReductions(int step)
       ADD_VECTOR_OBJECT(reduction,REDUCTION_EXT_FORCE_SLOW,fixForceSlow);
     }
   }
+#endif // UPPER_BOUND
 
   reduction->submit();
+#ifndef UPPER_BOUND
   if (pressureProfileReduction) pressureProfileReduction->submit();
+#endif
 }
 
 void Sequencer::submitMinimizeReductions(int step, BigReal fmax2)
@@ -2446,7 +2649,8 @@ void Sequencer::submitCollections(int step, int zeroVel)
   //
   //patch->copy_updates_to_AOS();
 
-  RANGE("submitCollections", 11);
+  NAMD_EVENT_RANGE_2(patch->flags.event_on,
+      NamdProfileEvent::SUBMIT_COLLECTIONS);
   int prec = Output::coordinateNeeded(step);
   if ( prec ) {
     collection->submitPositions(step,patch->atom,patch->lattice,prec);

@@ -45,11 +45,14 @@
 #include "ComputeQM.h"
 #include "ComputeQMMgr.decl.h"
 
+#include "NamdEventsProfiling.h"
+
 //#define PRINT_COMP
 #define TINY 1.0e-20;
 #define MAXHGS 10
 #define MIN_DEBUG_LEVEL 2
 //#define DEBUGM
+//#define NL_DEBUG
 #include "Debug.h"
 
 #include <vector>
@@ -88,6 +91,20 @@ void mollify(CompAtom *qtilde,const HGArrayVector &q0,const BigReal *lambda, HGA
 
 #endif
 
+#ifdef TIMER_COLLECTION
+const char *TimerSet::tlabel[TimerSet::NUMTIMERS] = {
+  "kick",
+  "maxmove",
+  "drift",
+  "piston",
+  "submithalf",
+  "velbbk1",
+  "velbbk2",
+  "rattle1",
+  "submitfull",
+  "submitcollect",
+};
+#endif
 
 HomePatch::HomePatch(PatchID pd, FullAtomList &al) : Patch(pd)
 // DMK - Atom Separation (water vs. non-water)
@@ -921,7 +938,13 @@ void HomePatch::positionsReady(int doMigration)
       doMarginCheck();
     }
   }
-  
+
+#if defined(NAMD_NVTX_ENABLED) || defined(NAMD_CMK_TRACE_ENABLED)
+  char prbuf[32];
+  sprintf(prbuf, "%s: %d", NamdProfileEventStr[NamdProfileEvent::POSITIONS_READY], this->getPatchID());
+  NAMD_EVENT_START_EX(1, NamdProfileEvent::POSITIONS_READY, prbuf);
+#endif
+
   if (doMigration && simParams->qmLSSOn)
       qmSwapAtoms();
 
@@ -1006,13 +1029,26 @@ void HomePatch::positionsReady(int doMigration)
   doMigration = doMigration || doAtomUpdate;
   doAtomUpdate = false;
 
-  // Workaround for oversize groups
+  // Workaround for oversize groups:
+  // reset nonbondedGroupSize (ngs) before force calculation,
+  // making sure that subset of hydrogen group starting with 
+  // parent atom are all within 0.5 * hgroupCutoff.
+  // XXX hydrogentGroupSize remains constant but is checked for nonzero
+  // XXX should be skipped for CUDA, ngs not used by CUDA kernels
+  // XXX should this also be skipped for KNL kernels?
+  // ngs used by ComputeNonbondedBase.h - CPU nonbonded kernels
+  // ngs used by ComputeGBIS.C - CPU GB nonbonded kernels
+#if ! defined(NAMD_CUDA)
   doGroupSizeCheck();
+#endif
 
   // Copy information needed by computes and proxys to Patch::p.
-  p.resize(numAtoms);
+  // Resize only if atoms were migrated
+  if (doMigration) {
+    p.resize(numAtoms);
+    pExt.resize(numAtoms);
+  }
   CompAtom *p_i = p.begin();
-  pExt.resize(numAtoms);
   CompAtomExt *pExt_i = pExt.begin();
   FullAtom *a_i = atom.begin();
   int i; int n = numAtoms;
@@ -1254,6 +1290,9 @@ void HomePatch::positionsReady(int doMigration)
 
   // gzheng
   Sync::Object()->PatchReady();
+
+  NAMD_EVENT_STOP(1, NamdProfileEvent::POSITIONS_READY);
+
 }
 
 void HomePatch::replaceForces(ExtForce *f)
@@ -2340,8 +2379,9 @@ int HomePatch::rattle1(const BigReal timestep, Tensor *virial,
     for (int i = 0; i < hgs; ++i ) {
       ref[i] = atom[ig+i].position;
       pos[i] = atom[ig+i].position;
-      if (!(fixedAtomsOn && atom[ig+i].atomFixed))
+      if (!(fixedAtomsOn && atom[ig+i].atomFixed)) {
         pos[i] += atom[ig+i].velocity * dt;
+      }
       refx[i] = ref[i].x;
       refy[i] = ref[i].y;
       refz[i] = ref[i].z;
@@ -2349,7 +2389,6 @@ int HomePatch::rattle1(const BigReal timestep, Tensor *virial,
       posy[i] = pos[i].y;
       posz[i] = pos[i].z;
     }
-
 
     bool done;
     bool consFailure;
@@ -2400,9 +2439,7 @@ int HomePatch::rattle1(const BigReal timestep, Tensor *virial,
         << (atom[ig].id + 1) << "!\n" << endi;
       }
     }
-
   }
-
   // Finally, we have to go through atoms that are not involved in rattle just so that we have
   // their positions and velocities up-to-date in posNew and velNew
   for (int j=0;j < noconstList.size();++j) {
@@ -3497,13 +3534,27 @@ void HomePatch::submitLoadStats(int timestep)
 }
 
 
+//
+// XXX operates on CompAtom, not FullAtom
+//
 void HomePatch::doPairlistCheck()
 {
+#if 0
+#if defined(NAMD_NVTX_ENABLED) || defined(NAMD_CMK_TRACE_ENABLED)
+  char dpcbuf[32];
+  sprintf(dpcbuf, "%s: %d", NamdProfileEventStr[NamdProfileEvent::DO_PAIRLIST_CHECK], this->getPatchID());
+  NAMD_EVENT_START_EX(1, NamdProfileEvent::DO_PAIRLIST_CHECK, dpcbuf);
+#endif
+#endif
+
   SimParameters *simParams = Node::Object()->simParameters;
 
   if ( numAtoms == 0 || ! flags.usePairlists ) {
     flags.pairlistTolerance = 0.;
     flags.maxAtomMovement = 99999.;
+#if 0
+    NAMD_EVENT_STOP(1, NamdProfileEvent::DO_PAIRLIST_CHECK);
+#endif
     return;
   }
 
@@ -3518,6 +3569,9 @@ void HomePatch::doPairlistCheck()
     doPairlistCheck_positions.resize(numAtoms);
     CompAtom *psave_i = doPairlistCheck_positions.begin();
     for ( i=0; i<n; ++i ) { psave_i[i] = p_i[i]; }
+#if 0
+    NAMD_EVENT_STOP(1, NamdProfileEvent::DO_PAIRLIST_CHECK);
+#endif
     return;
   }
 
@@ -3569,7 +3623,9 @@ void HomePatch::doPairlistCheck()
   if ( max_tol > doPairlistCheck_newTolerance ) {
     doPairlistCheck_newTolerance = max_tol / (1. - simParams->pairlistTrigger);
   }
-
+#if 0
+  NAMD_EVENT_STOP(1, NamdProfileEvent::DO_PAIRLIST_CHECK);
+#endif
 }
 
 void HomePatch::doGroupSizeCheck()
@@ -3587,7 +3643,7 @@ void HomePatch::doGroupSizeCheck()
     const int hgs = p_i->hydrogenGroupSize;
     if ( ! hgs ) break;  // avoid infinite loop on bug
     int ngs = hgs;
-    if ( ngs > 5 ) ngs = 5;  // limit to at most 5 atoms per group
+    if ( ngs > 5 ) ngs = 5;  // XXX why? limit to at most 5 atoms per group
     BigReal x = p_i->position.x;
     BigReal y = p_i->position.y;
     BigReal z = p_i->position.z;
@@ -3726,9 +3782,19 @@ HomePatch::doAtomMigration()
   #endif
 
   while ( atom_i != atom_e ) {
+    // Even though this code iterates through all atoms successively
+    // it moves entire hydrogen/migration groups as follows:
+    // Only the parent atom of the hydrogen/migration group has
+    // nonzero migrationGroupSize.  Values determined for xdev,ydev,zdev
+    // will persist through the remaining group members so that each
+    // following atom will again be added to the same mList.
     if ( atom_i->migrationGroupSize ) {
       Position pos = atom_i->position;
       if ( atom_i->migrationGroupSize != atom_i->hydrogenGroupSize ) {
+        // If there are multiple hydrogen groups in a migration group
+        // (e.g. for supporting lone pairs)
+        // the following code takes the average position (midpoint)
+        // of their parents.
         int mgs = atom_i->migrationGroupSize;
         int c = 1;
         for ( int j=atom_i->hydrogenGroupSize; j<mgs;
@@ -3740,6 +3806,11 @@ HomePatch::doAtomMigration()
         // iout << "mgroup " << atom_i->id << " at " << pos << "\n" << endi;
       }
 
+      // Scaling the position below transforms space within patch from
+      // what could have been a rotated parallelepiped into
+      // orthogonal coordinates, where we can use minmax comparison
+      // to detect which of our nearest neighbors this
+      // parent atom might have entered.
       ScaledPosition s = lattice.scale(pos);
 
       // check if atom is within bounds
@@ -3785,6 +3856,8 @@ HomePatch::doAtomMigration()
 
 
     } else {
+      // By keeping track of delnum total being deleted from FullAtomList
+      // the else clause allows us to fill holes as we visit each atom.
 
       if ( delnum ) { *(atom_i-delnum) = *atom_i; }
 
@@ -3816,7 +3889,9 @@ HomePatch::doAtomMigration()
      depositMigration(msgbuf[i]);
   }
   numMlBuf = 0;
-     
+
+  NAMD_EVENT_STOP(1, NamdProfileEvent::ATOM_MIGRATIONS);
+
   if (!allMigrationIn) {
     DebugM(3,"All Migrations NOT in, we are suspending patch "<<patchID<<"\n");
     migrationSuspended = true;
@@ -3926,6 +4001,7 @@ HomePatch::depositMigration(MigrateAtomsMsg *msg)
 //   atom list (regardless of whether or not the atom list is has been
 //   sorted yet or not).
 void HomePatch::separateAtoms() {
+  SimParameters *simParams = Node::Object()->simParameters;
 
   // Basic Idea:  Iterate through all the atoms in the current list
   //   of atoms.  Pack the waters in the current atoms list and move
@@ -4003,6 +4079,7 @@ void HomePatch::separateAtoms() {
 // NOTE: This function applies the transformations to the incoming
 //   atoms as it is separating them.
 void HomePatch::mergeAtomList(FullAtomList &al) {
+  SimParameters *simParams = Node::Object()->simParameters;
 
   // Sanity check
   if (al.size() <= 0) return;  // Nothing to do

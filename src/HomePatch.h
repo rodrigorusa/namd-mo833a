@@ -27,12 +27,6 @@
 #include <string>
 #include <map>
 
-//
-// DJH: NAMDLite array buffers are memory aligned for vector instructions.
-//
-//#include "nl_Array.h"
-//
-
 class RegisterProxyMsg;
 class UnregisterProxyMsg;
 class ProxyResultVarsizeMsg;
@@ -49,41 +43,232 @@ class ProxyNodeAwareSpanningTreeMsg;
 
 class ComputeQMMgr;
 
+
+#ifdef TIMER_COLLECTION
+
+#include <time.h>
+
+struct TimerMicrosecond {
+  struct timespec ts;
+  inline void start() {
+    clock_gettime(CLOCK_REALTIME, &ts);
+  }
+  inline double stop() {
+    struct timespec tsend;
+    clock_gettime(CLOCK_REALTIME, &tsend);
+    return( (tsend.tv_sec - ts.tv_sec) * 1e6      // sec to microsec
+        + (tsend.tv_nsec - ts.tv_nsec) * 1e-3 );  // nanosec to microsec
+  }
+};
+
+#define TIMER_SLOTS  101
+#define TIMER_SLOT_WIDTH  1
+
+/// Timer entry
+struct TimerEntry {
+  TimerMicrosecond tmicro;
+  double tcur;   ///< timer current entry
+  double tavg;   ///< timer average
+  double tvar;   ///< timer variance
+  double tstd;   ///< timer standard deviation
+  double tmin;   ///< timer minimum
+  double tmax;   ///< timer maximum
+  double tsum;   ///< timer summation
+#if defined(DEBUG_TIMER_COLLECTION)
+  double tcharm; ///< compare with timer from Charm++ for debugging
+#endif
+#if defined(TIMER_HISTOGRAM)
+  double slotwidth;
+  double inv_slotwidth;
+  int hist[TIMER_SLOTS];
+#endif
+  int count;
+  TimerEntry() { reset(); }
+  /// Reset accumulators.
+  inline void reset() {
+    memset(this, 0, sizeof(TimerEntry));
+  }
+  inline void init(double t = TIMER_SLOT_WIDTH) {
+    tmin = 1e20;
+#if defined(TIMER_HISTOGRAM)
+    slotwidth = t;
+    inv_slotwidth = (slotwidth > 0 ? 1./slotwidth : 0);
+#endif
+  }
+  /// Start timer, set tcur to seconds since program started.
+  inline void start() {
+#if defined(DEBUG_TIMER_COLLECTION)
+    tcharm = CkWallTimer();
+#endif
+    tmicro.start();
+  }
+  /// Stop timer, set tcur to time difference between now and start.
+  inline void stop() {
+    tcur = tmicro.stop();
+#if defined(DEBUG_TIMER_COLLECTION)
+    tcharm = CkWallTimer() - tcharm;  // find ellapsed time
+    tcharm *= 1e6;  // convert to microseconds
+#endif
+  }
+  /// Update by including tcur into running statistics.
+  /// tavg is running average
+  /// tvar is unscaled variance
+  /// tmin is minimum value so far
+  /// tmax is maximum value so far
+  inline void update() {
+    count++;
+    tsum += tcur;
+    double delta = tcur - tavg;
+    tavg = tavg + delta / count;
+    double delta2 = tcur - tavg;
+    tvar += delta * delta2;
+    if (tcur > tmax) tmax = tcur;
+    if (tcur < tmin) tmin = tcur;
+#if defined(TIMER_HISTOGRAM)
+    int index = int(floor(tcur * inv_slotwidth));
+    if (index >= TIMER_SLOTS) index = TIMER_SLOTS - 1;
+    hist[index]++;
+#endif
+  }
+  /// Finalize the statistics.
+  /// tvar becomes scaled by the count
+  /// tstd calculated from tvar
+  inline void finalize() {
+    if (count > 0) tvar /= count;
+    tstd = sqrt(tvar);
+    if (tmin > tmax) tmin = tmax;
+  }
+};
+
+struct TimerSet {
+  enum {
+    KICK,
+    MAXMOVE,
+    DRIFT,
+    PISTON,
+    SUBMITHALF,
+    VELBBK1,
+    VELBBK2,
+    RATTLE1,
+    SUBMITFULL,
+    SUBMITCOLLECT,
+    NUMTIMERS
+  };
+  TimerEntry t[NUMTIMERS];
+  static const char *tlabel[NUMTIMERS];
+};
+
+#define TIMER_INIT(T,TYPE) \
+  do { \
+    (T).t[TimerSet::TYPE].init(); \
+  } while(0)
+
+#define TIMER_INIT_WIDTH(T,TYPE,WIDTH) \
+  do { \
+    (T).t[TimerSet::TYPE].init(WIDTH); \
+  } while(0)
+
+#define TIMER_START(T,TYPE) \
+  do { \
+    (T).t[TimerSet::TYPE].start(); \
+  } while(0)
+
+#if defined(DEBUG_TIMER_COLLECTION)
+
+// For debugging, compare clock_gettime with CkWallTimer.
+// The concern is regarding these routines that are on average less than
+// 10 us (microseconds) but are sometimes an order of magnitude slower.
 //
-// DJH: Array buffers defined here for storing data from FullAtomList and
-// also forces into SOA (structure of arrays) layout. Also declare methods
-// for copying from AOS to SOA and back again.
+// Note:  After testing, everything with use of clock_gettime seems
+// to be working correctly.
 //
-// We will also remove derived constants from FullAtom (e.g. recipMass).
-// The idea is reduce the messaging footprint as much as possible.
-// Recalculate constants after atom migration.
-//
-//struct PatchDataSOA {
-//
-//namdlite::Array<float> gaussrand; // fill with Gaussian random numbers
-//
-//namdlite::Array<float> mass;
-//namdlite::Array<float> recipMass; // derived from mass
-//namdlite::Array<float> langevinParam;
-//namdlite::Array<float> langScalVelBBK2;  // derived from langevinParam
-//namdlite::Array<float> langScalRandBBK2; // from langevinParam and recipMass
-//
-//namdlite::Array<double> vel_x;  // Jim recommends double precision velocity
-//namdlite::Array<double> vel_y;
-//namdlite::Array<double> vel_z;
-//namdlite::Array<double> pos_x;
-//namdlite::Array<double> pos_y;
-//namdlite::Array<double> pos_z;
-//namdlite::Array<double> f_normal_x;
-//namdlite::Array<double> f_normal_y;
-//namdlite::Array<double> f_normal_z;
-//namdlite::Array<double> f_nbond_x;
-//namdlite::Array<double> f_nbond_y;
-//namdlite::Array<double> f_nbond_z;
-//namdlite::Array<double> f_slow_x;
-//namdlite::Array<double> f_slow_y;
-//namdlite::Array<double> f_slow_z;
-//};
+#define TIMER_STOP(T,TYPE)  \
+  do { \
+    (T).t[TimerSet::TYPE].stop(); \
+    (T).t[TimerSet::TYPE].update(); \
+    double tcur = (T).t[TimerSet::TYPE].tcur; \
+    int count = (T).t[TimerSet::TYPE].count; \
+    if (tcur >= 100 && patch->patchID == SPECIAL_PATCH_ID) { \
+      printf("*** %s timing: %g   count: %d  line: %d  charm: %g\n", \
+          (T).tlabel[TimerSet::TYPE], tcur, count, __LINE__, \
+          (T).t[TimerSet::TYPE].tcharm); \
+    } \
+  } while(0)
+
+#else   // no DEBUG
+
+#define TIMER_STOP(T,TYPE)  \
+  do { \
+    (T).t[TimerSet::TYPE].stop(); \
+    (T).t[TimerSet::TYPE].update(); \
+  } while(0)
+
+#endif  // DEBUG_TIMER_COLLECTION
+
+#define TIMER_DONE(T) \
+  do { \
+    for (int i=0;  i < TimerSet::NUMTIMERS;  i++) { \
+      (T).t[i].finalize(); \
+    } \
+  } while(0)
+
+#if defined(TIMER_HISTOGRAM)
+
+#define TIMER_REPORT(T) \
+  do { \
+    printf("%13s %11s %11s %8s %8s %11s %8s\n", \
+        "name", "avg", "std", "min", "max", "sum", "calls"); \
+    printf("---------------------------------------------------------------" \
+        "-------------\n"); \
+    for (int i=0;  i < TimerSet::NUMTIMERS;  i++) { \
+      printf("%13s %11g %11g %8g %8g %11g %8d\n", \
+          (T).tlabel[i], (T).t[i].tavg, (T).t[i].tstd, \
+          (T).t[i].tmin, (T).t[i].tmax, (T).t[i].tsum, (T).t[i].count); \
+    } \
+    printf("---------------------------------------------------------------" \
+        "-------------\n"); \
+    for (int i=0;  i < TimerSet::NUMTIMERS;  i++) { \
+      printf("%13s %8s %8s %8s\n", \
+          (T).tlabel[i], "slot", "time", "count"); \
+      for (int j=0;  j < TIMER_SLOTS;  j++) { \
+        printf("%13s %8d %8g %8d\n", \
+            " ", j, (j+1)*(T).t[i].slotwidth, (T).t[i].hist[j]); \
+      } \
+      printf("---------------------------------------------------------------" \
+          "-------------\n"); \
+    } \
+  } while(0)
+
+#else  // no HISTOGRAM
+
+#define TIMER_REPORT(T) \
+  do { \
+    printf("%13s %11s %11s %8s %8s %11s %8s\n", \
+        "name", "avg", "std", "min", "max", "sum", "calls"); \
+    printf("---------------------------------------------------------------" \
+        "-------------\n"); \
+    for (int i=0;  i < TimerSet::NUMTIMERS;  i++) { \
+      printf("%13s %11g %11g %8g %8g %11g %8d\n", \
+          (T).tlabel[i], (T).t[i].tavg, (T).t[i].tstd, \
+          (T).t[i].tmin, (T).t[i].tmax, (T).t[i].tsum, (T).t[i].count); \
+    } \
+    printf("---------------------------------------------------------------" \
+        "-------------\n"); \
+  } while(0)
+
+#endif  // TIMER_HISTOGRAM
+
+#else   // no TIMER
+
+#define TIMER_INIT(T,TYPE)   do { } while(0)
+#define TIMER_INIT_WIDTH(T,TYPE,WIDTH)  do{ } while(0)
+#define TIMER_START(T,TYPE)  do { } while(0)
+#define TIMER_STOP(T,TYPE)   do { } while(0)
+#define TIMER_DONE(T)        do { } while(0)
+#define TIMER_REPORT(T)      do { } while(0)
+
+#endif  // TIMER_COLLECTION
+
 
 class HomePatch : public Patch {
   friend class PatchMgr;
@@ -292,6 +477,10 @@ public:
 #endif
 
   LDObjHandle ldObjHandle;
+
+#ifdef TIMER_COLLECTION
+  TimerSet timerSet;
+#endif
 protected:
   virtual void boxClosed(int);
 
@@ -311,25 +500,6 @@ private:
   ExtForce *replacementForces;
 
   CudaAtomList cudaAtomList;
-
-  //
-  // DJH: SOA data structure declared here.
-  //
-  //PatchDataSOA patchDataSOA;
-  //
-  // Copy fields from FullAtom into SOA form.
-  //void copy_atoms_to_SOA();
-  //
-  // Copy forces into SOA form.
-  //void copy_forces_to_SOA();
-  //
-  // Calculate derived constants after atom migration.
-  //void calculate_derived_SOA();
-  //
-  // Copy the updated quantities, e.g., positions and velocities, from SOA
-  // back to AOS form.
-  //void copy_updates_to_AOS();
-  //
 
   // DMK - Atom Separation (water vs. non-water)
   #if NAMD_SeparateWaters != 0

@@ -31,6 +31,10 @@ public:
   int maxForceUsed;		// may ignore slower force classes
   int maxForceMerged;		// add this and faster to normal
 
+#if defined(NAMD_NVTX_ENABLED) || defined(NAMD_CMK_TRACE_ENABLED)
+  int event_on;  // true or false to control NVTX profiling
+#endif
+
   int usePairlists;
   int savePairlists;
   BigReal pairlistTolerance;
@@ -38,6 +42,10 @@ public:
   BigReal maxGroupRadius;
 
   Lattice lattice;		// rather than shipping around separately
+
+#if defined(NAMD_NVTX_ENABLED) || defined(NAMD_CMK_TRACE_ENABLED)
+  Flags() : event_on(0) { }
+#endif
 
   inline Flags& operator= (const Flags &flags) 
     {
