@@ -1,7 +1,7 @@
 NAMD_ARCH = Linux-KNL
 CHARMARCH = multicore-linux-x86_64-iccstatic
 
-FLOATOPTS = -ip -xMIC-AVX512 -qopenmp-simd
+FLOATOPTS = -ip -O3 -xCORE-AVX512 -qopt-zmm-usage=high -fp-model fast=2 -no-prec-div -qoverride-limits -DNAMD_DISABLE_SSE -qopenmp-simd
 
 CXX = icpc -std=c++11 -DNAMD_KNL
 CXXOPTS = -static-intel -O2 $(FLOATOPTS)

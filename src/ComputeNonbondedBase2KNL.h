@@ -37,9 +37,9 @@ NOFAST( foo bar )
 #ifdef PRAGMA_SIMD
 #ifndef TABENERGYFLAG
 #if __INTEL_COMPILER_BUILD_DATE == 20160721
-#warning disabled pragma simd on innner loop due to compiler segfault
+#warning disabled simd pragma on innner loop due to compiler segfault
 #else
-#pragma simd SHORT(FAST(reduction(+:f_i_x,f_i_y,f_i_z)) ENERGY(FAST(reduction(+:vdwEnergy) SHORT(reduction(+:electEnergy))))) \
+#pragma omp simd SHORT(FAST(reduction(+:f_i_x,f_i_y,f_i_z)) ENERGY(FAST(reduction(+:vdwEnergy) SHORT(reduction(+:electEnergy))))) \
              FULL(reduction(+:fullf_i_x,fullf_i_y,fullf_i_z) ENERGY(reduction(+:fullElectEnergy)))
 #endif
 #endif

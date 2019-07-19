@@ -1442,7 +1442,7 @@ __attribute__((target(mic))) void NAME (mic_params &params) {
         const int pairlist_excl_len = pairlist_excl[1] - 2;
         int exclSum = 0;
         __ASSUME_ALIGNED(pairlist_excl_base);
-        #pragma simd reduction(+ : exclSum)
+        #pragma omp simd reduction(+ : exclSum)
         for (int plI = 0; plI < pairlist_excl_len; plI++) {
           if ((pairlist_excl_base[plI] & 0xFFFF) != 0xFFFF) {
             exclSum += 1;

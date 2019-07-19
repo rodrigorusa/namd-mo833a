@@ -2267,7 +2267,7 @@ void mic_nonbonded_forces(const int deviceNum,
         // Accumulate the forces from the various computes contributing to this patch
         memset(fDst + flIPartJLo, 0, sizeof(double) * (flIPartJHi - flIPartJLo));
         for (int i = 0; i < fl.force_list_size; i++) {
-          #pragma simd
+          #pragma omp simd
           for (int j = flIPartJLo; j < flIPartJHi; j++) {
             fDst[j] += fSrcBase[i * f_len + j];
           }
@@ -2293,7 +2293,7 @@ void mic_nonbonded_forces(const int deviceNum,
         // Accumulate the forces from the various computes contributing to this patch
         memset(fDst + flIPartJLo, 0, sizeof(double) * (flIPartJHi - flIPartJLo));
         for (int i = 0; i < fl.force_list_size; i++) {
-          #pragma simd
+          #pragma omp simd
           for (int j = flIPartJLo; j < flIPartJHi; j++) {
             fDst[j] += fSrcBase[i * f_len + j];
           }

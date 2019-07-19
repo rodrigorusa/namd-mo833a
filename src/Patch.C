@@ -273,7 +273,7 @@ void Patch::forceBoxClosed(void)
       BigReal virial_yy = 0.;
       BigReal virial_yz = 0.;
       BigReal virial_zz = 0.;
-#pragma simd reduction(+:virial_xx,virial_xy,virial_xz,virial_yy,virial_yz,virial_zz)
+#pragma omp simd reduction(+:virial_xx,virial_xy,virial_xz,virial_yy,virial_yz,virial_zz)
 #pragma ivdep
       for ( int i=0; i<n; ++i ) {
         BigReal p_x = pd[i].position.x - center.x;

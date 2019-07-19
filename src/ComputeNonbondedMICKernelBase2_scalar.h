@@ -52,7 +52,7 @@
       #endif
 
       // Create an "inner" loop with one iteration per vector unit lane
-      #pragma simd vectorlength(16) \
+      #pragma omp simd vectorlength(16) \
                    reduction(+ : tmp_x_i_sum, tmp_y_i_sum, tmp_z_i_sum, tmp_w_i_sum, \
                                  fulltmp_x_i_sum, fulltmp_y_i_sum, fulltmp_z_i_sum ) \
                    EXCL_CHECKSUM_CLAUSE
