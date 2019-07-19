@@ -60,7 +60,7 @@ bool colvarproxy_system::total_forces_same_step() const
 
 inline int round_to_integer(cvm::real x)
 {
-  return std::floor(x+0.5);
+  return cvm::floor(x+0.5);
 }
 
 
@@ -129,7 +129,10 @@ cvm::rvector colvarproxy_system::position_distance(cvm::atom_pos const &pos1,
 
 
 
-colvarproxy_atoms::colvarproxy_atoms() {}
+colvarproxy_atoms::colvarproxy_atoms()
+{
+  updated_masses_ = updated_charges_ = false;
+}
 
 
 colvarproxy_atoms::~colvarproxy_atoms()

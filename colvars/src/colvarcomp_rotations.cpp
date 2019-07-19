@@ -7,8 +7,6 @@
 // If you wish to distribute your changes, please submit them to the
 // Colvars repository at GitHub.
 
-#include <cmath>
-
 #include "colvarmodule.h"
 #include "colvarvalue.h"
 #include "colvarparse.h"
@@ -18,10 +16,10 @@
 
 
 colvar::orientation::orientation(std::string const &conf)
-  : cvc(conf)
+  : cvc()
 {
   function_type = "orientation";
-  enable(f_cvc_implicit_gradient);
+  disable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_quaternion);
   init(conf);
 }
@@ -29,6 +27,8 @@ colvar::orientation::orientation(std::string const &conf)
 
 int colvar::orientation::init(std::string const &conf)
 {
+  int error_code = cvc::init(conf);
+
   atoms = parse_group(conf, "atoms");
   ref_pos.reserve(atoms->size());
 
@@ -87,6 +87,7 @@ int colvar::orientation::init(std::string const &conf)
     rot.request_group2_gradients(atoms->size());
   }
 
+  return error_code;
 }
 
 
@@ -94,7 +95,7 @@ colvar::orientation::orientation()
   : cvc()
 {
   function_type = "orientation";
-  enable(f_cvc_implicit_gradient);
+  disable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_quaternion);
 }
 
@@ -163,7 +164,7 @@ colvar::orientation_angle::orientation_angle(std::string const &conf)
   : orientation()
 {
   function_type = "orientation_angle";
-  disable(f_cvc_implicit_gradient);
+  enable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_scalar);
   init(conf);
 }
@@ -179,7 +180,7 @@ colvar::orientation_angle::orientation_angle()
   : orientation()
 {
   function_type = "orientation_angle";
-  disable(f_cvc_implicit_gradient);
+  enable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_scalar);
 }
 
@@ -191,9 +192,9 @@ void colvar::orientation_angle::calc_value()
   rot.calc_optimal_rotation(ref_pos, atoms->positions_shifted(-1.0 * atoms_cog));
 
   if ((rot.q).q0 >= 0.0) {
-    x.real_value = (180.0/PI) * 2.0 * std::acos((rot.q).q0);
+    x.real_value = (180.0/PI) * 2.0 * cvm::acos((rot.q).q0);
   } else {
-    x.real_value = (180.0/PI) * 2.0 * std::acos(-1.0 * (rot.q).q0);
+    x.real_value = (180.0/PI) * 2.0 * cvm::acos(-1.0 * (rot.q).q0);
   }
 }
 
@@ -202,7 +203,7 @@ void colvar::orientation_angle::calc_gradients()
 {
   cvm::real const dxdq0 =
     ( ((rot.q).q0 * (rot.q).q0 < 1.0) ?
-      ((180.0 / PI) * (-2.0) / std::sqrt(1.0 - ((rot.q).q0 * (rot.q).q0))) :
+      ((180.0 / PI) * (-2.0) / cvm::sqrt(1.0 - ((rot.q).q0 * (rot.q).q0))) :
       0.0 );
 
   for (size_t ia = 0; ia < atoms->size(); ia++) {
@@ -228,7 +229,7 @@ colvar::orientation_proj::orientation_proj(std::string const &conf)
   : orientation()
 {
   function_type = "orientation_proj";
-  disable(f_cvc_implicit_gradient);
+  enable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_scalar);
   init(conf);
 }
@@ -244,7 +245,7 @@ colvar::orientation_proj::orientation_proj()
   : orientation()
 {
   function_type = "orientation_proj";
-  disable(f_cvc_implicit_gradient);
+  enable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_scalar);
 }
 
@@ -284,7 +285,7 @@ colvar::tilt::tilt(std::string const &conf)
   : orientation()
 {
   function_type = "tilt";
-  disable(f_cvc_implicit_gradient);
+  enable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_scalar);
   init(conf);
 }
@@ -310,7 +311,7 @@ colvar::tilt::tilt()
   : orientation()
 {
   function_type = "tilt";
-  disable(f_cvc_implicit_gradient);
+  enable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_scalar);
 }
 
@@ -358,7 +359,7 @@ colvar::spin_angle::spin_angle(std::string const &conf)
   function_type = "spin_angle";
   period = 360.0;
   b_periodic = true;
-  disable(f_cvc_implicit_gradient);
+  enable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_scalar);
   init(conf);
 }
@@ -386,7 +387,7 @@ colvar::spin_angle::spin_angle()
   function_type = "spin_angle";
   period = 360.0;
   b_periodic = true;
-  disable(f_cvc_implicit_gradient);
+  enable(f_cvc_explicit_gradient);
   x.type(colvarvalue::type_scalar);
 }
 
@@ -452,15 +453,15 @@ colvarvalue colvar::spin_angle::dist2_rgrad(colvarvalue const &x1,
 }
 
 
-void colvar::spin_angle::wrap(colvarvalue &x) const
+void colvar::spin_angle::wrap(colvarvalue &x_unwrapped) const
 {
-  if ((x.real_value - wrap_center) >= 180.0) {
-    x.real_value -= 360.0;
+  if ((x_unwrapped.real_value - wrap_center) >= 180.0) {
+    x_unwrapped.real_value -= 360.0;
     return;
   }
 
-  if ((x.real_value - wrap_center) < -180.0) {
-    x.real_value += 360.0;
+  if ((x_unwrapped.real_value - wrap_center) < -180.0) {
+    x_unwrapped.real_value += 360.0;
     return;
   }
 
