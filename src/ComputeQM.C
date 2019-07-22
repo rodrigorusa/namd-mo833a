@@ -2537,6 +2537,7 @@ void ComputeQMMgr::procQMRes() {
     DebugM(4,"Distributing QM forces for all ranks.\n");
     for ( int j=0; j < numSources; ++j ) {
         
+        std::set<int> auxset0;
         DebugM(1,"Sending forces and charges to source " << j << std::endl);
         
         QMCoordMsg *qmmsg = 0;
@@ -2580,6 +2581,17 @@ void ComputeQMMgr::procQMRes() {
             << pcmsg->sourceNode << std::endl);
             
             totForces = qmmsg->numAtoms + pcmsg->numAtoms;
+
+            // I want to count number of different atom ids
+            // which is the size of force array. 
+            // Avoids double counting of forces
+            for ( int i=0; i < qmmsg->numAtoms; ++i ) {
+                auxset0.insert(qmmsg->coord[i].id);
+            }
+            for ( int i=0; i < pcmsg->numAtoms; ++i ) {
+                auxset0.insert(pcmsg->coord[i].id);
+            }
+            totForces = auxset0.size(); // Fixes same patch different QM regions double counting
         }
         
         QMForceMsg *fmsg = new (totForces, subsArray.size(), 0) QMForceMsg;
@@ -2591,10 +2603,11 @@ void ComputeQMMgr::procQMRes() {
         
         // This iterator is used in BOTH loops!
         int forceIter = 0;
-        
+        auxset0.clear(); // Need to keep track of forces by id that have been copied to fmsg
         for ( int i=0; i < qmmsg->numAtoms; ++i ) {
             fmsg->force[forceIter] = force[qmmsg->coord[i].id];
             forceIter++;
+            auxset0.insert(qmmsg->coord[i].id); // This should add each qm atom once
         }
         
         delete qmmsg;
@@ -2603,8 +2616,12 @@ void ComputeQMMgr::procQMRes() {
             DebugM(1,"Loading PntChrg forces.\n");
             
             for ( int i=0; i < pcmsg->numAtoms; ++i ) {
-                fmsg->force[forceIter] = force[pcmsg->coord[i].id];
-                forceIter++;
+                // (QM atoms that are PC or repeated PC) are not copied to fmsg
+                if (auxset0.find(pcmsg->coord[i].id) == auxset0.end()) {
+                    fmsg->force[forceIter] = force[pcmsg->coord[i].id];
+                    forceIter++;
+                    auxset0.insert(pcmsg->coord[i].id);
+                }
             }
             
             delete pcmsg;
@@ -2783,7 +2800,7 @@ void ComputeQM::saveResults(QMForceMsg *fmsg) {
 
 void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
 {
-    
+    const Real * const qmAtomGroup = Node::Object()->molecule->get_qmAtomGroup() ;
     FILE *inputFile,*outputFile,*chrgFile;
     int iret;
     
@@ -3405,9 +3422,13 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
         }
         
         if (pcP[i].type == QMPCTYPE_CLASSICAL) {
+            // Checking pcP was not a QM atom in another region
+            // If so the interaction is accounted in the other region
+            if (qmAtomGroup[pcP[i].id] == 0) {
             // If we already ignored MM1 charges, we take all other 
             // non-virtual charges and apply forces directly to them.
-            resForce[pcIndx].force += totalForce;
+                resForce[pcIndx].force += totalForce;
+            }
         }
         else {
             // If we are handling virtual PC, we distribute the force over
@@ -3627,7 +3648,7 @@ void ComputeQMMgr::calcMOPAC(QMGrpCalcMsg *msg)
 
 void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
 {
-    
+    const Real * const qmAtomGroup = Node::Object()->molecule->get_qmAtomGroup() ;
     FILE *inputFile,*outputFile,*chrgFile;
     int iret;
     
@@ -4311,9 +4332,13 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
             totalForce *= -1185.82151;
             
             if (pcP[i].type == QMPCTYPE_CLASSICAL) {
+                // Checking pcP was not a QM atom in another region
+                // If so the interaction is accounted in the other region
+                if (qmAtomGroup[pcP[i].id] == 0) {
                 // If we already ignored MM1 charges, we take all other 
                 // non-virtual charges and apply forces directly to them.
-                resForce[pcIndx].force += totalForce;
+                    resForce[pcIndx].force += totalForce;
+                }
             }
             else {
                 // If we are handling virtual PC, we distribute the force over
@@ -4484,7 +4509,7 @@ void ComputeQMMgr::calcORCA(QMGrpCalcMsg *msg)
 }
 
 void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
-    
+    const Real * const qmAtomGroup = Node::Object()->molecule->get_qmAtomGroup() ;
     FILE *inputFile,*outputFile;
     int iret;
     
@@ -4860,9 +4885,13 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
             }
             
             if (pcP[i].type == QMPCTYPE_CLASSICAL) {
+                // Checking pcP was not a QM atom in another region
+                // If so the interaction is accounted in the other region
+                if (qmAtomGroup[pcP[i].id] == 0) {
                 // If we already ignored MM1 charges, we take all other 
                 // non-virtual charges and apply forces directly to them.
-                resForce[pcIndx].force += totalForce;
+                    resForce[pcIndx].force += totalForce;
+                }
             }
             else {
                 // If we are handling virtual PC, we distribute the force over
@@ -4966,9 +4995,13 @@ void ComputeQMMgr::calcUSR(QMGrpCalcMsg *msg) {
             }
             
             if (pcP[i].type == QMPCTYPE_CLASSICAL) {
+                // Checking pcP was not a QM atom in another region
+                // If so the interaction is accounted in the other region
+                if (qmAtomGroup[pcP[i].id] == 0) {
                 // If we already ignored MM1 charges, we take all other 
                 // non-virtual charges and apply forces directly to them.
-                resForce[pcIndx].force += totalForce;
+                    resForce[pcIndx].force += totalForce;
+                }
             }
             else {
                 // If we are handling virtual PC, we distribute the force over
