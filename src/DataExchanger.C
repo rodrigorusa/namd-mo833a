@@ -240,7 +240,11 @@ class SleepCommthdMsg {
 
 void recvSleepCommthdMsg(SleepCommthdMsg *msg) {
   if ( CkMyRank() != CkMyNodeSize() ) NAMD_bug("recvSleepCommthdMsg called on PE instead of communication thread");
+#ifdef WIN32
+  Sleep(1);
+#else
   usleep(1000);
+#endif
   CmiDelayImmediate();  // re-enqueue for next cycle
 }
 #endif
