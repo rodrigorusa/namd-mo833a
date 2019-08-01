@@ -52,7 +52,7 @@ colvar::CartesianBasedPath::CartesianBasedPath(std::string const &conf): cvc(con
     bool has_frames = true;
     total_reference_frames = 0;
     while (has_frames) {
-        std::string reference_position_file_lookup = "refPositionFile" + cvm::to_str(total_reference_frames + 1);
+        std::string reference_position_file_lookup = "refPositionsFile" + cvm::to_str(total_reference_frames + 1);
         if (key_lookup(conf, reference_position_file_lookup.c_str())) {
             std::string reference_position_filename;
             get_keyval(conf, reference_position_file_lookup.c_str(), reference_position_filename, std::string(""));
@@ -85,7 +85,7 @@ colvar::CartesianBasedPath::CartesianBasedPath(std::string const &conf): cvc(con
             tmp_fitting_atoms->disable(f_ag_scalable);
             tmp_fitting_atoms->disable(f_ag_scalable_com);
             tmp_fitting_atoms->fit_gradients.assign(tmp_fitting_atoms->size(), cvm::atom_pos(0.0, 0.0, 0.0));
-            std::string reference_position_file_lookup = "refPositionFile" + cvm::to_str(i_frame + 1);
+            std::string reference_position_file_lookup = "refPositionsFile" + cvm::to_str(i_frame + 1);
             std::string reference_position_filename;
             get_keyval(conf, reference_position_file_lookup.c_str(), reference_position_filename, std::string(""));
             std::vector<cvm::atom_pos> reference_fitting_position(tmp_fitting_atoms->size());
@@ -113,10 +113,6 @@ colvar::CartesianBasedPath::CartesianBasedPath(std::string const &conf): cvc(con
 }
 
 colvar::CartesianBasedPath::~CartesianBasedPath() {
-    if (atoms != nullptr) {
-        delete atoms;
-        atoms = nullptr;
-    }
     for (auto it_comp_atoms = comp_atoms.begin(); it_comp_atoms != comp_atoms.end(); ++it_comp_atoms) {
         if (*it_comp_atoms != nullptr) {
             delete (*it_comp_atoms);
