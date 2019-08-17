@@ -985,11 +985,6 @@ void colvarbias_meta::update_replicas_registry()
 
       if (new_replica == this->replica_id) {
         // this is the record for this same replica, skip it
-        if (cvm::debug())
-          cvm::log("Metadynamics bias \""+this->name+"\""+
-                   ((comm != single_replica) ? ", replica \""+replica_id+"\"" : "")+
-                   ": skipping this replica's own record: \""+
-                   new_replica+"\", \""+new_replica_file+"\"\n");
         new_replica_file.clear();
         new_replica.clear();
         continue;
@@ -1039,11 +1034,12 @@ void colvarbias_meta::update_replicas_registry()
           (replicas.back())->enable(f_cvb_calc_ti_samples);
           (replicas.back())->colvarbias_ti::init_grids();
         }
+        (replicas.back())->update_status = 1;
       }
     }
   } else {
-    cvm::fatal_error("Error: cannot read the replicas registry file \""+
-                     replicas_registry+"\".\n");
+    cvm::error("Error: cannot read the replicas registry file \""+
+               replicas_registry+"\".\n", FILE_ERROR);
   }
 
   // now (re)read the list file of each replica
@@ -1068,7 +1064,6 @@ void colvarbias_meta::update_replicas_registry()
                cvm::to_str(replica_update_freq)+" steps.\n");
       (replicas[ir])->update_status++;
     } else {
-      (replicas[ir])->update_status = 0;
       if (new_state_file != (replicas[ir])->replica_state_file) {
         cvm::log("Metadynamics bias \""+this->name+"\""+
                  ": replica \""+(replicas[ir])->replica_id+
@@ -1092,27 +1087,41 @@ void colvarbias_meta::read_replica_files()
   // Note: we start from the 2nd replica.
   for (size_t ir = 1; ir < replicas.size(); ir++) {
 
-    if (! (replicas[ir])->replica_state_file_in_sync) {
-      // if a new state file is being read, the hills file is also new
-      (replicas[ir])->replica_hills_file_pos = 0;
-    }
-
     // (re)read the state file if necessary
     if ( (! (replicas[ir])->has_data) ||
          (! (replicas[ir])->replica_state_file_in_sync) ) {
-
-      cvm::log("Metadynamics bias \""+this->name+"\""+
-               ": reading the state of replica \""+
-               (replicas[ir])->replica_id+"\" from file \""+
-               (replicas[ir])->replica_state_file+"\".\n");
-
-      std::ifstream is((replicas[ir])->replica_state_file.c_str());
-      if ((replicas[ir])->read_state(is)) {
-        // state file has been read successfully
-        (replicas[ir])->replica_state_file_in_sync = true;
-        (replicas[ir])->update_status = 0;
+      if ((replicas[ir])->replica_state_file.size()) {
+        cvm::log("Metadynamics bias \""+this->name+"\""+
+                 ": reading the state of replica \""+
+                 (replicas[ir])->replica_id+"\" from file \""+
+                 (replicas[ir])->replica_state_file+"\".\n");
+        std::ifstream is((replicas[ir])->replica_state_file.c_str());
+        if ((replicas[ir])->read_state(is)) {
+          // state file has been read successfully
+          (replicas[ir])->replica_state_file_in_sync = true;
+          (replicas[ir])->update_status = 0;
+        } else {
+          cvm::log("Failed to read the file \""+
+                   (replicas[ir])->replica_state_file+
+                   "\": will try again in "+
+                   cvm::to_str(replica_update_freq)+" steps.\n");
+          (replicas[ir])->replica_state_file_in_sync = false;
+          (replicas[ir])->update_status++;
+        }
+        is.close();
+      } else {
+        cvm::log("Metadynamics bias \""+this->name+"\""+
+                 ": the state file of replica \""+
+                 (replicas[ir])->replica_id+"\" is currently undefined: "
+                 "will try again after "+
+                 cvm::to_str(replica_update_freq)+" steps.\n");
+        (replicas[ir])->update_status++;
       }
-      is.close();
+    }
+
+    if (! (replicas[ir])->replica_state_file_in_sync) {
+      // if a new state file is being read, the hills file is also new
+      (replicas[ir])->replica_hills_file_pos = 0;
     }
 
     // now read the hills added after writing the state file
@@ -1124,14 +1133,16 @@ void colvarbias_meta::read_replica_files()
                  (replicas[ir])->replica_id+"\" in the file \""+
                  (replicas[ir])->replica_hills_file+"\".\n");
 
-      // read hills from the other replicas' files; for each file, resume
-      // the position recorded previously
+      // read hills from the other replicas' files
 
       std::ifstream is((replicas[ir])->replica_hills_file.c_str());
       if (is.is_open()) {
 
-        // try to resume the previous position
-        is.seekg((replicas[ir])->replica_hills_file_pos, std::ios::beg);
+        // try to resume the previous position (if not the beginning)
+        if ((replicas[ir])->replica_hills_file_pos > 0) {
+          is.seekg((replicas[ir])->replica_hills_file_pos, std::ios::beg);
+        }
+
         if (!is.is_open()){
           // if fail (the file may have been overwritten), reset this
           // position
@@ -1149,7 +1160,6 @@ void colvarbias_meta::read_replica_files()
         } else {
 
           while ((replicas[ir])->read_hill(is)) {
-            //           if (cvm::debug())
             cvm::log("Metadynamics bias \""+this->name+"\""+
                      ": received a hill from replica \""+
                      (replicas[ir])->replica_id+
@@ -1159,11 +1169,13 @@ void colvarbias_meta::read_replica_files()
           is.clear();
           // store the position for the next read
           (replicas[ir])->replica_hills_file_pos = is.tellg();
-          if (cvm::debug())
+          if (cvm::debug()) {
             cvm::log("Metadynamics bias \""+this->name+"\""+
-                     ": stopped reading file \""+(replicas[ir])->replica_hills_file+
+                     ": stopped reading file \""+
+                     (replicas[ir])->replica_hills_file+
                      "\" at position "+
                      cvm::to_str((replicas[ir])->replica_hills_file_pos)+".\n");
+          }
 
           // test whether this is the end of the file
           is.seekg(0, std::ios::end);
@@ -1175,12 +1187,11 @@ void colvarbias_meta::read_replica_files()
         }
 
       } else {
-        cvm::log("Failed to read the file \""+(replicas[ir])->replica_hills_file+
+        cvm::log("Failed to read the file \""+
+                 (replicas[ir])->replica_hills_file+
                  "\": will try again in "+
                  cvm::to_str(replica_update_freq)+" steps.\n");
         (replicas[ir])->update_status++;
-        // cvm::fatal_error ("Error: cannot read from file \""+
-        //                   (replicas[ir])->replica_hills_file+"\".\n");
       }
       is.close();
     }
@@ -1188,8 +1199,8 @@ void colvarbias_meta::read_replica_files()
     size_t const n_flush = (replica_update_freq/new_hill_freq + 1);
     if ((replicas[ir])->update_status > 3*n_flush) {
       // TODO: suspend the calculation?
-      cvm::log("WARNING: in metadynamics bias \""+this->name+"\""+
-               " failed to read completely the output of replica \""+
+      cvm::log("WARNING: metadynamics bias \""+this->name+"\""+
+               " could not read information from replica \""+
                (replicas[ir])->replica_id+
                "\" after more than "+
                cvm::to_str((replicas[ir])->update_status * replica_update_freq)+
