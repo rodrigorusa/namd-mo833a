@@ -917,8 +917,8 @@ static void *open_dcd_read(const char *path, const char *filetype,
 
     if (dcd->nsets > 0 && newnsets != dcd->nsets) {
       printf("dcdplugin) Warning: DCD header claims %d frames, but \n"
-             "dcdplugin) file size (%l) indicates there are actually \n"
-             "%d frames of size (%l)\n", 
+             "dcdplugin) file size (%ld) indicates there are actually \n"
+             "%d frames of size (%ld)\n", 
              dcd->nsets, trjsize, newnsets, framesize);
     }
 
