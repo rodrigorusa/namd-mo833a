@@ -2070,8 +2070,11 @@ static void recursive_bisect_with_curve(
     node_split = node_begin + i_split;
   }
 
-  if ( node_split == node_begin ) {
-    if ( simParams->verboseTopology ) {
+  bool final_patch_sort = false;
+
+  if ( node_split == node_begin ) {  // all on same physical node
+    if ( ( simParams->verboseTopology ) &&
+        nnodes == CmiNumPesOnPhysicalNode(CmiPhysicalNodeID(*node_begin)) ) {
       int crds[3];
       tmgr.coords(*node_begin, crds);
       CkPrintf("WorkDistrib: physnode %5d pe %5d node %5d at %5d %5d %5d from %5d %5d %5d has %5d patches %5d x %5d x %5d load %7f pes %5d\n",
@@ -2082,31 +2085,57 @@ static void recursive_bisect_with_curve(
     }
 
     // final sort along a to minimize pme message count
-    std::sort(patch_begin,patch_end,patch_sortop_curve_a(patchMap));
+    final_patch_sort = true;
 
-    // walk through patches in sorted order
+    // find node (process) boundary to split on
+    int i_split = 0;
+    for ( int i=0; i<nnodes; ++i ) {
+      if ( CmiNodeOf(nodes[i_split]) != CmiNodeOf(nodes[i]) ) {
+        int mid = (nnodes+1)/2;
+        if ( abs(i-mid) < abs(i_split-mid) ) i_split = i;
+        else break;
+      }
+    }
+    node_split = node_begin + i_split;
+  }
+
+  if ( node_split == node_begin ) {  // all on same node (process)
+    if ( ( simParams->verboseTopology ) &&
+        nnodes == CmiNodeSize(CmiNodeOf(*node_begin)) ) {
+      int crds[3];
+      tmgr.coords(*node_begin, crds);
+      CkPrintf("WorkDistrib: node %5d pe %5d has %5d patches %5d x %5d x %5d load %7f pes %5d\n",
+               CmiNodeOf(*node_begin), *node_begin, npatches,
+               a_len+1, b_len+1, c_len+1, totalRawLoad, nnodes);
+    }
+
+    // no natural divisions so just split at midpoint
+    node_split = node_begin + nnodes/2;
+  }
+
+  if ( nnodes == 1 ) {  // down to a single pe
+    // assign all patches
     int *node = node_begin;
     sumLoad = 0;
     for ( int i=0; i < npatches; ++i ) {
       int pid = patches[i];
       assignedNode[pid] = *node;
       sumLoad += patchLoads[pid];
-      double targetLoad = totalLoad *
-        ((double)(node-node_begin+1) / (double)nnodes);
-      if ( 0 ) CkPrintf("assign %5d node %5d patch %5d %5d %5d load %7f target %7f\n",
+      if ( 0 ) CkPrintf("assign %5d node %5d patch %5d %5d %5d load %7f total %7f\n",
                 i, *node,
                 patchMap->index_a(pid),
                 patchMap->index_b(pid),
                 patchMap->index_c(pid),
-                sumLoad, targetLoad);
-      double extra = ( i+1 < npatches ? 0.5 * patchLoads[patches[i+1]] : 0 );
-      if ( node+1 < node_end && sumLoad + extra >= targetLoad ) { ++node; }
+                patchLoads[pid], sumLoad);
     }
 
     return;
   }
 
-  if ( a_len >= b_len && a_len >= c_len ) {
+  if ( final_patch_sort ) {
+    // final sort along a to minimize pme message count
+    std::sort(patch_begin,patch_end,patch_sortop_curve_a(patchMap));
+  } else if ( a_len >= b_len && a_len >= c_len ) {
     if ( 0 ) CkPrintf("sort a\n");
     std::sort(patch_begin,patch_end,patch_sortop_curve_a(patchMap));
   } else if ( b_len >= a_len && b_len >= c_len ) {
