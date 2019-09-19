@@ -175,7 +175,7 @@ public:
   *  \return a random variable equal to the sum of num_gaussians squared
   *    standard normal variables
   */
-  BigReal sum_of_squared_gaussians(int num_gaussians) {
+  BigReal sum_of_squared_gaussians(int64_t num_gaussians) {
     BigReal z, u, v;
 
     if (num_gaussians <= 2) {
