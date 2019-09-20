@@ -1855,10 +1855,12 @@ void Controller::rescaleaccelMD(int step, int minimize)
     static char warnD, warnP;
     static int restfreq;
 
-    const int ntcmdprep	= simParams->accelMDGcMDPrepSteps;
-    const int ntcmd 	= simParams->accelMDGcMDSteps;
+    const int firststep = (simParams->accelMDFirstStep > simParams->firstTimestep) ? simParams->accelMDFirstStep : simParams->firstTimestep;
+    const int ntcmdprep	= (simParams->accelMDGcMDPrepSteps > 0) ? simParams->accelMDFirstStep + simParams->accelMDGcMDPrepSteps : 0;
+    const int ntcmd 	= simParams->accelMDFirstStep + simParams->accelMDGcMDSteps;
     const int ntebprep	= ntcmd + simParams->accelMDGEquiPrepSteps;
     const int nteb	= ntcmd + simParams->accelMDGEquiSteps;
+    const int ntave     = simParams->accelMDGStatWindow;
 
     BigReal volume;
     BigReal bondEnergy;
@@ -1938,10 +1940,8 @@ void Controller::rescaleaccelMD(int step, int minimize)
 
     //GaMD
     if(simParams->accelMDG){
-       //fix step when there is accelMDFirstStep
-       step -= simParams->accelMDFirstStep;
-
-       if(step == simParams->firstTimestep) {
+       // if first time running accelMDG module
+       if(step == firststep) {
 	  iEusedD = iEusedP = simParams->accelMDGiE;
 	  warnD   = warnP   = '\0';
 
@@ -2006,7 +2006,7 @@ void Controller::rescaleaccelMD(int step, int minimize)
 	  testV = dihedralEnergy + crosstermEnergy;
 
 	  //write restart file every restartfreq steps
-	  if(step > simParams->firstTimestep - simParams->accelMDFirstStep && step % restfreq == 0)
+	  if(step > firststep && step % restfreq == 0)
 	     write_accelMDG_rest_file(step, 'D', V_n, VmaxD, VminD, VavgD, sigmaVD, M2D, ED, kD, 
 		   true, false);
 	  //write restart file at the end of the simulation
@@ -2015,14 +2015,14 @@ void Controller::rescaleaccelMD(int step, int minimize)
 		  write_accelMDG_rest_file(step, 'D', V_n, VmaxD, VminD, VavgD, sigmaVD, M2D, ED, kD, 
 			  true, true);
 	  }
-	  else if(step == simParams->N - simParams->accelMDFirstStep)
+	  else if(step == simParams->N)
 	      write_accelMDG_rest_file(step, 'D', V_n, VmaxD, VminD, VavgD, sigmaVD, M2D, ED, kD, 
 		      true, true);
 
 	  //conventional MD
 	  if(step < ntcmd){
 	     //very first step
-	     if(step == 0 && !simParams->accelMDGRestart){
+	     if(step == firststep && !simParams->accelMDGRestart){
 		//initialize stat
 		VmaxD = VminD = VavgD = testV;
 		M2D = sigmaVD = 0.;
@@ -2034,6 +2034,16 @@ void Controller::rescaleaccelMD(int step, int minimize)
 		M2D = sigmaVD = 0.;
 		iout << "GAUSSIAN ACCELERATED MD: RESET DIHEDRAL POTENTIAL STATISTICS\n" << endi;
 	     }
+             //every ntave steps
+             else if(ntave > 0 && step % ntave == 0){
+                //update Vmax Vmin
+                if(testV > VmaxD) VmaxD = testV;
+                if(testV < VminD) VminD = testV;
+		//reset avg and std
+		VavgD = testV;
+		M2D = sigmaVD = 0.;
+		iout << "GAUSSIAN ACCELERATED MD: RESET DIHEDRAL POTENTIAL AVG AND STD\n" << endi;
+             }
 	     //normal steps
 	     else
 		calc_accelMDG_mean_std(testV, V_n,
@@ -2057,14 +2067,25 @@ void Controller::rescaleaccelMD(int step, int minimize)
 		M2D = sigmaVD = 0.;
 		iout << "GAUSSIAN ACCELERATED MD: RESET DIHEDRAL POTENTIAL STATISTICS\n" << endi;
 	     }
+             //every ntave steps
+             else if(ntave > 0 && step % ntave == 0){
+                //update Vmax Vmin
+                if(testV > VmaxD) VmaxD = testV;
+                if(testV < VminD) VminD = testV;
+		//reset avg and std
+		VavgD = testV;
+		M2D = sigmaVD = 0.;
+		iout << "GAUSSIAN ACCELERATED MD: RESET DIHEDRAL POTENTIAL AVG AND STD\n" << endi;
+             }
 	     else
 		calc_accelMDG_mean_std(testV, V_n, 
 		      &VmaxD, &VminD, &VavgD, &M2D, &sigmaVD) ;
 
 	     //steps after ebprep
 	     if(step >= ntebprep)
-		calc_accelMDG_E_k(simParams->accelMDGiE, step, simParams->accelMDGSigma0D, 
-		      VmaxD, VminD, VavgD, sigmaVD, &k0D, &kD, &ED, &iEusedD, &warnD);
+                if((ntave > 0 && step % ntave == 0) || ntave <= 0)
+                    calc_accelMDG_E_k(simParams->accelMDGiE, step, simParams->accelMDGSigma0D,
+                          VmaxD, VminD, VavgD, sigmaVD, &k0D, &kD, &ED, &iEusedD, &warnD);
 	  }
 	  //production
 	  else{
@@ -2083,7 +2104,7 @@ void Controller::rescaleaccelMD(int step, int minimize)
 	  }
 
 	  //write restart file every restartfreq steps
-	  if(step > simParams->firstTimestep - simParams->accelMDFirstStep && step % restfreq == 0)
+	  if(step > firststep && step % restfreq == 0)
 	     write_accelMDG_rest_file(step, 'T', V_n, VmaxP, VminP, VavgP, sigmaVP, M2P, EP, kP, 
 		   !simParams->accelMDdual, false);
 	  //write restart file at the end of simulation
@@ -2092,14 +2113,14 @@ void Controller::rescaleaccelMD(int step, int minimize)
 		  write_accelMDG_rest_file(step, 'T', V_n, VmaxP, VminP, VavgP, sigmaVP, M2P, EP, kP, 
 			  !simParams->accelMDdual, true);
 	  }
-	  else if(step == simParams->N - simParams->accelMDFirstStep)
+	  else if(step == simParams->N)
 	     write_accelMDG_rest_file(step, 'T', V_n, VmaxP, VminP, VavgP, sigmaVP, M2P, EP, kP, 
 		   !simParams->accelMDdual, true);
 
 	  //conventional MD
 	  if(step < ntcmd){
 	     //very first step
-	     if(step == 0 && !simParams->accelMDGRestart){
+	     if(step == firststep && !simParams->accelMDGRestart){
 		//initialize stat
 		VmaxP = VminP = VavgP = testV;
 		M2P = sigmaVP = 0.;
@@ -2111,6 +2132,16 @@ void Controller::rescaleaccelMD(int step, int minimize)
 		M2P = sigmaVP = 0.;
 		iout << "GAUSSIAN ACCELERATED MD: RESET TOTAL POTENTIAL STATISTICS\n" << endi;
 	     }
+             //every ntave steps
+             else if(ntave > 0 && step % ntave == 0){
+                //update Vmax Vmin
+                if(testV > VmaxP) VmaxP = testV;
+                if(testV < VminP) VminP = testV;
+		//reset avg and std
+		VavgP = testV;
+		M2P = sigmaVP = 0.;
+		iout << "GAUSSIAN ACCELERATED MD: RESET TOTAL POTENTIAL AVG AND STD\n" << endi;
+             }
 	     //normal steps
 	     else
 		calc_accelMDG_mean_std(testV, V_n,
@@ -2133,14 +2164,25 @@ void Controller::rescaleaccelMD(int step, int minimize)
 		M2P = sigmaVP = 0.;
 		iout << "GAUSSIAN ACCELERATED MD: RESET TOTAL POTENTIAL STATISTICS\n" << endi;
 	     }
+             //every ntave steps
+             else if(ntave > 0 && step % ntave == 0){
+                //update Vmax Vmin
+                if(testV > VmaxP) VmaxP = testV;
+                if(testV < VminP) VminP = testV;
+		//reset avg and std
+		VavgP = testV;
+		M2P = sigmaVP = 0.;
+		iout << "GAUSSIAN ACCELERATED MD: RESET TOTAL POTENTIAL AVG AND STD\n" << endi;
+             }
 	     else
 		calc_accelMDG_mean_std(testV, V_n,
 		      &VmaxP, &VminP, &VavgP, &M2P, &sigmaVP);
 
 	     //steps after ebprep
 	     if(step >= ntebprep)
-		calc_accelMDG_E_k(simParams->accelMDGiE, step, simParams->accelMDGSigma0P, 
-		      VmaxP, VminP, VavgP, sigmaVP, &k0P, &kP, &EP, &iEusedP, &warnP);
+                if((ntave > 0 && step % ntave == 0) || ntave <= 0)
+                    calc_accelMDG_E_k(simParams->accelMDGiE, step, simParams->accelMDGSigma0P,
+                          VmaxP, VminP, VavgP, sigmaVP, &k0P, &kP, &EP, &iEusedP, &warnP);
 	  }
 	  //production
 	  else{
@@ -2153,6 +2195,7 @@ void Controller::rescaleaccelMD(int step, int minimize)
 
        //first step after ntcmdprep
        if((ntcmdprep > 0 && step == ntcmdprep) || 
+          (step < nteb && ntave > 0 && step % ntave == 0) ||
 	  (simParams->accelMDGresetVaftercmd && step == ntcmd)){
 	  V_n = 1;
        }
@@ -2160,8 +2203,6 @@ void Controller::rescaleaccelMD(int step, int minimize)
        if(step < nteb)
     	   V_n++;
 
-       // restore step
-       step += simParams->accelMDFirstStep;
     }
     //aMD
     else{

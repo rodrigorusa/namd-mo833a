@@ -241,27 +241,33 @@ The following is a list of input parameters unique to a GaMD run:
 }
 
 \item
-\NAMDCONFWDEF{accelMDGcMDPrepSteps}{No. of preparatory cMD steps}
+\NAMDCONFWDEF{accelMDGcMDPrepSteps}{Number of preparatory cMD steps}
 {Zero or Positive integer}{200,000}
 {The number of preparatory conventional MD (cMD) steps in GaMD. This value should be smaller than {\tt accelMDGcMDSteps} (see below). Potential energies are not collected for calculating the values of $V_\text{max}$, $V_\text{min}$, $V_\text{avg}$, $\sigma_V$ during the first {\tt accelMDGcMDPrepSteps}. 
 }
 
 \item
-\NAMDCONFWDEF{accelMDGcMDSteps}{No. of total cMD steps}
+\NAMDCONFWDEF{accelMDGcMDSteps}{Number of total cMD steps}
 {Zero or Positive integer}{1,000,000}
 {The number of total cMD steps in GaMD. With ${\tt accelMDGcMDPrepSteps} < t < {\tt accelMDGcMDSteps}$, $V_\text{max}$, $V_\text{min}$, $V_\text{avg}$, $\sigma_V$ are collected and at $t = {\tt accelMDGcMDSteps}$, $E$ and $k_0$ are computed.
 }
 
 \item
-\NAMDCONFWDEF{accelMDGEquiPrepSteps}{No. of preparatory equilibration steps in GaMD}
+\NAMDCONFWDEF{accelMDGEquiPrepSteps}{Number of preparatory equilibration steps in GaMD}
 {Zero or Positive integer}{200,000}
 {The number of preparatory equilibration steps in GaMD. This value should be smaller than {\tt accelMDGEquiSteps} (see below). With ${\tt accelMDGcMDSteps} < t < {\tt accelMDGEquiPrepSteps}+{\tt accelMDGcMDSteps}$, GaMD boost potential is applied according to $E$ and $k_0$ obtained at $t={\tt accelMDGcMDSteps}$. 
 }
 
 \item
-\NAMDCONFWDEF{accelMDGEquiSteps}{No. of total equilibration steps in GaMD}
+\NAMDCONFWDEF{accelMDGEquiSteps}{Number of total equilibration steps in GaMD}
 {Zero or Positive integer}{1,000,000}
 {The number of total equilibration steps in GaMD. With ${\tt accelMDGEquiPrepSteps}+{\tt accelMDGcMDSteps} < t < {\tt accelMDGEquiSteps} +{\tt accelMDGcMDSteps}$, GaMD boost potential is applied, and $E$ and $k_0$ are updated every step.
+}
+
+\item
+\NAMDCONFWDEF{accelMDGStatWindow}{Number of steps to calculate average and standard deviation in GaMD}
+{Integer}{-1}
+{The number of simulation steps used to calculate the average and standard deviation of potential energies, as well as the frequency of recalculating the boost potential during equilibration steps. When it is set to a negative number, all the steps throughout the cMD and equilibration stage (except the preparatory steps) will be used to calculate the average and standard deviation without resetting, and the boost potential will be updated every step during equilibration steps. When used, it is recommended to be set to about 4 times the total number of atoms in the system. Note that {\tt accelMDGcMDPrepSteps}, {\tt accelMDGcMDSteps}, {\tt accelMDGEquiPrepSteps} and {\tt accelMDGEquiSteps} need to be multiples of {\tt accelMDGStatWindow}.
 }
 
 \item
