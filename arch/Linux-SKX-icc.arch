@@ -1,4 +1,4 @@
-NAMD_ARCH = Linux-KNL
+NAMD_ARCH = Linux-x86_64
 CHARMARCH = multicore-linux-x86_64-iccstatic
 
 FLOATOPTS = -ip -O3 -xCORE-AVX512 -qopt-zmm-usage=high -fp-model fast=2 -no-prec-div -qoverride-limits -DNAMD_DISABLE_SSE -qopenmp-simd
