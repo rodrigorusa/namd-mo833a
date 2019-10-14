@@ -6,7 +6,6 @@
 
 module LdbCoordinator {
   extern module NamdCentLB;
-  extern module NamdNborLB;
   extern module NamdHybridLB;
   extern module NamdDummyLB;
     

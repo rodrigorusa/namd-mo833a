@@ -17,7 +17,6 @@
 #include "NamdCentLB.h"
 #include "NamdHybridLB.h"
 #include "NamdDummyLB.h"
-#include "NamdNborLB.h"
 
 #include "HomePatch.h"
 #include "LdbCoordinator.decl.h"
@@ -123,15 +122,6 @@ LdbCoordinator::LdbCoordinator()
     NAMD_bug("LdbCoordinator instanced twice on same node!");
   }
   
-#if 0
-  // Create a load balancer
-  if (CkMyPe() == 0) {
-    //   CreateCentralLB();
-    CreateNamdCentLB();
-    //   CreateNamdNborLB();
-  }
-#endif
-
   collPes = 0;
   ldbCycleNum = 1;
   takingLdbData = 1;
@@ -210,20 +200,6 @@ void LdbCoordinator::createLoadBalancer()
 void LdbCoordinator::initialize(PatchMap *pMap, ComputeMap *cMap, int reinit)
 {
   const SimParameters *simParams = Node::Object()->simParameters;
-
-#if 0
-  static int lbcreated = 0; // XXX static variables are unsafe for SMP
-  // PE0 first time Create a load balancer
-  if (CkMyPe() == 0 && !lbcreated) {
-    if (simParams->ldbStrategy == LDBSTRAT_ALGNBOR) 
-      CreateNamdNborLB();
-    else {
-      //   CreateCentralLB();
-      CreateNamdCentLB();
-    }
-    lbcreated = 1;
-  }
-#endif
 
   //  DebugM(10,"stepsPerLdbCycle initialized\n");
   stepsPerLdbCycle = simParams->ldbPeriod;
