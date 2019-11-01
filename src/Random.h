@@ -24,25 +24,25 @@
 #include "Vector.h"
 
 #ifdef _MSC_VER
-#define INT64_LITERAL(X) X ## i64
+#define UINT64_LITERAL(X) X ## ui64
 #else
-#define INT64_LITERAL(X) X ## LL
+#define UINT64_LITERAL(X) X ## ULL
 #endif
 
-#define	RAND48_SEED   INT64_LITERAL(0x00001234abcd330e)
-#define	RAND48_MULT   INT64_LITERAL(0x00000005deece66d)
-#define	RAND48_ADD    INT64_LITERAL(0x000000000000000b)
-#define RAND48_MASK   INT64_LITERAL(0x0000ffffffffffff)
+#define	RAND48_SEED   UINT64_LITERAL(0x00001234abcd330e)
+#define	RAND48_MULT   UINT64_LITERAL(0x00000005deece66d)
+#define	RAND48_ADD    UINT64_LITERAL(0x000000000000000b)
+#define RAND48_MASK   UINT64_LITERAL(0x0000ffffffffffff)
 
 class Random {
 
 private:
 
   double second_gaussian;
-  int64 second_gaussian_waiting;
-  int64 rand48_seed;
-  int64 rand48_mult;
-  int64 rand48_add;
+  uint64_t second_gaussian_waiting;
+  uint64_t rand48_seed;
+  uint64_t rand48_mult;
+  uint64_t rand48_add;
 
 public:
 
@@ -61,9 +61,9 @@ public:
   void init(unsigned long seed) {
     second_gaussian = 0;
     second_gaussian_waiting = 0;
-    rand48_seed = seed & INT64_LITERAL(0x00000000ffffffff);
+    rand48_seed = seed & UINT64_LITERAL(0x00000000ffffffff);
     rand48_seed = rand48_seed << 16;
-    rand48_seed |= RAND48_SEED & INT64_LITERAL(0x0000ffff);
+    rand48_seed |= RAND48_SEED & UINT64_LITERAL(0x0000ffff);
     rand48_mult = RAND48_MULT;
     rand48_add = RAND48_ADD;
   }
@@ -85,12 +85,12 @@ public:
     for ( i = 0; i < iStream; ++i ) skip();
 
     // save seed and add so we can use skip() for our calculations
-    int64 save_seed = rand48_seed;
+    uint64_t save_seed = rand48_seed;
 
     // calculate c *= ( 1 + a + ... + a^(numStreams-1) )
     rand48_seed = rand48_add;
     for ( i = 1; i < numStreams; ++i ) skip();
-    int64 new_add = rand48_seed;
+    uint64_t new_add = rand48_seed;
 
     // calculate a = a^numStreams
     rand48_seed = rand48_mult;
@@ -108,7 +108,7 @@ public:
   // return a number uniformly distributed between 0 and 1
   BigReal uniform(void) {
     skip();
-    const double exp48 = ( 1.0 / (double)(INT64_LITERAL(1) << 48) );
+    const double exp48 = ( 1.0 / (double)(UINT64_LITERAL(1) << 48) );
     return ( (double) rand48_seed * exp48 );
   }
 
@@ -213,7 +213,7 @@ public:
   // signed int32 ranges from 0 to (2^31)-1
   long integer(void) {
     skip();
-    return ( ( rand48_seed >> 17 ) & INT64_LITERAL(0x000000007fffffff) );
+    return ( ( rand48_seed >> 17 ) & UINT64_LITERAL(0x000000007fffffff) );
   }
 
   // randomly order an array of whatever
