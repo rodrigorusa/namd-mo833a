@@ -59,8 +59,7 @@ void LdbCoordinator_initproc() {
 
 void LdbCoordinator::staticMigrateFn(LDObjHandle handle, int dest)
 {
-   LdbCoordinator *ldbCoordinator = (LdbCoordinator *)LDOMUserData(handle.omhandle);
-   ldbCoordinator->Migrate(handle,dest);
+   LdbCoordinator::Object()->Migrate(handle,dest);
 }
 
 void LdbCoordinator::Migrate(LDObjHandle handle, int dest)
@@ -151,7 +150,7 @@ LdbCoordinator::LdbCoordinator()
 		     (LDStatsFn)staticStatsFn,
 		     (LDQueryEstLoadFn)staticQueryEstLoadFn
                    };
-  myHandle = theLbdb->RegisterOM(myOMid,(void*)this,cb);
+  myHandle = theLbdb->RegisterOM(myOMid,nullptr,cb);
 
   // Add myself as a local barrier receiver, so I know when I might
   // be registering objects.
