@@ -131,6 +131,8 @@ public:
   ResizeArray<plint> pairlistx;
   ResizeArray<plint> pairlistm;
 
+  // n = normal, x = excluded, m = modified
+  // A[1-4] = alchemical partition 1-4
   ResizeArray<plint> pairlistnAlch;
   ResizeArray<plint> pairlistnA0;
   ResizeArray<plint> pairlistnA1;
@@ -139,6 +141,12 @@ public:
   ResizeArray<plint> pairlistnA2;
   ResizeArray<plint> pairlistxA2;
   ResizeArray<plint> pairlistmA2;
+  ResizeArray<plint> pairlistnA3;
+  ResizeArray<plint> pairlistxA3;
+  ResizeArray<plint> pairlistmA3;
+  ResizeArray<plint> pairlistnA4;
+  ResizeArray<plint> pairlistxA4;
+  ResizeArray<plint> pairlistmA4;
   
   ResizeArray<int> pairlist;
   ResizeArray<int> pairlist2;

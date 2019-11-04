@@ -435,25 +435,31 @@ void ComputeNonbondedUtil :: NAME
   // parameters accordingly for every single NonbondedBase2.h loop - this is 
   // done at the pairlist level
   
-  int pswitchTable[3*3];
+  // XXX pswitchTable is repeatedly calculated each time
+  // since its value is fixed, it should be calculated once up front
+  int pswitchTable[5*5];
   // determines which pairlist alchemical pairings get sent to
   // 0: non-alchemical pairs, partition 0 <-> partition 0
-  // 1: atoms scaled up as lambda increases, p0<->p1
-  // 2: atoms scaled down as lambda increases, p0<->p2
-  // all p1<->p2 interactions to be dropped (99)
-  // in general, 'up' refers to 1, 'down' refers to 2
-  for (int ip=0; ip<3; ++ip) {
-    for (int jp=0; jp<3; ++jp ) {
-      pswitchTable[ip+3*jp] = 0;
-      if ((ip==1 && jp==0) || (ip==0 && jp==1)) pswitchTable[ip+3*jp] = 1;
-      if ((ip==2 && jp==0) || (ip==0 && jp==2)) pswitchTable[ip+3*jp] = 2;
-      if (ip + jp == 3) pswitchTable[ip+3*jp] = 99; // no interaction
+  // 1 and 3: atoms scaled up as lambda increases, p0<->p1, p0<->p3
+  // 2 and 4: atoms scaled down as lambda increases, p0<->p2, p0<->p4
+  // all p1<->p2, p1<->p4, p3<->p2, p3<->p4 interactions to be dropped (99)
+  // in general, 'up' refers to 1 and 3, 'down' refers to 2 and 4
+  for (int ip=0; ip<5; ++ip) {
+    for (int jp=0; jp<5; ++jp ) {
+      pswitchTable[ip+5*jp] = 0;
+      if ((ip==1 && jp==0) || (ip==0 && jp==1)) pswitchTable[ip+5*jp] = 1;
+      if ((ip==2 && jp==0) || (ip==0 && jp==2)) pswitchTable[ip+5*jp] = 2;
+      if ((ip==3 && jp==0) || (ip==0 && jp==3)) pswitchTable[ip+5*jp] = 3;
+      if ((ip==4 && jp==0) || (ip==0 && jp==4)) pswitchTable[ip+5*jp] = 4;
 
+      if (ip && jp && (abs(ip - jp) != 2)) pswitchTable[ip+5*jp] = 99; // no interaction
       if (! ComputeNonbondedUtil::alchDecouple) {
-        // no decoupling: interactions within a partition are treated like
+        // no decoupling: interactions within an alchemical moiety are treated like
         // normal alchemical pairs
-        if (ip == 1 && jp == 1) pswitchTable[ip+3*jp] = 1;
-        if (ip == 2 && jp == 2) pswitchTable[ip+3*jp] = 2;
+        if ((ip == 1 && jp == 1) || (ip == 1 && jp == 3) || (ip == 3 && jp == 1)) pswitchTable[ip+5*jp] = 1;
+        if ((ip == 2 && jp == 2) || (ip == 2 && jp == 4) || (ip == 4 && jp == 2)) pswitchTable[ip+5*jp] = 2;
+        if (ip == 3 && jp == 3) pswitchTable[ip+5*jp] = 3;
+        if (ip == 4 && jp == 4) pswitchTable[ip+5*jp] = 4;
       }
       if (ComputeNonbondedUtil::alchDecouple) {
         // decoupling: PME calculates extra grids so that while PME 
@@ -461,8 +467,8 @@ void ComputeNonbondedUtil :: NAME
         // containing only alchemical atoms is switched on. Full interactions 
         // between alchemical atoms are maintained; potentials within one 
         // partition need not be scaled here.
-        if (ip == 1 && jp == 1) pswitchTable[ip+3*jp] = 0;
-        if (ip == 2 && jp == 2) pswitchTable[ip+3*jp] = 0;
+        if (ip == 1 && jp == 1) pswitchTable[ip+5*jp] = 0;  //Single topology only supports alchDecouple off!
+        if (ip == 2 && jp == 2) pswitchTable[ip+5*jp] = 0;  //So 'alchDecouple on' only works for dual topology!
       }
     }
   }
@@ -499,12 +505,20 @@ void ComputeNonbondedUtil :: NAME
   plint *pairlistm_save;  int npairm;
 
   ALCH(
+  // n = normal, x = excluded, m = modified
+  // A[1-4] = alchemical partition 1-4
   plint *pairlistnA1_save;  int npairnA1;
   plint *pairlistxA1_save;  int npairxA1;
   plint *pairlistmA1_save;  int npairmA1;
   plint *pairlistnA2_save;  int npairnA2;
   plint *pairlistxA2_save;  int npairxA2;
   plint *pairlistmA2_save;  int npairmA2;
+  plint *pairlistnA3_save;  int npairnA3;
+  plint *pairlistxA3_save;  int npairxA3;
+  plint *pairlistmA3_save;  int npairmA3;
+  plint *pairlistnA4_save;  int npairnA4;
+  plint *pairlistxA4_save;  int npairxA4;
+  plint *pairlistmA4_save;  int npairmA4;
   )
 
   NBWORKARRAYSINIT(params->workArrays);
@@ -686,6 +700,12 @@ void ComputeNonbondedUtil :: NAME
   NBWORKARRAY(plint,pairlistnA2,arraysize);
   NBWORKARRAY(plint,pairlistxA2,arraysize);
   NBWORKARRAY(plint,pairlistmA2,arraysize);
+  NBWORKARRAY(plint,pairlistnA3,arraysize);
+  NBWORKARRAY(plint,pairlistxA3,arraysize);
+  NBWORKARRAY(plint,pairlistmA3,arraysize);
+  NBWORKARRAY(plint,pairlistnA4,arraysize);
+  NBWORKARRAY(plint,pairlistxA4,arraysize);
+  NBWORKARRAY(plint,pairlistmA4,arraysize);
   )
 
   int fixg_upper = 0;
@@ -1562,6 +1582,12 @@ void ComputeNonbondedUtil :: NAME
     plint *plinA2 = pairlistnA2;
     plint *plixA2 = pairlistxA2;
     plint *plimA2 = pairlistmA2;
+    plint *plinA3 = pairlistnA3;
+    plint *plixA3 = pairlistxA3;
+    plint *plimA3 = pairlistmA3;
+    plint *plinA4 = pairlistnA4;
+    plint *plixA4 = pairlistxA4;
+    plint *plimA4 = pairlistmA4;
     )
 
     int k;
@@ -1571,10 +1597,12 @@ void ComputeNonbondedUtil :: NAME
     plin = pairlistn;
     for ( k=0; k<unsortedNpairn; ++k ) {
       int j = pairlistn[k];
-      switch(pswitchTable[p_i_partition + 3*(p_1[j].partition)]) {
+      switch(pswitchTable[p_i_partition + 5*(p_1[j].partition)]) {
         case 0:  *(plin++) = j; break;
         case 1:  *(plinA1++) = j; break;
         case 2:  *(plinA2++) = j; break;
+        case 3:  *(plinA3++) = j; break;
+        case 4:  *(plinA4++) = j; break;
       }
     }
 #endif
@@ -1586,7 +1614,7 @@ void ComputeNonbondedUtil :: NAME
       int j = pairlist2[k];
       int atom2 = pExt_1[j].id;
       int excl_flag = excl_flags[atom2];
-      ALCH(int pswitch = pswitchTable[p_i_partition + 3*(p_1[j].partition)];)
+      ALCH(int pswitch = pswitchTable[p_i_partition + 5*(p_1[j].partition)];)
       switch ( excl_flag ALCH( + 3 * pswitch)) {
       case 0:  *(plin++) = j;  break;
       case 1:  *(plix++) = j;  break;
@@ -1594,10 +1622,16 @@ void ComputeNonbondedUtil :: NAME
       ALCH(
       case 3:  *(plinA1++) = j; break;
       case 6:  *(plinA2++) = j; break;
+      case 9:  *(plinA3++) = j; break;
+      case 12: *(plinA4++) = j; break;
       case 5:  *(plimA1++) = j; break;
       case 8:  *(plimA2++) = j; break;
+      case 11: *(plimA3++) = j; break;
+      case 14: *(plimA4++) = j; break;
       case 4:  *(plixA1++) = j; break;
       case 7:  *(plixA2++) = j; break;
+      case 10: *(plixA3++) = j; break;
+      case 13: *(plixA4++) = j; break;
       )
       }
     }
@@ -1642,6 +1676,12 @@ void ComputeNonbondedUtil :: NAME
     PAIRLISTFROMARRAY(npairnA2,pairlistnA2,plinA2,pairlistnA2_save);
     PAIRLISTFROMARRAY(npairxA2,pairlistxA2,plixA2,pairlistxA2_save);
     PAIRLISTFROMARRAY(npairmA2,pairlistmA2,plimA2,pairlistmA2_save);
+    PAIRLISTFROMARRAY(npairnA3,pairlistnA3,plinA3,pairlistnA3_save);
+    PAIRLISTFROMARRAY(npairxA3,pairlistxA3,plixA3,pairlistxA3_save);
+    PAIRLISTFROMARRAY(npairmA3,pairlistmA3,plimA3,pairlistmA3_save);
+    PAIRLISTFROMARRAY(npairnA4,pairlistnA4,plinA4,pairlistnA4_save);
+    PAIRLISTFROMARRAY(npairxA4,pairlistxA4,plixA4,pairlistxA4_save);
+    PAIRLISTFROMARRAY(npairmA4,pairlistmA4,plimA4,pairlistmA4_save);
 #undef PAIRLISTFROMARRAY
 
 #endif
@@ -1663,6 +1703,12 @@ void ComputeNonbondedUtil :: NAME
     pairlists.nextlist(&pairlistnA2_save,&npairnA2);  --npairnA2;
     pairlists.nextlist(&pairlistxA2_save,&npairxA2);  --npairxA2;
     pairlists.nextlist(&pairlistmA2_save,&npairmA2);  --npairmA2;
+    pairlists.nextlist(&pairlistnA3_save,&npairnA3);  --npairnA3;
+    pairlists.nextlist(&pairlistxA3_save,&npairxA3);  --npairxA3;
+    pairlists.nextlist(&pairlistmA3_save,&npairmA3);  --npairmA3;
+    pairlists.nextlist(&pairlistnA4_save,&npairnA4);  --npairnA4;
+    pairlists.nextlist(&pairlistxA4_save,&npairxA4);  --npairxA4;
+    pairlists.nextlist(&pairlistmA4_save,&npairmA4);  --npairmA4;
     )
 
   } // if ( savePairlists || ! usePairlists )
@@ -2020,26 +2066,59 @@ void ComputeNonbondedUtil :: NAME
 
     #define ALCH1(X) X
     #define ALCH2(X)
+    #define ALCH3(X)
+    #define ALCH4(X) 
     npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
             p_i_x, p_i_y, p_i_z, p_1, pairlistnA1_save, npairnA1, pairlisti,
             r2_delta, r2list);
     #include  "ComputeNonbondedBase2.h" // normal, direction 'up'
     #undef ALCH1
     #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4
 
     #define ALCH1(X)
     #define ALCH2(X) X
+    #define ALCH3(X)
+    #define ALCH4(X)
     npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
             p_i_x, p_i_y, p_i_z, p_1, pairlistnA2_save, npairnA2, pairlisti,
             r2_delta, r2list);
     #include  "ComputeNonbondedBase2.h" // normal, direction 'down'
     #undef ALCH1
     #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4     
+
+    #define ALCH3(X) X
+    #define ALCH1(X) 
+    #define ALCH2(X)
+    #define ALCH4(X) 
+    npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
+            p_i_x, p_i_y, p_i_z, p_1, pairlistnA3_save, npairnA3, pairlisti,
+            r2_delta, r2list);
+    #include  "ComputeNonbondedBase2.h" // normal, direction 'up'
+    #undef ALCH1
+    #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4
+
+    #define ALCH4(X) X
+    #define ALCH1(X) 
+    #define ALCH2(X)
+    #define ALCH3(X)  
+    npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
+            p_i_x, p_i_y, p_i_z, p_1, pairlistnA4_save, npairnA4, pairlisti,
+            r2_delta, r2list);
+    #include  "ComputeNonbondedBase2.h" // normal, direction 'down'
+    #undef ALCH1
+    #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4
 
     #undef NORMAL
     #undef EXCLUDED
-    #undef MODIFIED
-    
+    #undef MODIFIED    
     /********************************************************************/
     /******NONBONDEDBASE2 FOR MODIFIED INTERACTIONS SCALED BY LAMBDA*****/
     /********************************************************************/
@@ -2049,6 +2128,8 @@ void ComputeNonbondedUtil :: NAME
 
     #define ALCH1(X) X
     #define ALCH2(X)
+    #define ALCH3(X)
+    #define ALCH4(X)
     npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
             p_i_x, p_i_y, p_i_z, p_1, pairlistmA1_save, npairmA1, pairlisti,
             r2_delta, r2list);
@@ -2056,9 +2137,13 @@ void ComputeNonbondedUtil :: NAME
     #include  "ComputeNonbondedBase2.h" // modified, direction 'up'
     #undef ALCH1
     #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4
 
     #define ALCH1(X)
     #define ALCH2(X) X
+    #define ALCH3(X)
+    #define ALCH4(X) 
     npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
             p_i_x, p_i_y, p_i_z, p_1, pairlistmA2_save, npairmA2, pairlisti,
             r2_delta, r2list);
@@ -2066,6 +2151,36 @@ void ComputeNonbondedUtil :: NAME
     #include  "ComputeNonbondedBase2.h" // modified, direction 'down'
     #undef ALCH1
     #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4
+
+    #define ALCH1(X)
+    #define ALCH2(X)
+    #define ALCH3(X) X
+    #define ALCH4(X) 
+    npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
+            p_i_x, p_i_y, p_i_z, p_1, pairlistmA3_save, npairmA3, pairlisti,
+            r2_delta, r2list);
+        exclChecksum += npairi;
+    #include  "ComputeNonbondedBase2.h" // modified, direction 'up'
+    #undef ALCH1
+    #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4
+
+    #define ALCH1(X)
+    #define ALCH2(X)
+    #define ALCH3(X) 
+    #define ALCH4(X) X
+    npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
+            p_i_x, p_i_y, p_i_z, p_1, pairlistmA4_save, npairmA4, pairlisti,
+            r2_delta, r2list);
+        exclChecksum += npairi;
+    #include  "ComputeNonbondedBase2.h" // modified, direction 'down'
+    #undef ALCH1
+    #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4
 
     #undef NORMAL
     #undef EXCLUDED
@@ -2083,6 +2198,8 @@ void ComputeNonbondedUtil :: NAME
 
     #define ALCH1(X) X
     #define ALCH2(X)
+    #define ALCH3(X)
+    #define ALCH4(X)
     npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
             p_i_x, p_i_y, p_i_z, p_1, pairlistxA1_save, npairxA1, pairlisti,
             r2_delta, r2list);
@@ -2090,9 +2207,13 @@ void ComputeNonbondedUtil :: NAME
     #include  "ComputeNonbondedBase2.h"  //excluded, direction 'up'
     #undef ALCH1
     #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4    
 
     #define ALCH1(X)
     #define ALCH2(X) X
+    #define ALCH3(X)
+    #define ALCH4(X)
     npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
             p_i_x, p_i_y, p_i_z, p_1, pairlistxA2_save, npairxA2, pairlisti,
             r2_delta, r2list);
@@ -2100,6 +2221,36 @@ void ComputeNonbondedUtil :: NAME
     #include  "ComputeNonbondedBase2.h"  //excluded, direction 'down'
     #undef ALCH1
     #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4    
+
+    #define ALCH1(X)
+    #define ALCH2(X)
+    #define ALCH3(X) X
+    #define ALCH4(X)
+    npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
+            p_i_x, p_i_y, p_i_z, p_1, pairlistxA3_save, npairxA3, pairlisti,
+            r2_delta, r2list);
+        exclChecksum += npairi;
+    #include  "ComputeNonbondedBase2.h"
+    #undef ALCH1
+    #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4
+
+    #define ALCH1(X)
+    #define ALCH2(X)
+    #define ALCH3(X)
+    #define ALCH4(X) X
+    npairi = pairlist_from_pairlist(ComputeNonbondedUtil::cutoff2,
+            p_i_x, p_i_y, p_i_z, p_1, pairlistxA4_save, npairxA4, pairlisti,
+            r2_delta, r2list);
+        exclChecksum += npairi;
+    #include  "ComputeNonbondedBase2.h"
+    #undef ALCH1
+    #undef ALCH2
+    #undef ALCH3
+    #undef ALCH4
 
     #undef FAST
     #ifdef SLOWONLY
@@ -2111,7 +2262,7 @@ void ComputeNonbondedUtil :: NAME
     #undef EXCLUDED
     #undef MODIFIED
     #else
-        exclChecksum += npairxA1 + npairxA2;
+        exclChecksum += npairxA1 + npairxA2 + npairxA3 + npairxA4;
     #endif
 
     #undef ALCHPAIR

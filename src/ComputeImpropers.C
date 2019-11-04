@@ -223,7 +223,7 @@ void ImproperElem::computeForce(ImproperElem *tuples, int ntuple, BigReal *reduc
 
   //fepb - BKR scaling of alchemical bonded terms
   //       NB: TI derivative is the _unscaled_ energy.
-  if ( simParams->alchOn ) {
+  if ( simParams->alchOn && !simParams->singleTopology) {
     switch ( mol->get_fep_bonded_type(atomID, 4) ) {
     case 1:
       reduction[improperEnergyIndex_ti_1] += energy;

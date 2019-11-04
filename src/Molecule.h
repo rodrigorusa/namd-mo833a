@@ -567,6 +567,12 @@ public:
   int numAcceptors; //  Number of hydrogen bond acceptors
   int numExclusions;  //  Number of exclusions
   int64 numTotalExclusions; //  Real Total Number of Exclusions // hack
+  int num_alch_unpert_Bonds;  // These are
+  int num_alch_unpert_Angles;  // Shobana's
+  int num_alch_unpert_Dihedrals; // unperturbed bond
+  Bond *alch_unpert_bonds; // angle, dihedral
+  Angle *alch_unpert_angles; // terms to remove dummy
+  Dihedral *alch_unpert_dihedrals; //atom influence 
 
   // DRUDE
   int numLonepairs;     ///< Number of lone pairs
@@ -937,9 +943,14 @@ public:
   void build_extra_bonds(Parameters *parameters, StringList *file);
 
 //fepb
-        void build_fep_flags(StringList *, StringList *, PDB *, char *, const char *);
-                               // selection of the mutant atoms
-        void delete_alch_bonded(void);
+  void build_fep_flags(StringList *, StringList *, PDB *, char *, const char *);
+                       // selection of the mutant atoms
+  void delete_alch_bonded(void);
+
+  void build_alch_unpert_bond_lists(char *);
+  void read_alch_unpert_bonds(FILE *);
+  void read_alch_unpert_angles(FILE *);
+  void read_alch_unpert_dihedrals(FILE *);
 //fepe
 
   /**

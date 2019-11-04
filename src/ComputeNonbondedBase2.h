@@ -12,16 +12,16 @@ ALCHPAIR( NOT_ALCHPAIR( foo bar ) )
 
 ALCHPAIR(
   // get alchemical nonbonded scaling parameters (once per pairlist)
-  myLambda = ALCH1(lambdaUp) ALCH2(lambdaDown);
-  FEP(myLambda2 = ALCH1(lambda2Up) ALCH2(lambda2Down);)
-  myElecLambda =  ALCH1(elecLambdaUp) ALCH2(elecLambdaDown); 
-  FEP(myElecLambda2 = ALCH1(elecLambda2Up) ALCH2(elecLambda2Down);)
-  myVdwLambda =  ALCH1(vdwLambdaUp) ALCH2(vdwLambdaDown); 
-  FEP(myVdwLambda2 = ALCH1(vdwLambda2Up) ALCH2(vdwLambda2Down);) 
-  myRepLambda =  ALCH1(repLambdaUp) ALCH2(repLambdaDown);
-  FEP(myRepLambda2 = ALCH1(repLambda2Up) ALCH2(repLambda2Down);)
-  myVdwShift =  ALCH1(vdwShiftUp) ALCH2(vdwShiftDown); 
-  FEP(myVdwShift2 =  ALCH1(vdwShift2Up) ALCH2(vdwShift2Down);) 
+  myLambda = ALCH1(lambdaUp) ALCH2(lambdaDown) ALCH3(lambdaUp) ALCH4(lambdaDown);
+  FEP(myLambda2 = ALCH1(lambda2Up) ALCH2(lambda2Down) ALCH3(lambda2Up) ALCH4(lambda2Down);)
+  myElecLambda =  ALCH1(elecLambdaUp) ALCH2(elecLambdaDown) ALCH3(elecLambdaUp) ALCH4(elecLambdaDown);
+  FEP(myElecLambda2 = ALCH1(elecLambda2Up) ALCH2(elecLambda2Down) ALCH3(elecLambda2Up) ALCH4(elecLambda2Down);)
+  myVdwLambda =  ALCH1(vdwLambdaUp) ALCH2(vdwLambdaDown) ALCH3(vdwLambdaUp) ALCH4(vdwLambdaDown);
+  FEP(myVdwLambda2 = ALCH1(vdwLambda2Up) ALCH2(vdwLambda2Down) ALCH3(vdwLambda2Up) ALCH4(vdwLambda2Down);)
+  ALCH1(myRepLambda = repLambdaUp) ALCH2(myRepLambda = repLambdaDown);
+  FEP(ALCH1(myRepLambda2 = repLambda2Up) ALCH2(myRepLambda2 = repLambda2Down);)
+  ALCH1(myVdwShift = vdwShiftUp) ALCH2(myVdwShift = vdwShiftDown);
+  FEP(ALCH1(myVdwShift2 = vdwShift2Up) ALCH2(myVdwShift2 = vdwShift2Down);)
 )
 
 #ifdef  A2_QPX
@@ -225,23 +225,42 @@ MODIFIED(
 
       ALCHPAIR (
         // Alchemical free energy calculation
+        // Pairlist 1 and 2 are for softcore atoms, while 3 and 4 are single topology atoms. 
         // Pairlists are separated so that lambda-coupled pairs are handled
         // independently from normal nonbonded (inside ALCHPAIR macro).
-        // The separation-shifted van der Waals potential for decoupling is
-        // calculated explicitly. This would be faster with lookup tables but
-        // because only a small minority of nonbonded pairs are lambda-coupled
-        // the impact is minimal. 
+        // The separation-shifted van der Waals potential and a shifted 
+        // electrostatics potential for decoupling are calculated explicitly.
+        // Would be faster with lookup tables but because only a small minority
+        // of nonbonded pairs are lambda-coupled the impact is minimal. 
         // Explicit calculation also makes things easier to modify.
+        // These are now inline functions (in ComputeNonbondedFep.C) to 
+        // tidy the code
         
         const BigReal r2 = r2list[k] - r2_delta;
 
         // These are now inline functions (in ComputeNonbondedFep.C) to 
         // tidy the code
 
-        FEP(fep_vdw_forceandenergies(A, B, r2, myVdwShift, myVdwShift2,
+        FEP(
+          ALCH1 (    // Don't merge/recombine the ALCH 1, 2, 3 ,4. Their functions might be modified for future algorithm changes.
+          fep_vdw_forceandenergies(A, B, r2, myVdwShift, myVdwShift2,
           switchdist2, cutoff2, switchfactor, vdwForceSwitching, myVdwLambda,
           myVdwLambda2, alchWCAOn, myRepLambda, myRepLambda2, &alch_vdw_energy,
           &alch_vdw_force, &alch_vdw_energy_2);)
+          ALCH2 (
+          fep_vdw_forceandenergies(A, B, r2, myVdwShift, myVdwShift2,
+          switchdist2, cutoff2, switchfactor, vdwForceSwitching, myVdwLambda,
+          myVdwLambda2, alchWCAOn, myRepLambda, myRepLambda2, &alch_vdw_energy,
+          &alch_vdw_force, &alch_vdw_energy_2);)
+          ALCH3 (            // In single topology region ALCH3 & 4, all atoms are paired so softcore potential is unnecessary. 
+          ENERGY(alch_vdw_energy = -myVdwLambda * (( ( diffa * vdw_d * (1/6.)+ vdw_c * (1/4.)) * diffa + vdw_b *(1/2.)) * diffa + vdw_a);)
+          alch_vdw_energy_2 = -myVdwLambda2 * (( ( diffa * vdw_d * (1/6.)+ vdw_c * (1/4.)) * diffa + vdw_b *(1/2.)) * diffa + vdw_a);
+          alch_vdw_force =   myVdwLambda * ((diffa * vdw_d + vdw_c) * diffa + vdw_b);)
+          ALCH4 (
+          ENERGY(alch_vdw_energy = -myVdwLambda * (( ( diffa * vdw_d * (1/6.)+ vdw_c * (1/4.)) * diffa + vdw_b *(1/2.)) * diffa + vdw_a);)
+          alch_vdw_energy_2 = -myVdwLambda2 * (( ( diffa * vdw_d * (1/6.)+ vdw_c * (1/4.)) * diffa + vdw_b *(1/2.)) * diffa + vdw_a); 
+          alch_vdw_force =   myVdwLambda * ((diffa * vdw_d + vdw_c) * diffa + vdw_b);)
+          )
         TI(ti_vdw_force_energy_dUdl(A, B, r2, myVdwShift, switchdist2, cutoff2,
           switchfactor, vdwForceSwitching, myVdwLambda, alchVdwShiftCoeff,
           alchWCAOn, myRepLambda, &alch_vdw_energy, &alch_vdw_force,
@@ -298,7 +317,7 @@ MODIFIED(
       ALCHPAIR(
         ENERGY(vdwEnergy   += alch_vdw_energy;)
         FEP(vdwEnergy_s += alch_vdw_energy_2;)
-        TI(ALCH1(vdwEnergy_ti_1) ALCH2(vdwEnergy_ti_2) += alch_vdw_dUdl;)
+        TI(ALCH1(vdwEnergy_ti_1 += alch_vdw_dUdl;) ALCH2(vdwEnergy_ti_2 += alch_vdw_dUdl;))
       ) // ALCHPAIR
       
 #endif // FAST
@@ -352,7 +371,7 @@ MODIFIED(
         TI(
           NOENERGY(register BigReal fast_val = 
             ( ( diffa * fast_d * (1/6.)+ fast_c * (1/4.)) * diffa + fast_b *(1/2.)) * diffa + fast_a;)
-          ALCH1(electEnergy_ti_1) ALCH2(electEnergy_ti_2)  -= fast_val;
+          ALCH1(electEnergy_ti_1 -= fast_val;) ALCH2(electEnergy_ti_2 -= fast_val;)
         )
       )
 
@@ -631,7 +650,7 @@ MODIFIED(
         TI(
           NOENERGY(register BigReal slow_val =
 	        ( ( diffa * slow_d *(1/6.)+ slow_c * (1/4.)) * diffa + slow_b *(1/2.)) * diffa + slow_a;)
-          ALCH1(fullElectEnergy_ti_1) ALCH2(fullElectEnergy_ti_2) -= slow_val;
+          ALCH1(fullElectEnergy_ti_1 -= slow_val;) ALCH2(fullElectEnergy_ti_2 -= slow_val;)
         )
       )
 

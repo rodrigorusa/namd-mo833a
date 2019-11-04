@@ -298,6 +298,9 @@ void Molecule::initialize(SimParameters *simParams, Parameters *param)
   consForce=NULL;
 //fepb
   fepAtomFlags=NULL;
+  alch_unpert_bonds = NULL;
+  alch_unpert_angles = NULL;
+  alch_unpert_dihedrals = NULL;
 //fepe
 //soluteScaling
   ssAtomFlags=NULL;
@@ -366,6 +369,9 @@ void Molecule::initialize(SimParameters *simParams, Parameters *param)
 //fepb
   numFepInitial = 0;
   numFepFinal = 0;
+  num_alch_unpert_Bonds = 0;
+  num_alch_unpert_Angles = 0;
+  num_alch_unpert_Dihedrals = 0;
 //fepe
 
   //fields related with pluginIO-based loading molecule structure
@@ -684,6 +690,12 @@ Molecule::~Molecule()
 //fepb
   if (fepAtomFlags != NULL)
        delete [] fepAtomFlags;
+  if (alch_unpert_bonds != NULL)
+       delete [] alch_unpert_bonds;
+  if (alch_unpert_angles != NULL)
+       delete [] alch_unpert_angles;
+  if (alch_unpert_dihedrals != NULL)
+       delete [] alch_unpert_dihedrals;
 //fepe
 
 //soluteScaling
@@ -1590,6 +1602,40 @@ void Molecule::read_bonds(FILE *fd, Parameters *params)
 /*      END OF FUNCTION read_bonds      */
 
 /************************************************************************/
+void Molecule::read_alch_unpert_bonds(FILE *fd) {
+  int atom_nums[2];  // Atom indexes for the bonded atoms
+  register int j;      // Loop counter
+  int num_read=0;    // Number of bonds read so far
+
+  alch_unpert_bonds=new Bond[num_alch_unpert_Bonds];
+
+  if (alch_unpert_bonds == NULL) {
+    NAMD_die("memory allocations failed in Molecule::read_alch_unpert_bonds");
+  }
+
+  while (num_read < num_alch_unpert_Bonds) {
+    for (j=0; j<2; j++) {
+      atom_nums[j]=NAMD_read_int(fd, "BONDS")-1;
+
+      if (atom_nums[j] >= numAtoms) {
+        char err_msg[128];
+
+        sprintf(err_msg, "BOND INDEX %d GREATER THAN NATOM %d IN BOND # %d IN ALCH PSF FILE", atom_nums[j]+1, numAtoms, num_read+1);
+        NAMD_die(err_msg);
+      }
+    }
+
+    Bond *b = &(alch_unpert_bonds[num_read]);
+    b->atom1=atom_nums[0];
+    b->atom2=atom_nums[1];
+
+    ++num_read;
+  }
+  return;
+}
+/*      END OF FUNCTION read_alch_unpert_bonds      */
+
+/************************************************************************/
 /*                  */
 /*      FUNCTION read_angles        */
 /*                  */
@@ -1677,6 +1723,39 @@ void Molecule::read_angles(FILE *fd, Parameters *params)
   return;
 }
 /*      END OF FUNCTION read_angles      */
+
+/************************************************************************/
+void Molecule::read_alch_unpert_angles(FILE *fd) {
+  int atom_nums[3];  //  Atom numbers for the three atoms
+  register int j;    //  Loop counter
+  int num_read=0;    //  Number of angles read so far
+
+  alch_unpert_angles=new Angle[num_alch_unpert_Angles];
+
+  if (alch_unpert_angles == NULL) {
+    NAMD_die("memory allocation failed in Molecule::read_alch_unpert_angles");
+  }
+
+  while (num_read < num_alch_unpert_Angles) {
+    for (j=0; j<3; j++) {
+      atom_nums[j]=NAMD_read_int(fd, "ANGLES")-1;
+
+      if (atom_nums[j] >= numAtoms) {
+        char err_msg[128];
+        sprintf(err_msg, "ANGLES INDEX %d GREATER THAN NATOM %d IN ANGLES # %d IN ALCH UNPERT PSF FILE", atom_nums[j]+1, numAtoms, num_read+1);
+        NAMD_die(err_msg);
+      }
+    }
+
+    alch_unpert_angles[num_read].atom1=atom_nums[0];
+    alch_unpert_angles[num_read].atom2=atom_nums[1];
+    alch_unpert_angles[num_read].atom3=atom_nums[2];
+
+    ++num_read;
+  }
+  return;
+}
+/*      END OF FUNCTION read_alch_unpert_angles      */
 
 /************************************************************************/
 /*                  */
@@ -1792,6 +1871,41 @@ void Molecule::read_dihedrals(FILE *fd, Parameters *params)
   return;
 }
 /*      END OF FUNCTION read_dihedral      */
+
+/*************************************************************************/
+void Molecule::read_alch_unpert_dihedrals(FILE *fd) {
+  int atom_nums[4];  // The 4 atom indexes
+  int num_read=0;    // number of dihedrals read so far
+  register int j;    // loop counter
+
+  alch_unpert_dihedrals = new Dihedral[num_alch_unpert_Dihedrals];
+
+  if (alch_unpert_dihedrals == NULL) {
+    NAMD_die("memory allocation failed in Molecule::read_alch_unpert_dihedrals");
+  }
+
+  while (num_read < num_alch_unpert_Dihedrals) {
+    for (j=0; j<4; j++) {
+      atom_nums[j]=NAMD_read_int(fd, "DIHEDRALS")-1;
+
+      if (atom_nums[j] >= numAtoms) {
+        char err_msg[128];
+
+        sprintf(err_msg, "DIHEDRALS INDEX %d GREATER THAN NATOM %d IN DIHEDRALS # %d IN ALCH UNPERT PSF FILE", atom_nums[j]+1, numAtoms, num_read+1);
+        NAMD_die(err_msg);
+      }
+    }
+
+    alch_unpert_dihedrals[num_read].atom1=atom_nums[0];
+    alch_unpert_dihedrals[num_read].atom2=atom_nums[1];
+    alch_unpert_dihedrals[num_read].atom3=atom_nums[2];
+    alch_unpert_dihedrals[num_read].atom4=atom_nums[3];
+
+    num_read++;
+  }
+  return;
+}
+/*     END OF FUNCTION read_alch_unpert_dihedral           */
 
 /************************************************************************/
 /*                  */
@@ -4378,7 +4492,7 @@ void Molecule::setBFactorData(molfile_atom_t *atomarray){
        {
          int t1 = get_fep_type(exclIter->atom1);
          int t2 = get_fep_type(exclIter->atom2);
-         if ( t1 && t2 && t1 != t2 ) {
+         if (t1 && t2 && t1 !=t2 && abs(t1-t2) != 2) {
            fepExclusionSet.add(*exclIter);
          }
        }
@@ -5355,6 +5469,17 @@ void Molecule::send_Molecule(MOStream *msg){
     msg->put(numDihedrals*sizeof(Dihedral), (char*)dihedrals);
   }  
 
+  if (simParams->sdScaling) {
+    msg->put(num_alch_unpert_Bonds);
+    msg->put(num_alch_unpert_Bonds*sizeof(Bond), (char*)alch_unpert_bonds);
+
+    msg->put(num_alch_unpert_Angles);
+    msg->put(num_alch_unpert_Angles*sizeof(Angle), (char*)alch_unpert_angles);
+
+    msg->put(num_alch_unpert_Dihedrals);
+    msg->put(num_alch_unpert_Dihedrals*sizeof(Dihedral), (char*)alch_unpert_dihedrals);
+  }
+
   //  Send the improper information
   msg->put(numImpropers);  
   if (numImpropers)
@@ -5699,7 +5824,7 @@ void Molecule::receive_Molecule(MIStream *msg){
     bonds=new Bond[numBonds]; 
     msg->get(numBonds*sizeof(Bond), (char*)bonds);
   }  
-  
+
   //  Get the angle information
   msg->get(numAngles);  
   if (numAngles)
@@ -5708,7 +5833,7 @@ void Molecule::receive_Molecule(MIStream *msg){
     angles=new Angle[numAngles];  
     msg->get(numAngles*sizeof(Angle), (char*)angles);
   }  
-  
+
   //  Get the dihedral information
   msg->get(numDihedrals);    
   if (numDihedrals)
@@ -5717,6 +5842,20 @@ void Molecule::receive_Molecule(MIStream *msg){
     dihedrals=new Dihedral[numDihedrals];  
     msg->get(numDihedrals*sizeof(Dihedral), (char*)dihedrals);
   }  
+
+  if (simParams->sdScaling) {
+    msg->get(num_alch_unpert_Bonds);
+    alch_unpert_bonds=new Bond[num_alch_unpert_Bonds];
+    msg->get(num_alch_unpert_Bonds*sizeof(Bond), (char*)alch_unpert_bonds);
+
+    msg->get(num_alch_unpert_Angles);
+    alch_unpert_angles=new Angle[num_alch_unpert_Angles];
+    msg->get(num_alch_unpert_Angles*sizeof(Angle), (char*)alch_unpert_angles);
+
+    msg->get(num_alch_unpert_Dihedrals);
+    alch_unpert_dihedrals=new Dihedral[num_alch_unpert_Dihedrals];
+    msg->get(num_alch_unpert_Dihedrals*sizeof(Dihedral), (char*)alch_unpert_dihedrals);
+  }
   
   //  Get the improper information
   msg->get(numImpropers);
@@ -8707,12 +8846,18 @@ void Molecule::build_fep_flags(StringList *alchfile, StringList *alchcol,
       } else {
         fepAtomFlags[i] = 0;
       }
-    } else if (simParams->alchOn) {
-      if (bval == 1.0) {
-        fepAtomFlags[i] = 1;
-        numFepFinal++;
-      } else if (bval == -1.0) {
+    } else if (simParams->alchOn) {  // in single topology setup, extended partitions
+      if (bval == 2.0) {             // 1, 2, 3, 4 are employed to denote alchemical
+        fepAtomFlags[i] = 3;         // transformations. Flags 2 and 4 are initial 
+        numFepFinal++;               // state, while 1 and 3 are final state. Please
+      } else if (bval == 1.0) {      // note the order of fepAtomFlags also determines 
+        fepAtomFlags[i] =1;          // one-to-one atom correspondence and control force 
+        numFepFinal++;               // combinations and atom reposition of single topology
+      } else if (bval == -1.0) {     // region (4, 3), see HomePatch.C and Sequencer.C. 
         fepAtomFlags[i] = 2;
+        numFepInitial++;
+      } else if (bval == -2.0) {
+        fepAtomFlags[i] = 4;
         numFepInitial++;
       } else {
         fepAtomFlags[i] = 0;
@@ -8936,6 +9081,66 @@ void Molecule::build_ss_flags(
    // 
 
 #ifndef MEM_OPT_VERSION
+void Molecule::build_alch_unpert_bond_lists(char *alch_fname)  {
+  char err_msg[512];
+  char buffer[512];
+  FILE *alch_unpert_bond_file;
+  int ret_code;
+
+  if ((alch_unpert_bond_file = Fopen(alch_fname, "r")) == NULL) {
+    sprintf(err_msg, "UNABLE TO OPEN ALCH UNPERTBURBED BOND FILE %s", alch_fname);
+    NAMD_die(err_msg);
+  }
+  ret_code = NAMD_read_line(alch_unpert_bond_file, buffer);
+
+  while ( (ret_code==0) && (NAMD_blank_string(buffer)) ) {
+    ret_code = NAMD_read_line(alch_unpert_bond_file, buffer);
+  }
+
+  if (!NAMD_find_word(buffer, "NBOND")) {
+    NAMD_die("DID NOT FIND NBOND AFTER ATOM LIST IN ALCH UNPERT PSF");
+  }
+
+  /*  Read in the number of bonds and then the bonds themselves  */
+  sscanf(buffer, "%d", &num_alch_unpert_Bonds);
+
+  read_alch_unpert_bonds(alch_unpert_bond_file);
+
+  ret_code = NAMD_read_line(alch_unpert_bond_file, buffer);
+
+  while ( (ret_code==0) && (NAMD_blank_string(buffer)) ) {
+    ret_code = NAMD_read_line(alch_unpert_bond_file, buffer);
+  }
+
+  if (!NAMD_find_word(buffer, "NTHETA")) {
+    NAMD_die("DID NOT FIND NTHETA AFTER BOND LIST IN ALCH UNPERT PSF");
+  }
+
+  /*  Read in the number of angles and then the angles themselves */
+  sscanf(buffer, "%d", &num_alch_unpert_Angles);
+
+  read_alch_unpert_angles(alch_unpert_bond_file);
+
+  /*  Read until we find the next non-blank line      */
+  ret_code = NAMD_read_line(alch_unpert_bond_file, buffer);
+
+  while ( (ret_code==0) && (NAMD_blank_string(buffer)) ) {
+    ret_code = NAMD_read_line(alch_unpert_bond_file, buffer);
+  }
+
+  /*  Look for the string "NPHI"          */
+  if (!NAMD_find_word(buffer, "NPHI")) {
+    NAMD_die("DID NOT FIND NPHI AFTER ANGLE LIST IN ALCH UNPERT PSF");
+  }
+
+  /*  Read in the number of dihedrals and then the dihedrals      */
+  sscanf(buffer, "%d", &num_alch_unpert_Dihedrals);
+
+  read_alch_unpert_dihedrals(alch_unpert_bond_file);
+
+  Fclose(alch_unpert_bond_file);
+}
+
 void Molecule::delete_alch_bonded(void)  {
 
   // Bonds
@@ -9891,7 +10096,9 @@ void Molecule::compute_LJcorrection() {
     numLJsites1 = numLJsites2 = numLJsites;
     int alch_counter = 0;
     for (int i=0; i < numAtoms; ++i) {
-      int alchFlagi = (get_fep_type(i) == 2 ? -1 : get_fep_type(i));
+      int alchFlagi;
+      if (get_fep_type(i) == 2 || get_fep_type(i) == 4) alchFlagi = -1;
+      if (get_fep_type(i) == 1 || get_fep_type(i) == 3) alchFlagi = 1;
       if (params->get_vdw_pair_params(atoms[i].vdw_type, atoms[i].vdw_type,
                                       &A, &B, &A14, &B14)) {
       }
@@ -9912,7 +10119,9 @@ void Molecule::compute_LJcorrection() {
         else if (alchFlagi == -1) numLJsites1--;
       }
       for (int j=i+1; j < numAtoms; ++j) {
-        int alchFlagj = (get_fep_type(j) == 2 ? -1 : get_fep_type(j));
+        int alchFlagj;
+        if (get_fep_type(j) == 2 || get_fep_type(j) == 4) alchFlagj = -1;
+        if (get_fep_type(j) == 1 || get_fep_type(j) == 3) alchFlagj = 1;
         int alchFlagSum = alchFlagi + alchFlagj;
 
         // Ignore completely non-alchemical pairs.

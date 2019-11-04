@@ -51,14 +51,25 @@ template <class T, class S, class P> class SelfTuples : public HomeTuples<T, S, 
       this->tupleList.clear();
 
       LocalID aid[T::size];
+      int partition[T::size];
 
       const int lesOn = node->simParameters->lesOn;
       const int soluteScalingOn = node->simParameters->soluteScalingOn;
+      const int fepOn = node->simParameters->singleTopology;
+      const int sdScaling = node->simParameters->sdScaling;
       Real invLesFactor = lesOn ?
                           1.0/node->simParameters->lesFactor :
                           1.0;
       const Real soluteScalingFactor = node->simParameters->soluteScalingFactor;
       const Bool soluteScalingAll = node->simParameters->soluteScalingAll;
+      BigReal OneMinusLambda = 1.0 - node->simParameters->alchLambda;
+      BigReal Lambda = node->simParameters->alchLambda;
+      const int num_unpert_bonds = node->molecule->num_alch_unpert_Bonds;
+      const int num_unpert_angles = node->molecule->num_alch_unpert_Angles;
+      const int num_unpert_dihedrals = node->molecule->num_alch_unpert_Dihedrals;
+      Bond *unpert_bonds = node->molecule->alch_unpert_bonds;
+      Angle *unpert_angles = node->molecule->alch_unpert_angles;
+      Dihedral *unpert_dihedrals = node->molecule->alch_unpert_dihedrals;
 
       // cycle through each patch and gather all tuples
       // There should be only one!
@@ -105,17 +116,48 @@ template <class T, class S, class P> class SelfTuples : public HomeTuples<T, S, 
             aid[0] = atomMap->localID(t.atomID[0]);
             int homepatch = aid[0].pid;
             int samepatch = 1;
-            int has_les = lesOn && node->molecule->get_fep_type(t.atomID[0]);
-             int has_ss = soluteScalingOn && node->molecule->get_ss_type(t.atomID[0]);
+            partition[0] = fepOn ? node->molecule->get_fep_type(t.atomID[0]) : 0;  //using atom partition to determine if a bonded term to be scaled by lambda or 1-lambda in single topology relative FEP. 
+            int has_les = lesOn ? node->molecule->get_fep_type(t.atomID[0]) : 0;
+            int has_ss = soluteScalingOn ? node->molecule->get_ss_type(t.atomID[0]) : 0;
+            int is_fep_ss = partition[0] > 2;
+            int is_fep_sd = 0;
+            int fep_tuple_type = 0;
             for (i=1; i < T::size; i++) {
               aid[i] = atomMap->localID(t.atomID[i]);
               samepatch = samepatch && ( homepatch == aid[i].pid );
-              has_les |= lesOn && node->molecule->get_fep_type(t.atomID[i]);
-              has_ss |= soluteScalingOn && node->molecule->get_ss_type(t.atomID[i]);
+              partition[i] = fepOn ? node->molecule->get_fep_type(t.atomID[i]) : 0;
+              has_les |= lesOn ? node->molecule->get_fep_type(t.atomID[i]) : 0;
+              has_ss |= soluteScalingOn ? node->molecule->get_ss_type(t.atomID[i]) : 0; 
+              if (fepOn) { 
+              is_fep_ss &= partition[i] > 2;
+              is_fep_sd |= (abs(partition[i] - partition[0]) == 2);
+              fep_tuple_type = partition[i]; }
+            }
+            if (sdScaling && is_fep_sd) {   //check if this bonded term is one of Shobana term. This segment looks ugly and not GPU friendly, and might not appear in GPU code.
+              for (i=0; i < num_unpert_bonds; i++) {
+                if (T::size == 2
+                    && t.atomID[0]==unpert_bonds[i].atom1
+                    && t.atomID[1]==unpert_bonds[i].atom2) is_fep_sd = 0;
+              }
+              for (i=0; i < num_unpert_angles; i++) {
+                if (T::size == 3
+                    && t.atomID[0]==unpert_angles[i].atom1
+                    && t.atomID[1]==unpert_angles[i].atom2
+                    && t.atomID[2]==unpert_angles[i].atom3) is_fep_sd = 0;
+              }
+              for (i=0; i < num_unpert_dihedrals; i++) {
+                if (T::size == 4
+                    && t.atomID[0]==unpert_dihedrals[i].atom1
+                    && t.atomID[1]==unpert_dihedrals[i].atom2
+                    && t.atomID[2]==unpert_dihedrals[i].atom3
+                    && t.atomID[3]==unpert_dihedrals[i].atom4) is_fep_sd = 0;
+              }
             }
             if (T::size < 4 && !soluteScalingAll) has_ss = false;
             if ( samepatch ) {
               t.scale = (!has_les && !has_ss) ? 1.0 : ( has_les ? invLesFactor : soluteScalingFactor );
+              if (is_fep_ss) t.scale = (fep_tuple_type == 4) ? OneMinusLambda : Lambda;
+              if (is_fep_sd && sdScaling) t.scale = (fep_tuple_type == 4 || fep_tuple_type == 2) ? OneMinusLambda : Lambda;
               TuplePatchElem *p;
               p = tuplePatchList.find(TuplePatchElem(homepatch));
               for(i=0; i < T::size; i++) {
@@ -178,14 +220,25 @@ template <class T, class S, class P> class ComputeSelfTuples :
       this->tupleList.resize(0);
 
       LocalID aid[T::size];
+      int partition[T::size];
 
       const int lesOn = node->simParameters->lesOn;
       const int soluteScalingOn = node->simParameters->soluteScalingOn;
+      const int fepOn = node->simParameters->singleTopology;
+      const int sdScaling = node->simParameters->sdScaling;
       Real invLesFactor = lesOn ?
                           1.0/node->simParameters->lesFactor :
                           1.0;
       const Real soluteScalingFactor = node->simParameters->soluteScalingFactor;
       const Bool soluteScalingAll = node->simParameters->soluteScalingAll;
+      BigReal OneMinusLambda = 1.0 - node->simParameters->alchLambda;
+      BigReal Lambda = node->simParameters->alchLambda;
+      const int num_unpert_bonds = node->molecule->num_alch_unpert_Bonds;
+      const int num_unpert_angles = node->molecule->num_alch_unpert_Angles;
+      const int num_unpert_dihedrals = node->molecule->num_alch_unpert_Dihedrals;
+      Bond *unpert_bonds = node->molecule->alch_unpert_bonds;
+      Angle *unpert_angles = node->molecule->alch_unpert_angles;
+      Dihedral *unpert_dihedrals = node->molecule->alch_unpert_dihedrals;
 
       // cycle through each patch and gather all tuples
       // There should be only one!
@@ -220,17 +273,48 @@ template <class T, class S, class P> class ComputeSelfTuples :
              aid[0] = this->atomMap->localID(t.atomID[0]);
              int homepatch = aid[0].pid;
              int samepatch = 1;
-             int has_les = lesOn && node->molecule->get_fep_type(t.atomID[0]);
-             int has_ss = soluteScalingOn && node->molecule->get_ss_type(t.atomID[0]);
+             partition[0] = fepOn ? node->molecule->get_fep_type(t.atomID[0]) : 0; 
+             int has_les = lesOn ? node->molecule->get_fep_type(t.atomID[0]) : 0;
+             int has_ss = soluteScalingOn ? node->molecule->get_ss_type(t.atomID[0]) : 0;
+             int is_fep_ss = partition[0] > 2;
+             int is_fep_sd = 0;
+             int fep_tuple_type = 0;
              for (i=1; i < T::size; i++) {
 	         aid[i] = this->atomMap->localID(t.atomID[i]);
 	         samepatch = samepatch && ( homepatch == aid[i].pid );
-                 has_les |= lesOn && node->molecule->get_fep_type(t.atomID[i]);
-                 has_ss |= soluteScalingOn && node->molecule->get_ss_type(t.atomID[i]);
+                 partition[i] = fepOn ? node->molecule->get_fep_type(t.atomID[i]) : 0;
+                 has_les |= lesOn ? node->molecule->get_fep_type(t.atomID[i]) : 0;
+                 has_ss |= soluteScalingOn ? node->molecule->get_ss_type(t.atomID[i]) : 0;
+                 if (fepOn) {
+                 is_fep_ss &= partition[i] > 2;
+                 is_fep_sd |= (abs(partition[i] - partition[0]) == 2);
+                 fep_tuple_type = partition[i]; }
              }
              if (T::size < 4 && !soluteScalingAll) has_ss = false;
+             if (sdScaling && is_fep_sd) {
+               for (i=0; i < num_unpert_bonds; i++) {
+                 if (T::size == 2
+                     && t.atomID[0]==unpert_bonds[i].atom1
+                     && t.atomID[1]==unpert_bonds[i].atom2) is_fep_sd = 0;
+               }
+               for (i=0; i < num_unpert_angles; i++) {
+                 if (T::size == 3
+                     && t.atomID[0]==unpert_angles[i].atom1
+                     && t.atomID[1]==unpert_angles[i].atom2
+                     && t.atomID[2]==unpert_angles[i].atom3) is_fep_sd = 0;
+               }
+               for (i=0; i < num_unpert_dihedrals; i++) {
+                 if (T::size == 4
+                     && t.atomID[0]==unpert_dihedrals[i].atom1
+                     && t.atomID[1]==unpert_dihedrals[i].atom2
+                     && t.atomID[2]==unpert_dihedrals[i].atom3
+                     && t.atomID[3]==unpert_dihedrals[i].atom4) is_fep_sd = 0;
+               }
+             }
              if ( samepatch ) {
                t.scale = (!has_les && !has_ss) ? 1.0 : ( has_les ? invLesFactor : soluteScalingFactor );
+               if (is_fep_ss) t.scale = (fep_tuple_type == 4) ? OneMinusLambda : Lambda;
+               if (is_fep_sd && sdScaling) t.scale = (fep_tuple_type == 4 || fep_tuple_type == 2) ? OneMinusLambda : Lambda;
                TuplePatchElem *p;
                p = this->tuplePatchList.find(TuplePatchElem(homepatch));
                for(i=0; i < T::size; i++) {

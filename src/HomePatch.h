@@ -571,6 +571,9 @@ private:
    * correction to the virial.
    */
   void redistrib_lonepair_forces(const int, Tensor *);
+  
+  // single topology force redistribution
+  void redistrib_alchpair_forces(const int);
 
   // PLF -- for TIP4P
   //void redistrib_tip4p_force(Vector&, Vector&, Vector&, Vector&, int, Tensor*);
@@ -605,6 +608,10 @@ private:
    */
   void reposition_all_lonepairs(void);
 
+  //single topology end state reposition
+  void reposition_alchpair(Vector& ri, Vector& rj, Mass& Mi, Mass& Mj);
+  void reposition_all_alchpairs(void); //single topolofy alch 
+
   /**
    * Redistribute the force on a colinear lonepair onto its hosts.
    */
@@ -621,6 +628,8 @@ private:
       const Vector& ri, const Vector& rj, const Vector& rk, const Vector& rl,
       Tensor *virial, int midpt);
 
+  //single topology force transfer  
+  void redistrib_ap_force(Vector& fi, Vector& fj);
   /**
    * Redistribute the force on a water (TIP4P, SWM4) lonepair onto its hosts.
    * This is similar to redistrib_relative_lp_force but specialized for the

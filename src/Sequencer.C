@@ -338,7 +338,7 @@ D_MSG("rattle1()");
     TIMER_STOP(t, RATTLE1);
 #endif
 
-    if (simParams->lonepairs) {
+    if (simParams->lonepairs || simParams->singleTopology) {
       patch->atomMapper->registerIDsFullAtom(
 		patch->atom.begin(),patch->atom.end());
     }
@@ -806,7 +806,7 @@ void Sequencer::minimize() {
 
   patch->rattle1(0.,0,0);  // enforce rigid bond constraints on initial positions
 
-  if (simParams->lonepairs) {
+  if (simParams->lonepairs || simParams->singleTopology) {
     patch->atomMapper->registerIDsFullAtom(
 		patch->atom.begin(),patch->atom.end());
   }
@@ -2683,6 +2683,7 @@ void Sequencer::runComputeObjects(int migration, int pairlists, int pressureStep
   patch->flags.savePairlists =
 	pairlists && ! pairlistsAreValid;
 
+  if ( simParams->singleTopology ) patch->reposition_all_alchpairs();
   if ( simParams->lonepairs ) patch->reposition_all_lonepairs();
 
   //
@@ -2785,6 +2786,16 @@ void Sequencer::runComputeObjects(int migration, int pairlists, int pressureStep
       Tensor virial;
       patch->redistrib_swm4_forces(Results::slow, &virial);
       ADD_TENSOR_OBJECT(reduction, REDUCTION_VIRIAL_SLOW, virial);
+    }
+  }
+
+  if (simParams->singleTopology) {
+    patch->redistrib_alchpair_forces(Results::normal);
+    if (patch->flags.doNonbonded) {
+      patch->redistrib_alchpair_forces(Results::nbond);
+    }
+    if (patch->flags.doFullElectrostatics) {
+      patch->redistrib_alchpair_forces(Results::slow);
     }
   }
 

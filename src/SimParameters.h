@@ -388,6 +388,8 @@ public:
   Bool alchThermIntOnAtStartup;
   Bool alchOn;              //  Doing alchemical simulation?
   Bool alchFepOn;           //  Doing alchemical simulation?
+  Bool singleTopology;      //  Using single topology setup? 
+  Bool sdScaling;           //  Scaling S-D bond terms in single topology?
   Bool alchThermIntOn;      //  Doing thermodynamic integration?
   Bool alchWCAOn;           //  Using WCA decomposition for vdWs?
   int alchMethod;           //  Which alchemical method to use? fep or ti
@@ -612,30 +614,30 @@ public:
 	int rescaleFreq;		//  Velocity rescale frequency
 	BigReal rescaleTemp;		//  Temperature to rescale to
 
-        Bool accelMDOn;                 //  Perform accelerated MD
-        Bool accelMDdihe;               //  Apply boost to the dihedral potential
-        Bool accelMDdual;               //  dual boost mode  
-        Bool accelMDDebugOn;            //  Debugging accelerated MD
-        BigReal accelMDFirstStep;       //  First aMD step
-        BigReal accelMDLastStep;        //  Last aMD step
-        int accelMDOutFreq;             //  aMD output frequency
-        BigReal accelMDE;               //  aMD E
-        BigReal accelMDalpha;           //  aMD alpha
-        BigReal accelMDTE;              //  E for total potential in the dual boost mode
-        BigReal accelMDTalpha;          //  alpha for total potential in the dual boost mode
+  Bool accelMDOn;                 //  Perform accelerated MD
+  Bool accelMDdihe;               //  Apply boost to the dihedral potential
+  Bool accelMDdual;               //  dual boost mode  
+  Bool accelMDDebugOn;            //  Debugging accelerated MD
+  BigReal accelMDFirstStep;       //  First aMD step
+  BigReal accelMDLastStep;        //  Last aMD step
+  int accelMDOutFreq;             //  aMD output frequency
+  BigReal accelMDE;               //  aMD E
+  BigReal accelMDalpha;           //  aMD alpha
+  BigReal accelMDTE;              //  E for total potential in the dual boost mode
+  BigReal accelMDTalpha;          //  alpha for total potential in the dual boost mode
 
-	Bool accelMDG;                  //  Perform Gaussian accelMD calculation
-	int accelMDGiE;                 //  Flag to set the mode iE in Gaussian accelMD
-	int accelMDGcMDSteps;           //  Number of cMD steps
-	int accelMDGEquiSteps;		//  Number of quilibration steps after adding boost potential
-	int accelMDGcMDPrepSteps;	//  Number of preparation cMD steps
-	int accelMDGEquiPrepSteps;	//  Number of preparation equilibration steps
-        int accelMDGStatWindow;         //  Number of steps to calc avg and std
-	BigReal accelMDGSigma0P;	//  upper limit of std of total potential
-	BigReal accelMDGSigma0D;	//  upper limit of std of dihedral potential
-	Bool accelMDGRestart;		//  Flag to set use restart file in Gaussian accelMD
-	char accelMDGRestartFile[128];	//  restart file name
-	Bool accelMDGresetVaftercmd;	//  Flag to reset potential after first accelMDGcMDSteps steps
+  Bool accelMDG;                  //  Perform Gaussian accelMD calculation
+  int accelMDGiE;                 //  Flag to set the mode iE in Gaussian accelMD
+  int accelMDGcMDSteps;           //  Number of cMD steps
+  int accelMDGEquiSteps;          //  Number of quilibration steps after adding boost potential
+  int accelMDGcMDPrepSteps;       //  Number of preparation cMD steps
+  int accelMDGEquiPrepSteps;      //  Number of preparation equilibration steps
+  int accelMDGStatWindow;         //  Number of steps to calc avg and std
+  BigReal accelMDGSigma0P;        //  upper limit of std of total potential
+  BigReal accelMDGSigma0D;        //  upper limit of std of dihedral potential
+  Bool accelMDGRestart;           //  Flag to set use restart file in Gaussian accelMD
+  char accelMDGRestartFile[128];  //  restart file name
+  Bool accelMDGresetVaftercmd;    //  Flag to reset potential after first accelMDGcMDSteps steps
 
         /* Begin Adaptive Temperature Sampling */
         Bool adaptTempOn;                      //  is adaptTempOn

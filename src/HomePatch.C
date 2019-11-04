@@ -1495,6 +1495,14 @@ void HomePatch::redistrib_relative_lp_force(
 #endif
 }
 
+void HomePatch::redistrib_ap_force(Vector& fi, Vector& fj) {
+  // final state 'atom' force must transfer to initial state atom
+  // in single topology FEP.
+  Vector fi_old = fi;
+  Vector fj_old = fj;
+  fi = fi_old + fj_old;
+  fj = fi_old + fj_old;
+}
 
 /* Redistribute forces from the massless lonepair charge particle onto
  * the other atoms of the water.
@@ -1693,6 +1701,25 @@ void HomePatch::reposition_relative_lonepair(
   ri.z = rj.z + w.x*a.z + w.y*b.z + w.z*c.z;
 }
 
+void HomePatch::reposition_alchpair(Vector& ri, Vector& rj, Mass& Mi, Mass& Mj) {
+  Vector ri_old, rj_old;
+  Mass mi, mj;
+  ri_old.x = ri.x;
+  ri_old.y = ri.y;
+  ri_old.z = ri.z;
+  rj_old.x = rj.x;
+  rj_old.y = rj.y;
+  rj_old.z = rj.z;
+
+  mi = Mi; mj = Mj;
+  ri.x = (mi * ri_old.x + mj * rj_old.x)/(mi + mj);
+  ri.y = (mi * ri_old.y + mj * rj_old.y)/(mi + mj);
+  ri.z = (mi * ri_old.z + mj * rj_old.z)/(mi + mj);
+  rj.x = ri.x;
+  rj.y = ri.y;
+  rj.z = ri.z;
+}
+
 void HomePatch::reposition_all_lonepairs(void) {
   // ASSERT: simParams->lonepairs == TRUE
   for (int i=0;  i < numAtoms;  i++) {
@@ -1725,6 +1752,19 @@ void HomePatch::reposition_all_lonepairs(void) {
             atom[k.index].position, atom[l.index].position,
             lph->distance, lph->angle, lph->dihedral);
       }
+    }
+  }
+}
+
+void HomePatch::reposition_all_alchpairs(void) {
+  Molecule *mol = Node::Object()->molecule;
+  int numFepInitial = mol->numFepInitial;
+  int alchPair_id;
+  for (int i = 0;  i < numAtoms;  i++) {
+    if (atom[i].partition == 4 ) {
+    alchPair_id = atom[i].id + numFepInitial; //global id of the pair atom.
+    LocalID j = AtomMap::Object()->localID(alchPair_id);
+    reposition_alchpair(atom[i].position, atom[j.index].position, atom[i].mass, atom[j.index].mass);
     }
   }
 }
@@ -1804,6 +1844,22 @@ void HomePatch::redistrib_lonepair_forces(const int ftag, Tensor *virial) {
             atom[i].position, atom[j.index].position,
             atom[k.index].position, atom[l.index].position, virial, midpt);
       }
+    }
+  }
+}
+
+void HomePatch::redistrib_alchpair_forces(const int ftag) { //Virial unchanged
+  SimParameters *simParams = Node::Object()->simParameters;
+  Molecule *mol = Node::Object()->molecule;
+  ForceList *f_mod = f;
+  int numFepInitial = mol->numFepInitial;
+  BigReal lambda = simParams->alchLambda;
+  int alchPair_id;
+  for (int i = 0;  i < numAtoms;  i++) {
+    if (atom[i].partition == 4 ) {
+    alchPair_id = atom[i].id + numFepInitial; //global id of the pair atom.
+    LocalID j = AtomMap::Object()->localID(alchPair_id);
+    redistrib_ap_force(f_mod[ftag][i],f_mod[ftag][j.index]);
     }
   }
 }

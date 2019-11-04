@@ -491,34 +491,42 @@ int NamdState::loadStructure(const char *molFilename, const char *pdbFilename, i
 					    configList->find("tcouplecol"),
 					    pdb,
 					    NULL);
-	}
+  }
 
-//Modifications for alchemical fep
-     //identify the mutant atoms for fep simulation
-        if (simParameters->alchOn) {
-           molecule->build_fep_flags(configList->find("alchfile"),
-                configList->find("alchcol"), pdb, NULL, "alch" );
-           molecule->delete_alch_bonded();
-        }
+  // Modifications for alchemical fep
+  // identify the mutant atoms for fep simulation
+  if (simParameters->alchOn) {
+    molecule->build_fep_flags(configList->find("alchfile"),
+        configList->find("alchcol"), pdb, NULL, "alch" );
+    molecule->delete_alch_bonded();
+    if (simParameters->sdScaling) {
+      if (configList->find("unperturbedBondFile") == NULL) {
+        NAMD_die("Input file for Shobana's bond terms is required with sdScaling on");
+      }
+      molecule->build_alch_unpert_bond_lists(configList->find("unperturbedBondFile")->data);
+    }
+  }
 //fepe
-        if (simParameters->lesOn) {
-	   if (simParameters->alchOn) NAMD_bug("FEP/TI and LES are incompatible!");
-           molecule->build_fep_flags(configList->find("lesfile"),
-                configList->find("lescol"), pdb, NULL, "les");
-        }
-        if (simParameters->soluteScalingOn) {
-           molecule->build_ss_flags(configList->find("soluteScalingFile"),
-                configList->find("soluteScalingCol"), pdb, NULL);
-        }
-        if (simParameters->pairInteractionOn) {
-           molecule->build_fep_flags(configList->find("pairInteractionFile"),
-                configList->find("pairInteractionCol"), pdb, NULL, "pairInteraction");
-        }      
-        if (simParameters->pressureProfileAtomTypes > 1) {
-          molecule->build_fep_flags(configList->find("pressureProfileAtomTypesFile"),
-                configList->find("pressureProfileAtomTypesCol"), pdb, NULL, "pressureProfileAtomTypes");
-        }
-       
+
+  if (simParameters->lesOn) {
+    if (simParameters->alchOn) NAMD_bug("FEP/TI and LES are incompatible!");
+    molecule->build_fep_flags(configList->find("lesfile"),
+        configList->find("lescol"), pdb, NULL, "les");
+  }
+  if (simParameters->soluteScalingOn) {
+    molecule->build_ss_flags(configList->find("soluteScalingFile"),
+        configList->find("soluteScalingCol"), pdb, NULL);
+  }
+  if (simParameters->pairInteractionOn) {
+    molecule->build_fep_flags(configList->find("pairInteractionFile"),
+        configList->find("pairInteractionCol"), pdb, NULL, "pairInteraction");
+  }      
+  if (simParameters->pressureProfileAtomTypes > 1) {
+    molecule->build_fep_flags(configList->find("pressureProfileAtomTypesFile"),
+        configList->find("pressureProfileAtomTypesCol"), pdb, NULL,
+        "pressureProfileAtomTypes");
+  }
+
         #ifdef OPENATOM_VERSION
         if (simParameters->openatomOn) {
           molecules->build_qmmm_flags(configList->find("openatomPdbFile",

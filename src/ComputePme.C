@@ -3174,16 +3174,26 @@ void ComputePme::doWork()
   if ( (alchOn && (!alchDecouple)) || lesOn ) {
     for ( g=0; g<numGrids; ++g ) {
       PmeParticle *lgd = localGridData[g];
+      if (g < 2) {
       int nga = 0;
       for(int i=0; i<numLocalAtoms; ++i) {
-        if ( localPartition[i] == 0 || localPartition[i] == (g+1) ) {
-          // for FEP/TI: grid 0 gets non-alch + partition 1;
-          // grid 1 gets non-alch + partition 2;
+        if ( localPartition[i] == 0 || localPartition[i] == (g+1) || localPartition[i] == (g+3)) {
+          // for FEP/TI: grid 0 gets non-alch + partition 1 + partition 3;
+          // grid 1 gets non-alch + partition 2 + + partition 4;
+          lgd[nga++] = localData[i];
+        }
+       }
+       numGridAtoms[g] = nga;
+       } else {
+        int nga = 0;
+        for(int i=0; i<numLocalAtoms; ++i) {
+        if ( localPartition[i] == 0 ) {
           // grid 2 (only if called for with numGrids=3) gets only non-alch
           lgd[nga++] = localData[i];
         }
+       }
+       numGridAtoms[g] = nga;
       }
-      numGridAtoms[g] = nga;
     }
   } else if ( alchOn && alchDecouple) {
     // alchemical decoupling: four grids
@@ -4075,14 +4085,23 @@ void ComputePme::ungridForces() {
         }
         int nga = 0;
         if (!alchDecouple) {
+         if (g < 2 ) {
           for(int i=0; i<numLocalAtoms; ++i) {
-            if ( localPartition[i] == 0 || localPartition[i] == (g+1) ) {
+            if ( localPartition[i] == 0 || localPartition[i] == (g+1) || localPartition[i] == (g+3) ) {
+              // (g=0: only partition 0 and partiton 1 and partion 3)
+              // (g=1: only partition 0 and partiton 2 and partion 4) 
+              localResults[i] += gridResults[nga++] * scale;
+            }
+           }
+         } else {
+          for(int i=0; i<numLocalAtoms; ++i) {
+            if ( localPartition[i] == 0 ) {
               // (g=2: only partition 0)
               localResults[i] += gridResults[nga++] * scale;
             }
           }
-        }
-        else {  // alchDecouple
+        }              
+        } else {  // alchDecouple
           if ( g < 2 ) {
             for(int i=0; i<numLocalAtoms; ++i) {
               if ( localPartition[i] == 0 || localPartition[i] == (g+1) ) {

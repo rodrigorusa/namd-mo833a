@@ -159,7 +159,7 @@ void AngleElem::computeForce(AngleElem *tuples, int ntuple, BigReal *reduction, 
 
   //fepb - BKR scaling of alchemical bonded terms
   //       NB: TI derivative is the _unscaled_ energy.
-  if ( simParams->alchOn ) {
+  if ( simParams->alchOn && !simParams->singleTopology) {
     switch ( mol->get_fep_bonded_type(atomID, 3) ) {
     case 1:
       reduction[angleEnergyIndex_ti_1] += energy;
