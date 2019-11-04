@@ -1422,7 +1422,7 @@ BigReal Molecule::get_go_force_new(BigReal r,
 	expRep = const_cast<Molecule*>(this)->get_go_exp_rep(chain1,chain2);
 	pow1 = pow(sigmaRep/r,(BigReal)expRep);
 	//goForce = ((12.0/r) * epsilonRep * pow(sigmaRep/r,12.0));
-	goForce = (4*(expRep/(r*r)) * epsilonRep * pow1);
+	goForce = ((4/(r*r)) * expRep * epsilonRep * pow1);
 	DebugM(3,"get_go_force - (" << atom1 << "," << atom2 << ") chain1:" << chain1 << ", chain2:" << chain2 << ", epsilonRep:" << epsilonRep << ", sigmaRep:" << sigmaRep << ", r:" << r << ", goForce:" << goForce << std::endl);
 	//goEnergy = (4 * epsilonRep * pow(sigmaRep/r,12.0)); // JLai I changed some of the expressions
 	*goNonnative = (4 * epsilonRep * pow1); 
