@@ -1347,34 +1347,42 @@ void Controller::tcoupleVelocities(int step)
  */
 void Controller::stochRescaleVelocities(int step)
 {
-  if ( simParams->stochRescaleOn )
-  {
+  if ( simParams->stochRescaleOn ) {
     ++stochRescale_count;
-    if ( stochRescale_count == simParams->stochRescaleFreq )
-    { 
-      const BigReal stochRescaleTemp = simParams->stochRescaleTemp;
-
-      BigReal coefficient = 1.;
-      if ( temperature > 0. ) 
-      {
-        BigReal R1 = random->gaussian();
-        // BigReal gammaShape = 0.5*(numDegFreedom - 1);
-        // R2sum is the sum of (numDegFreedom - 1) squared normal variables, which is
-        // chi-squared distributed. This is in turn a special case of the Gamma
-        // distribution, which converges to a normal distribution in the limit of a
-        // large shape parameter.
-        // BigReal R2sum = 2*(gammaShape + sqrt(gammaShape)*random->gaussian()) + R1*R1;
-        BigReal R2sum = random->sum_of_squared_gaussians(numDegFreedom-1);
-        BigReal tempfactor = stochRescaleTemp/(temperature*numDegFreedom);
-
-        coefficient = sqrt(stochRescaleTimefactor + (1 - stochRescaleTimefactor)*tempfactor*R2sum
-                  + 2*R1*sqrt(tempfactor*(1 - stochRescaleTimefactor)*stochRescaleTimefactor)); 
-      }
+    if ( stochRescale_count == simParams->stochRescaleFreq ) {
+      double coefficient = stochRescaleCoefficient();
       broadcast->stochRescaleCoefficient.publish(step,coefficient);
-      heat += 0.5*numDegFreedom*BOLTZMANN*temperature*(coefficient*coefficient - 1.0);
       stochRescale_count = 0;
     }
   }
+}
+
+/**
+ * Calculate new coefficient for stochastic velocity rescaling
+ * and update heat.
+ */
+double Controller::stochRescaleCoefficient() {
+  const double stochRescaleTemp = simParams->stochRescaleTemp;
+  double coefficient = 1;
+  if ( temperature > 0 ) {
+    double R1 = random->gaussian();
+    // double gammaShape = 0.5*(numDegFreedom - 1);
+    // R2sum is the sum of (numDegFreedom - 1) squared normal variables,
+    // which is chi-squared distributed.
+    // This is in turn a special case of the Gamma distribution,
+    // which converges to a normal distribution in the limit of a
+    // large shape parameter.
+    // double R2sum = 2*(gammaShape+sqrt(gammaShape)*random->gaussian())+R1*R1;
+    double R2sum = random->sum_of_squared_gaussians(numDegFreedom-1);
+    double tempfactor = stochRescaleTemp/(temperature*numDegFreedom);
+
+    coefficient = sqrt(stochRescaleTimefactor +
+        (1 - stochRescaleTimefactor)*tempfactor*R2sum +
+        2*R1*sqrt(tempfactor*(1 - stochRescaleTimefactor)*
+          stochRescaleTimefactor)); 
+  }
+  heat += 0.5*numDegFreedom*BOLTZMANN*temperature*(coefficient*coefficient-1);
+  return coefficient;
 }
 
 static char *FORMAT(BigReal X)

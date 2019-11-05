@@ -182,6 +182,12 @@ protected:
      */
     void stochRescaleVelocities(int);
 
+    /**
+     * Calculate new coefficient for stochastic velocity rescaling
+     * and update heat.
+     */
+    double stochRescaleCoefficient();
+
     int stochRescale_count;
     /**< Count time steps until next stochastic velocity rescaling. */ 
 
