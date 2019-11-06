@@ -162,29 +162,21 @@ template <class Elem> class ResizeArrayRaw {
       allocSize = 0;
     }
 
-    inline int del(int index, int number) {
-      int i;
+    inline void del(int index, int number) {
+      if (number) {
+        // Destruct objects to be deleted
+        for (int i=index; i < index+number; i++) {
+          array[i].~Elem();
+        }
   
-      // Fix up number to delete if deletes off end of array
-      if (index >= arraySize) {
-        number=0; // for inline sake, don't have multiple returns
-      } else if (index+number-1 > arraySize) {
-        number = index-arraySize+1;
-      }
-  
-      // Destruct objects to be deleted
-      for (i=index; i < index+number; i++) {
-        array[i].~Elem();
-      }
-  
-      // Shift down
-      memmove((void *)(array+index),
-         (void *)(array+index+number),
-         (arraySize-number-index)*sizeof(Elem));
+        // Shift down
+        memmove((void *)(array+index),
+           (void *)(array+index+number),
+           (arraySize-number-index)*sizeof(Elem));
       
-      // fixup size of array
-      arraySize -= number;
-      return(number);
+        // fixup size of array
+        arraySize -= number;
+      }
     }
   
     

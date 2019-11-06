@@ -101,8 +101,8 @@ public:
     }
   
     // delete num elements from current index
-    int del(int index, int num=1) {
-      return(rep.del(index,num));
+    void del(int index, int num=1) {
+      rep.del(index,num);
     }
 
     // insert element at index

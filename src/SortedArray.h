@@ -56,12 +56,10 @@ template <class Elem> class SortedArray: public SortableResizeArray<Elem> {
       return(insert(elem));
     }
 
-    int del(const Elem & elem) {
+    void del(const Elem & elem) {
       int found = bsearch(elem);
       if (this->size() != 0 && this->rep[found] == elem) {
-        return(SortableResizeArray<Elem>::del(found,1));
-      } else {
-        return(-1);
+        SortableResizeArray<Elem>::del(found,1);
       }
     }
 
