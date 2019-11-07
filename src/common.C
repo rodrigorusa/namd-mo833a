@@ -62,74 +62,87 @@ char *NAMD_stringdup(const char *s) {
 
 // signal all nodes, it's time to quit
 void NAMD_quit(const char *err_msg)
-
 {
-   if ( ! err_msg ) err_msg = "(unknown error)";
-   char *new_err_msg = new char[strlen(err_msg) + 40];
-   sprintf(new_err_msg,"EXITING: %s\n",err_msg);
-   CkPrintf(new_err_msg);
-   fflush(stdout);
-   if ( CmiNumPartitions() > 1 ) {
-     sprintf(new_err_msg,"REPLICA %d EXITING: %s\n", CmiMyPartition(), err_msg);
-   }
-   CmiAbort(new_err_msg);
-   delete [] new_err_msg;
+  if ( ! err_msg ) err_msg = "(unknown error)";
+  CkPrintf("EXITING: %s\n", err_msg);
+  fflush(stdout);
+  char repstr[24] = "";
+  if (CmiNumPartitions() > 1) {
+    sprintf(repstr,"REPLICA %d ", CmiMyPartition());
+  }
+  char msgbuf[256];
+  sprintf(msgbuf,"%sEXITING: %216s\n", repstr, err_msg);
+#if CHARM_VERSION >= 61000
+  CkAbort("%s", msgbuf);
+#else
+  CkAbort(msgbuf);
+#endif
 }
 
  
 // signal all nodes, it's time to quit
 void NAMD_die(const char *err_msg)
-
 {
-   if ( ! err_msg ) err_msg = "(unknown error)";
-   char *new_err_msg = new char[strlen(err_msg) + 40];
-   sprintf(new_err_msg,"FATAL ERROR: %s\n",err_msg);
-   CkPrintf(new_err_msg);
-   fflush(stdout);
-   if ( CmiNumPartitions() > 1 ) {
-     sprintf(new_err_msg,"REPLICA %d FATAL ERROR: %s\n", CmiMyPartition(), err_msg);
-   }
-   CmiAbort(new_err_msg);
-   delete [] new_err_msg;
+  if ( ! err_msg ) err_msg = "(unknown error)";
+  CkPrintf("FATAL ERROR: %s\n", err_msg);
+  fflush(stdout);
+  char repstr[24] = "";
+  if (CmiNumPartitions() > 1) {
+    sprintf(repstr,"REPLICA %d ", CmiMyPartition());
+  }
+  char msgbuf[256];
+  sprintf(msgbuf,"%sFATAL ERROR: %216s\n", repstr, err_msg);
+#if CHARM_VERSION >= 61000
+  CkAbort("%s", msgbuf);
+#else
+  CkAbort(msgbuf);
+#endif
 }
 
 
 // signal all nodes, it's time to quit
 void NAMD_err(const char *err_msg)
-
 {
-   if ( ! err_msg ) err_msg = "(unknown error)";
-   const char *sys_err_msg = strerror(errno);
-   if ( ! sys_err_msg ) sys_err_msg = "(unknown error)";
-   char *new_err_msg = new char[strlen(err_msg) + 40 + strlen(sys_err_msg)];
-   sprintf(new_err_msg,"FATAL ERROR: %s: %s\n",err_msg, sys_err_msg);
-   CkPrintf(new_err_msg);
-   fflush(stdout);
-   if ( CmiNumPartitions() > 1 ) {
-     sprintf(new_err_msg,"REPLICA %d FATAL ERROR: %s: %s\n", CmiMyPartition(), err_msg, sys_err_msg);
-   }
-   CmiAbort(new_err_msg);
-   delete [] new_err_msg;
+  if ( ! err_msg ) err_msg = "(unknown error)";
+  const char *sys_err_msg = strerror(errno);
+  if ( ! sys_err_msg ) sys_err_msg = "(unknown error)";
+  CkPrintf("FATAL ERROR: %s: %s\n", err_msg, sys_err_msg);
+  fflush(stdout);
+  char repstr[24] = "";
+  if (CmiNumPartitions() > 1) {
+    sprintf(repstr,"REPLICA %d ", CmiMyPartition());
+  }
+  char msgbuf[256];
+  sprintf(msgbuf,"%sFATAL ERROR: %136s: %80s\n", repstr, err_msg, sys_err_msg);
+#if CHARM_VERSION >= 61000
+  CkAbort("%s", msgbuf);
+#else
+  CkAbort(msgbuf);
+#endif
 }
 
 
 // signal all nodes, it's time to quit and it's our own damn fault
 void NAMD_bug(const char *err_msg)
-
 {
-   if ( ! err_msg ) err_msg = "(unknown error)";
-   const char *bug_msg = 
-     "FATAL ERROR: See http://www.ks.uiuc.edu/Research/namd/bugreport.html";
-   char *new_err_msg = new char[strlen(err_msg) + 40 + strlen(bug_msg)];
-   sprintf(new_err_msg,"FATAL ERROR: %s\n%s\n",err_msg,bug_msg);
-   CkPrintf(new_err_msg);
-   fflush(stdout);
-   if ( CmiNumPartitions() > 1 ) {
-     sprintf(new_err_msg,"REPLICA %d FATAL ERROR: %s\n%s\n", CmiMyPartition(), err_msg,bug_msg);
-   }
-   CmiAbort(new_err_msg);
-   delete [] new_err_msg;
+  if ( ! err_msg ) err_msg = "(unknown error)";
+  const char *bug_msg = 
+    "FATAL ERROR: See http://www.ks.uiuc.edu/Research/namd/bugreport.html";
+  CkPrintf("FATAL ERROR: %s\n%s\n",err_msg, bug_msg);
+  fflush(stdout);
+  char repstr[24] = "";
+  if (CmiNumPartitions() > 1) {
+    sprintf(repstr,"REPLICA %d ", CmiMyPartition());
+  }
+  char msgbuf[256];
+  sprintf(msgbuf,"%sFATAL ERROR: %136s\n%80s\n", repstr, err_msg, bug_msg);
+#if CHARM_VERSION >= 61000
+  CkAbort("%s", msgbuf);
+#else
+  CkAbort(msgbuf);
+#endif
 }
+
 
 int NAMD_file_exists(const char *filename) {
   int rval;
