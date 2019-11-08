@@ -12,7 +12,7 @@ CUDAOBJS=$(CUDAOBJSRAWSTATIC)
 CUDA=$(CUDAFLAGS) -I. $(CUDAINCL) $(CUBINCL)
 CUDACC=$(CUDADIR)/bin/nvcc -Xcompiler "-m64"
 
-CUDACCOPTS=-O3 --maxrregcount 48 $(CUDAGENCODE) $(CUDA)
+CUDACCOPTS=-O3 --maxrregcount 48 $(CUDAGENCODE) $(CUDA) -use_fast_math
 
 # limit CUDADLINKOPTS to architectures available in libcufft_static
 

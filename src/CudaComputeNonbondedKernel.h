@@ -33,6 +33,10 @@ private:
   int* patchReadyQueue;
   int patchReadyQueueSize;
 
+  float *force_x, *force_y, *force_z, *force_w;
+  int forceSize;
+  float *forceSlow_x, *forceSlow_y, *forceSlow_z, *forceSlow_w;
+  int forceSlowSize;
 public:
   CudaComputeNonbondedKernel(int deviceID, CudaNonbondedTables& cudaNonbondedTables, bool doStreaming);
   ~CudaComputeNonbondedKernel();
@@ -59,6 +63,8 @@ public:
   void bindExclusions(int numExclusions, unsigned int* exclusion_bits);
 
   int* getPatchReadyQueue();
+
+  void reallocate_forceSOA(int atomStorageSize); 
 };
 
 #endif // NAMD_CUDA

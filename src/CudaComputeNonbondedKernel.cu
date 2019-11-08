@@ -89,6 +89,26 @@ void storeForces(const int pos, const float3 force, const float3 forceSlow,
 template<bool doSlow>
 __device__ __forceinline__
 void storeForces(const int pos, const float3 force, const float3 forceSlow,
+                 float* __restrict__ devForces_x, 
+                 float* __restrict__ devForces_y, 
+                 float* __restrict__ devForces_z,
+                 float* __restrict__ devForcesSlow_x, 
+                 float* __restrict__ devForcesSlow_y, 
+                 float* __restrict__ devForcesSlow_z)
+{
+  atomicAdd(&devForces_x[pos], force.x);
+  atomicAdd(&devForces_y[pos], force.y);
+  atomicAdd(&devForces_z[pos], force.z);
+  if (doSlow) {
+    atomicAdd(&devForcesSlow_x[pos], forceSlow.x);
+    atomicAdd(&devForcesSlow_y[pos], forceSlow.y);
+    atomicAdd(&devForcesSlow_z[pos], forceSlow.z);
+  }
+}
+
+template<bool doSlow>
+__device__ __forceinline__
+void storeForces(const int pos, const float3 force, const float3 forceSlow,
   float3* __restrict__ forces, float3* __restrict__ forcesSlow) {
   atomicAdd(&forces[pos].x, force.x);
   atomicAdd(&forces[pos].y, force.y);
@@ -158,7 +178,8 @@ __global__ void
 __launch_bounds__(WARPSIZE*NONBONDKERNEL_NUM_WARP,
   doPairlist ? (10) : (doEnergy ? (10) : (10) )
   )
-nonbondedForceKernel(const int start, const int numTileLists,
+nonbondedForceKernel(
+  const int start, const int numTileLists,
   const TileList* __restrict__ tileLists, TileExcl* __restrict__ tileExcls,
   const int* __restrict__ tileJatomStart,
   const int vdwCoefTableWidth, const float2* __restrict__ vdwCoefTable, const int* __restrict__ vdwTypes,
@@ -179,6 +200,14 @@ nonbondedForceKernel(const int start, const int numTileLists,
 #endif
   // ----------
   float4* __restrict__ devForces, float4* __restrict__ devForcesSlow,
+  float * __restrict__ devForce_x,
+  float * __restrict__ devForce_y,
+  float * __restrict__ devForce_z,
+  float * __restrict__ devForce_w,
+  float * __restrict__ devForceSlow_x,
+  float * __restrict__ devForceSlow_y,
+  float * __restrict__ devForceSlow_z,
+  float * __restrict__ devForceSlow_w,                     
   // ---- USE_STREAMING_FORCES ----
   const int numPatches,
   unsigned int* __restrict__ patchNumCount,
@@ -202,11 +231,17 @@ nonbondedForceKernel(const int start, const int numTileLists,
     unsigned int itileListLen;
     int2 patchInd;
     int2 patchNumList;
+    __shared__ float4 s_xyzq[NONBONDKERNEL_NUM_WARP][WARPSIZE];
+    __shared__ int s_vdwtypej[NONBONDKERNEL_NUM_WARP][WARPSIZE];
+    __shared__ float3 s_jforce[NONBONDKERNEL_NUM_WARP][WARPSIZE];
+    __shared__ float3 s_jforceSlow[NONBONDKERNEL_NUM_WARP][WARPSIZE];
+    __shared__ int s_jatomIndex[NONBONDKERNEL_NUM_WARP][WARPSIZE];            
 
     // Start computation
     {
       // Warp index (0...warpsize-1)
       const int wid = threadIdx.x % WARPSIZE;
+      const int iwarp = threadIdx.x / WARPSIZE;
 
       TileList tmp = tileLists[itileList];
       int iatomStart = tmp.iatomStart;
@@ -334,6 +369,7 @@ nonbondedForceKernel(const int start, const int numTileLists,
         int jatomStart = tileJatomStart[jtile];
 
         float4 xyzq_j = xyzq[jatomStart + wid];
+        __syncwarp();        
 
         // Check for early bail
         if (doPairlist) {
@@ -342,11 +378,11 @@ nonbondedForceKernel(const int start, const int numTileLists,
         }
         unsigned int excl = (doPairlist) ? 0 : tileExcls[jtile].excl[wid];
         int vdwtypej = vdwTypes[jatomStart + wid];
+        s_vdwtypej[iwarp][wid] = vdwtypej;
 
         // Get i-atom global index
-        int jatomIndex;
         if (doPairlist) {
-          jatomIndex = atomIndex[jatomStart + wid];
+          s_jatomIndex[iwarp][wid] = atomIndex[jatomStart + wid];
         }
 
         // Number of j loops and free atoms
@@ -362,21 +398,17 @@ nonbondedForceKernel(const int start, const int numTileLists,
           }
         }
 
+        s_xyzq[iwarp][wid] = xyzq_j; 
+
         // DH - self requires that zeroShift is also set
         const bool self = zeroShift && (iatomStart == jatomStart);
         const int modval = (self) ? 2*WARPSIZE-1 : WARPSIZE-1;
 
-        float3 jforce;
-        jforce.x = 0.0f;
-        jforce.y = 0.0f;
-        jforce.z = 0.0f;
+        s_jforce[iwarp][wid] = make_float3(0.0f, 0.0f, 0.0f);
+        if (doSlow)
+          s_jforceSlow[iwarp][wid] = make_float3(0.0f, 0.0f, 0.0f); 
+        __syncwarp();
         
-        float3 jforceSlow;
-        if (doSlow) {
-          jforceSlow.x = 0.0f;
-          jforceSlow.y = 0.0f;
-          jforceSlow.z = 0.0f;
-        }
 
         int t = (self) ? 1 : 0;
 
@@ -391,12 +423,10 @@ nonbondedForceKernel(const int start, const int numTileLists,
           // NOTE: No energies are computed here, since this self-diagonal term is only for GBIS phase 2
           if (self) {
             int j = (0 + wid) & modval;
-            // NOTE: __shfl() operation can give non-sense here because j may be >= WARPSIZE.
-            //       However, if (j < WARPSIZE ..) below makes sure that these non-sense
-            //       results are not actually every used
-            float dx = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.x, j, WARPSIZE) - xyzq_i.x;
-            float dy = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.y, j, WARPSIZE) - xyzq_i.y;
-            float dz = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.z, j, WARPSIZE) - xyzq_i.z;
+            xyzq_j = s_xyzq[iwarp][j];
+            float dx = xyzq_j.x - xyzq_i.x;
+            float dy = xyzq_j.y - xyzq_i.y;
+            float dz = xyzq_j.z - xyzq_i.z;       
 
             float r2 = dx*dx + dy*dy + dz*dz;
 
@@ -404,90 +434,88 @@ nonbondedForceKernel(const int start, const int numTileLists,
               // We have atom pair within the pairlist cutoff => Set indicator bit
               nexcluded |= 1;
             }
-            shuffleNext<doPairlist>(xyzq_j.w, vdwtypej, jatomIndex);
           }
 
           for (;t < WARPSIZE;t++) {
             int j = (t + wid) & modval;
 
-            // NOTE: __shfl() operation can give non-sense here because j may be >= WARPSIZE.
-            //       However, if (j < WARPSIZE ..) below makes sure that these non-sense
-            //       results are not used
-            float dx = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.x, j, WARPSIZE) - xyzq_i.x;
-            float dy = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.y, j, WARPSIZE) - xyzq_i.y;
-            float dz = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.z, j, WARPSIZE) - xyzq_i.z;
-
-            float r2 = dx*dx + dy*dy + dz*dz;
-
             excl >>= 1;
-            if (j < WARPSIZE && r2 < plcutoff2) {
+            if (j < WARPSIZE ) {
+              xyzq_j = s_xyzq[iwarp][j];
+              float dx = xyzq_j.x - xyzq_i.x;
+              float dy = xyzq_j.y - xyzq_i.y;
+              float dz = xyzq_j.z - xyzq_i.z;
+              float r2 = dx*dx + dy*dy + dz*dz;
               // We have atom pair within the pairlist cutoff => Set indicator bit
-              nexcluded |= 1;
-              if (j < nfreej || wid < nfreei) {
-                bool excluded = false;
-                int indexdiff = jatomIndex - iatomIndex;
-                if ( abs(indexdiff) <= iexclMaxdiff) {
-                  indexdiff += iexclIndex;
-                  int indexword = ((unsigned int) indexdiff) >> 5;
+              if(r2 < plcutoff2){
+                nexcluded |= 1;
+                if (j < nfreej || wid < nfreei) {
+                  bool excluded = false;
+                  int indexdiff = s_jatomIndex[iwarp][j] - iatomIndex;
+                  if ( abs(indexdiff) <= iexclMaxdiff) {
+                    indexdiff += iexclIndex;
+                    int indexword = ((unsigned int) indexdiff) >> 5;
 
-                  if ( indexword < MAX_CONST_EXCLUSIONS ) {
-                    indexword = constExclusions[indexword];
-                  } else {
-                    indexword = overflowExclusions[indexword];
+                    if ( indexword < MAX_CONST_EXCLUSIONS ) {
+                      indexword = constExclusions[indexword];
+                    } else {
+                      indexword = overflowExclusions[indexword];
+                    }
+
+                    excluded = ((indexword & (1<<(indexdiff&31))) != 0);
                   }
-
-                  excluded = ((indexword & (1<<(indexdiff&31))) != 0);
-                }
-                if (excluded) nexcluded += 2;
-                if (!excluded) excl |= 0x80000000;
-                if (!excluded && r2 < cutoff2) {
-                  calcForceEnergy<doEnergy, doSlow>(r2, xyzq_i.w, xyzq_j.w, dx, dy, dz,
-                    vdwtypei, vdwtypej,
-                    vdwCoefTable,
-                    vdwCoefTableTex, forceTableTex, energyTableTex,
-                    iforce, iforceSlow, jforce, jforceSlow, energyVdw, energyElec, energySlow);
+                  if (excluded) nexcluded += 2;
+                  if (!excluded) excl |= 0x80000000;
+                  if (!excluded && r2 < cutoff2) {
+                    calcForceEnergy<doEnergy, doSlow>(
+                      r2, xyzq_i.w, xyzq_j.w, dx, dy, dz,
+                      vdwtypei, s_vdwtypej[iwarp][j],
+                      vdwCoefTable, vdwCoefTableTex, forceTableTex, energyTableTex,
+                      iforce, iforceSlow,
+                      s_jforce[iwarp][j], s_jforceSlow[iwarp][j],
+                      energyVdw,
+                      energyElec, energySlow);
+                  }
                 }
               }
             }
-            shuffleNext<doPairlist>(xyzq_j.w, vdwtypej, jatomIndex);
-            shuffleNext<doSlow>(jforce, jforceSlow);
           } // t
         } else {
           // Just compute forces
           if (self) {
             excl >>= 1;
-            xyzq_j.x = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.x, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
-            xyzq_j.y = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.y, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
-            xyzq_j.z = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.z, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
-            shuffleNext<doPairlist>(xyzq_j.w, vdwtypej, jatomIndex);
           }
           for (;t < WARPSIZE;t++) {
             if ((excl & 1)) {
+              xyzq_j = s_xyzq[iwarp][(wid+t) & (WARPSIZE-1)];
               float dx = xyzq_j.x - xyzq_i.x;
               float dy = xyzq_j.y - xyzq_i.y;
-              float dz = xyzq_j.z - xyzq_i.z;
+              float dz = xyzq_j.z - xyzq_i.z;              
 
               float r2 = dx*dx + dy*dy + dz*dz;
 
               if (r2 < cutoff2) {
-                calcForceEnergy<doEnergy, doSlow>(r2, xyzq_i.w, xyzq_j.w, dx, dy, dz,
-                  vdwtypei, vdwtypej,
-                  vdwCoefTable,
+                calcForceEnergy<doEnergy, doSlow>(
+                  r2, xyzq_i.w, xyzq_j.w, dx, dy, dz,
+                  vdwtypei, s_vdwtypej[iwarp][(wid+t) & (WARPSIZE-1)], vdwCoefTable, 
                   vdwCoefTableTex, forceTableTex, energyTableTex,
-                  iforce, iforceSlow, jforce, jforceSlow, energyVdw, energyElec, energySlow);
+                  iforce, iforceSlow,
+                  s_jforce[iwarp][(wid+t) & (WARPSIZE-1)],
+                  s_jforceSlow[iwarp][(wid+t) & (WARPSIZE-1)],
+                  energyVdw, energyElec, energySlow);
               } // (r2 < cutoff2)
             } // (excl & 1)
             excl >>= 1;
-            xyzq_j.x = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.x, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
-            xyzq_j.y = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.y, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
-            xyzq_j.z = WARP_SHUFFLE(WARP_FULL_MASK, xyzq_j.z, (threadIdx.x+1) & (WARPSIZE-1), WARPSIZE);
-            shuffleNext<doPairlist>(xyzq_j.w, vdwtypej, jatomIndex);
-            shuffleNext<doSlow>(jforce, jforceSlow);
           } // t
+          __syncwarp();
         }
 
+
+
         // Write j-forces
-        storeForces<doSlow>(jatomStart + wid, jforce, jforceSlow, devForces, devForcesSlow);
+        storeForces<doSlow>(jatomStart + wid, s_jforce[iwarp][wid], s_jforceSlow[iwarp][wid],
+          devForce_x, devForce_y, devForce_z,
+          devForceSlow_x, devForceSlow_y, devForceSlow_z);
 
         // Write exclusions
         if (doPairlist && WARP_ANY(WARP_FULL_MASK, nexcluded & 1)) {
@@ -509,7 +537,9 @@ nonbondedForceKernel(const int start, const int numTileLists,
       } // jtile
 
       // Write i-forces
-      storeForces<doSlow>(iatomStart + wid, iforce, iforceSlow, devForces, devForcesSlow);
+      storeForces<doSlow>(iatomStart + wid, iforce, iforceSlow,
+                          devForce_x, devForce_y, devForce_z,
+                          devForceSlow_x, devForceSlow_y, devForceSlow_z);
     }
     // Done with computation
 
@@ -618,8 +648,14 @@ nonbondedForceKernel(const int start, const int numTileLists,
         int start = patch.atomStart;
         int end   = start + patch.numAtoms;
         for (int i=start+wid;i < end;i+=WARPSIZE) {
-          mapForces[i] = devForces[i];
-          if (doSlow) mapForcesSlow[i] = devForcesSlow[i];
+          mapForces[i] = make_float4(devForce_x[i],
+            devForce_y[i], devForce_z[i], devForce_w[i]);
+          if (doSlow){
+            mapForcesSlow[i] = make_float4(devForceSlow_x[i],
+                                           devForceSlow_y[i], 
+                                           devForceSlow_z[i], 
+                                           devForceSlow_w[i]);
+          }
         }
       }
       if (patchDone[1]) {
@@ -628,8 +664,13 @@ nonbondedForceKernel(const int start, const int numTileLists,
         int start = patch.atomStart;
         int end   = start + patch.numAtoms;
         for (int i=start+wid;i < end;i+=WARPSIZE) {
-          mapForces[i] = devForces[i];
-          if (doSlow) mapForcesSlow[i] = devForcesSlow[i];
+          mapForces[i] = make_float4(devForce_x[i],  devForce_y[i], devForce_z[i], devForce_w[i]);
+          if (doSlow){
+            mapForcesSlow[i] = make_float4(devForceSlow_x[i],
+                                          devForceSlow_y[i], 
+                                          devForceSlow_z[i], 
+                                          devForceSlow_w[i]);
+          }
         }
       }
 
@@ -954,6 +995,22 @@ CudaComputeNonbondedKernel::CudaComputeNonbondedKernel(int deviceID, CudaNonbond
   patchReadyQueue = NULL;
   patchReadyQueueSize = 0;
 
+  force_x = force_y = force_z = force_w = NULL;
+  forceSize = 0;
+  forceSlow_x = forceSlow_y = forceSlow_z = forceSlow_w = NULL;
+  forceSlowSize = 0;
+}
+
+void CudaComputeNonbondedKernel::reallocate_forceSOA(int atomStorageSize)
+{
+  reallocate_device<float>(&force_x, &forceSize, atomStorageSize, 1.4f);
+  reallocate_device<float>(&force_y, &forceSize, atomStorageSize, 1.4f);
+  reallocate_device<float>(&force_z, &forceSize, atomStorageSize, 1.4f);
+  reallocate_device<float>(&force_w, &forceSize, atomStorageSize, 1.4f);
+  reallocate_device<float>(&forceSlow_x, &forceSlowSize, atomStorageSize, 1.4f);
+  reallocate_device<float>(&forceSlow_y, &forceSlowSize, atomStorageSize, 1.4f);
+  reallocate_device<float>(&forceSlow_z, &forceSlowSize, atomStorageSize, 1.4f);
+  reallocate_device<float>(&forceSlow_w, &forceSlowSize, atomStorageSize, 1.4f);  
 }
 
 CudaComputeNonbondedKernel::~CudaComputeNonbondedKernel() {
@@ -964,6 +1021,14 @@ CudaComputeNonbondedKernel::~CudaComputeNonbondedKernel() {
   if (vdwTypes != NULL) deallocate_device<int>(&vdwTypes);
   if (patchNumCount != NULL) deallocate_device<unsigned int>(&patchNumCount);
   if (patchReadyQueue != NULL) deallocate_host<int>(&patchReadyQueue);
+  if (force_x != NULL) deallocate_device<float>(&force_x);
+  if (force_y != NULL) deallocate_device<float>(&force_y);
+  if (force_z != NULL) deallocate_device<float>(&force_z);
+  if (force_w != NULL) deallocate_device<float>(&force_w);
+  if (forceSlow_x != NULL) deallocate_device<float>(&forceSlow_x);
+  if (forceSlow_y != NULL) deallocate_device<float>(&forceSlow_y);
+  if (forceSlow_z != NULL) deallocate_device<float>(&forceSlow_z);
+  if (forceSlow_w != NULL) deallocate_device<float>(&forceSlow_w);  
 }
 
 void CudaComputeNonbondedKernel::updateVdwTypesExcl(const int atomStorageSize, const int* h_vdwTypes,
@@ -985,6 +1050,23 @@ int* CudaComputeNonbondedKernel::getPatchReadyQueue() {
   return patchReadyQueue;
 }
 
+template <int doSlow>
+__global__ void transposeForcesKernel(float4 *f, float4 *fSlow,
+                                      float *fx, float *fy, float *fz, float *fw,
+                                      float *fSlowx, float *fSlowy, float *fSlowz, float *fSloww,
+                                      int n)
+{
+  int tid = blockIdx.x*blockDim.x + threadIdx.x;
+  if (tid < n) {
+    f[tid] = make_float4(fx[tid], fy[tid], fz[tid], fw[tid]);
+    if (doSlow) {
+      fSlow[tid] = make_float4(fSlowx[tid], fSlowy[tid], fSlowz[tid], fSloww[tid]);
+    }
+  }
+}
+
+
+
 void CudaComputeNonbondedKernel::nonbondedForce(CudaTileListKernel& tlKernel,
   const int atomStorageSize, const bool doPairlist,
   const bool doEnergy, const bool doVirial, const bool doSlow,
@@ -996,11 +1078,25 @@ void CudaComputeNonbondedKernel::nonbondedForce(CudaTileListKernel& tlKernel,
 
   if (!doPairlist) copy_HtoD<float4>(h_xyzq, tlKernel.get_xyzq(), atomStorageSize, stream);
 
-  clear_device_array<float4>(d_forces, atomStorageSize, stream);
-  if (doSlow) clear_device_array<float4>(d_forcesSlow, atomStorageSize, stream);
+  // clear_device_array<float4>(d_forces, atomStorageSize, stream);
+  // if (doSlow) clear_device_array<float4>(d_forcesSlow, atomStorageSize, stream);
 
-  tlKernel.clearTileListStat(stream);
-  // clear_device_array<TileListStat>(tlKernel.getTileListStatDevPtr(), 1, stream);
+  
+  // XXX TODO: Clear all of these
+  if(1){
+     // two clears
+     tlKernel.clearTileListStat(stream);
+     clear_device_array<float>(force_x, atomStorageSize, stream);
+     clear_device_array<float>(force_y, atomStorageSize, stream);
+     clear_device_array<float>(force_z, atomStorageSize, stream);
+     clear_device_array<float>(force_w, atomStorageSize, stream);
+     if (doSlow) {
+       clear_device_array<float>(forceSlow_x, atomStorageSize, stream);
+       clear_device_array<float>(forceSlow_y, atomStorageSize, stream);
+       clear_device_array<float>(forceSlow_z, atomStorageSize, stream);
+       clear_device_array<float>(forceSlow_w, atomStorageSize, stream);
+     }
+  }
 
   // --- streaming ----
   float4* m_forces = NULL;
@@ -1053,6 +1149,8 @@ void CudaComputeNonbondedKernel::nonbondedForce(CudaTileListKernel& tlKernel,
     atomStorageSize, tlKernel.get_plcutoff2(), tlKernel.getPatchPairs(), atomIndex, exclIndexMaxDiff, overflowExclusions, \
     tlKernel.getTileListDepth(), tlKernel.getTileListOrder(), tlKernel.getJtiles(), tlKernel.getTileListStatDevPtr(), \
     tlKernel.getBoundingBoxes(), d_forces, d_forcesSlow, \
+    force_x, force_y, force_z, force_w, \
+    forceSlow_x, forceSlow_y, forceSlow_z, forceSlow_w, \
     numPatches, patchNumCountPtr, tlKernel.getCudaPatches(), m_forces, m_forcesSlow, m_patchReadyQueue, \
     outputOrderPtr, tlKernel.getTileListVirialEnergy()); called=true
 
@@ -1098,6 +1196,21 @@ void CudaComputeNonbondedKernel::nonbondedForce(CudaTileListKernel& tlKernel,
 
     if (!called) {
       NAMD_die("CudaComputeNonbondedKernel::nonbondedForce, none of the kernels called");
+    }
+
+    {
+      int block = 128;
+      int grid = (atomStorageSize + block - 1)/block;
+      if (doSlow) 
+        transposeForcesKernel<1><<<grid, block, 0, stream>>>(d_forces, d_forcesSlow,
+                       force_x, force_y, force_z, force_w,
+                       forceSlow_x, forceSlow_y, forceSlow_z, forceSlow_w,
+                       atomStorageSize);
+      else
+        transposeForcesKernel<0><<<grid, block, 0, stream>>>(d_forces, d_forcesSlow,
+                       force_x, force_y, force_z, force_w,
+                       forceSlow_x, forceSlow_y, forceSlow_z, forceSlow_w,
+                       atomStorageSize);        
     }
 
 #undef CALL

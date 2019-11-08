@@ -906,7 +906,8 @@ void CudaComputeNonbonded::reallocateArrays() {
   }
   reallocate_device<float4>(&d_forces, &d_forcesSize, atomStorageSize, 1.4f);
   reallocate_device<float4>(&d_forcesSlow, &d_forcesSlowSize, atomStorageSize, 1.4f);
-
+  nonbondedKernel.reallocate_forceSOA(atomStorageSize);
+  
   if (simParams->GBISOn) {
     reallocate_host<float>(&intRad0H, &intRad0HSize, atomStorageSize, 1.2f);
     reallocate_host<float>(&intRadSH, &intRadSHSize, atomStorageSize, 1.2f);

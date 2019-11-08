@@ -9,6 +9,6 @@ LIBCUDARTSO=
 CUDAFLAGS=-DNAMD_CUDA
 CUDAOBJS=$(CUDAOBJSRAW)
 CUDA=$(CUDAFLAGS) -I. $(CUDAINCL) $(CUBINCL)
-CUDACC=$(CUDADIR)/bin/nvcc -O3 --maxrregcount 48 $(CUDAGENCODE) $(CUDA)
+CUDACC=$(CUDADIR)/bin/nvcc -O3 --maxrregcount 48 $(CUDAGENCODE) $(CUDA) -use_fast_math
 CUDAGENCODE=-gencode arch=compute_35,code=sm_35 -gencode arch=compute_35,code=compute_35 -gencode arch=compute_50,code=sm_50 -gencode arch=compute_50,code=compute_50
 
