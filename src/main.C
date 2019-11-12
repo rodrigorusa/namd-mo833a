@@ -116,7 +116,7 @@ extern const char *namd_build_machine;
 class main : public Chare
 {
 public:
-  main(CkArgMsg *)
+  main(CkArgMsg *msg)
   {
 
     // print banner

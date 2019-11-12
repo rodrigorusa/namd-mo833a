@@ -62,7 +62,7 @@ int dumpbench(FILE *file) {
 
   const Molecule *mol = node->molecule;
 
-  fprintf(file,"%d %d\n",mol->numAtoms,mol->numCalcExclusions);
+  fprintf(file,"%d %ld\n",mol->numAtoms,mol->numCalcExclusions);
  
   for ( i=0; i<mol->numAtoms; ++i) {
     int vdw = mol->atomvdwtype(i);

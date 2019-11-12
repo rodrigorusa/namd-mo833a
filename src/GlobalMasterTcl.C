@@ -40,7 +40,7 @@ int GlobalMasterTcl::Tcl_print(ClientData,
 int GlobalMasterTcl::Tcl_atomid(ClientData clientData,
 	Tcl_Interp *interp, int argc, const char *argv[]) {
   if (argc != 4) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   const char *segid = argv[1];
@@ -54,12 +54,12 @@ int GlobalMasterTcl::Tcl_atomid(ClientData clientData,
   int atomid = mol->get_atom_from_name(segid,resid,aname);
 
   if (atomid < 0) {
-    Tcl_SetResult(interp,"atom not found",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"atom not found",TCL_VOLATILE);
     return TCL_ERROR;
   }
   atomid += 1;
 
-  char s[10];  sprintf(s,"%d",atomid);
+  char s[16];  sprintf(s,"%d",atomid);
   Tcl_SetResult(interp,s,TCL_VOLATILE);
   DebugM(4,"Atom ID " << atomid << " identified by name\n");
   return TCL_OK;
@@ -70,7 +70,7 @@ int GlobalMasterTcl::Tcl_addatom(ClientData clientData,
 	Tcl_Interp *interp, int argc, const char *argv[]) {
   DebugM(2,"Tcl_addatom called\n");
   if (argc != 2) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   int atomid;
@@ -96,7 +96,7 @@ int GlobalMasterTcl::Tcl_addgroup(ClientData clientData,
 	Tcl_Interp *interp, int argc, const char *argv[]) {
   DebugM(2,"Tcl_addgroup called\n");
   if (argc != 2) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
@@ -134,7 +134,7 @@ int GlobalMasterTcl::Tcl_addgroup(ClientData clientData,
   Tcl_Free((char*) listv);
 
   /* return the group number to TCL */
-  char s[10];  sprintf(s,"g%d",gcount);
+  char s[16];  sprintf(s,"g%d",gcount);
   Tcl_SetResult(interp,s,TCL_VOLATILE);
 
   DebugM(4,"Group " << s << " added to config list\n");
@@ -146,7 +146,7 @@ int GlobalMasterTcl::Tcl_reconfig(ClientData clientData,
 	Tcl_Interp *interp, int argc, const char **) {
   DebugM(2,"Tcl_reconfig called\n");
   if (argc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   iout << iWARN << "'reconfig' is obsolete - reconfiguration is now automatic." << endi;
@@ -159,7 +159,7 @@ int GlobalMasterTcl::Tcl_clearconfig(ClientData clientData,
 	Tcl_Interp *interp, int argc, const char **) {
   DebugM(2,"Tcl_reconfig called\n");
   if (argc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   GlobalMasterTcl *self = (GlobalMasterTcl *)clientData;
@@ -172,7 +172,7 @@ int GlobalMasterTcl::Tcl_getstep(ClientData clientData,
 	Tcl_Interp *interp, int argc, const char **) {
   DebugM(2,"Tcl_reconfig called\n");
   if (argc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   GlobalMasterTcl *self = (GlobalMasterTcl *)clientData;
@@ -186,7 +186,7 @@ int GlobalMasterTcl::Tcl_loadforces(ClientData clientData,
 	Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   DebugM(1,"Making tcl force array\n");
   if(objc != 2) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   Tcl_Obj * const force_array_name = objv[1];
@@ -257,7 +257,7 @@ int GlobalMasterTcl::Tcl_enabletotalforces(ClientData clientData,
 {
   DebugM(2,"Tcl_enabletotalforces called\n");
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   GlobalMasterTcl *self = (GlobalMasterTcl *)clientData;
@@ -270,7 +270,7 @@ int GlobalMasterTcl::Tcl_disabletotalforces(ClientData clientData,
 {
   DebugM(2,"Tcl_disabletotalforces called\n");
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   GlobalMasterTcl *self = (GlobalMasterTcl *)clientData;
@@ -285,14 +285,16 @@ int GlobalMasterTcl::Tcl_loadtotalforces(ClientData clientData,
 	Tcl_Interp *interp, int objc, Tcl_Obj * const objv[])
 {
   if(objc != 2)
-  { Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+  { Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   Tcl_Obj * const force_array_name = objv[1];
   
   GlobalMasterTcl *self = (GlobalMasterTcl *)clientData;
   if ( ! self->requestedTotalForces() ) {
-    Tcl_SetResult(interp,"must call enabletotalforces before loadtotalforces",TCL_VOLATILE);
+    Tcl_SetResult(interp,
+        (char*)"must call enabletotalforces before loadtotalforces",
+        TCL_VOLATILE);
     return TCL_ERROR;
   }
 
@@ -357,7 +359,7 @@ int GlobalMasterTcl::Tcl_loadtotalforces(ClientData clientData,
 int GlobalMasterTcl::Tcl_loadcoords(ClientData clientData,
 	Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 2) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   Tcl_Obj * const vname = objv[1];
@@ -415,7 +417,7 @@ int GlobalMasterTcl::Tcl_loadcoords(ClientData clientData,
 int GlobalMasterTcl::Tcl_loadmasses(ClientData clientData,
 	Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 2) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   Tcl_Obj * const vname = objv[1];
@@ -460,7 +462,7 @@ int GlobalMasterTcl::Tcl_addforce(ClientData clientData,
 	Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   DebugM(2,"Tcl_addforce called\n");
   if (objc != 3) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   Tcl_Obj **force;  int fnum;  int atomid;  double x, y, z;
@@ -479,7 +481,7 @@ int GlobalMasterTcl::Tcl_addforce(ClientData clientData,
        (Tcl_GetDoubleFromObj(interp, force[0],&x) != TCL_OK) ||
        (Tcl_GetDoubleFromObj(interp, force[1],&y) != TCL_OK) ||
        (Tcl_GetDoubleFromObj(interp, force[2],&z) != TCL_OK) ) {
-    Tcl_SetResult(interp,"force not a vector",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"force not a vector",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
@@ -487,7 +489,7 @@ int GlobalMasterTcl::Tcl_addforce(ClientData clientData,
   if ( isgroup ) {
     int ngrps = self->getGroupMassEnd() - self->getGroupMassBegin();
     if ( atomid < 1 || atomid > ngrps ) {
-      Tcl_SetResult(interp,"requested group not available",TCL_VOLATILE);
+      Tcl_SetResult(interp,(char*)"requested group not available",TCL_VOLATILE);
       return TCL_ERROR;
     }
     self->modifyGroupForces().item(atomid-1) += Vector(x,y,z);

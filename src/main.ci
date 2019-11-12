@@ -8,7 +8,7 @@ mainmodule main {
   // main - defines most of the system wide simple messages
 
   mainchare main {
-    entry main();
+    entry main(CkArgMsg *);
   };
   extern module WorkDistrib;
   extern module ReductionMgr;

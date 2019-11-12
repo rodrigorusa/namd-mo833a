@@ -639,13 +639,13 @@ void outputCompressedFile(FILE *txtOfp, FILE *binOfp)
     {
         ExclSigInfo *sig = &sigsOfExclusions[i];
         //first line is for full exclusions (1-2, 1-3) in the format of count offset1 offset2 offset3 ...
-        fprintf(txtOfp, "%d", sig->fullExclOffset.size());
+        fprintf(txtOfp, "%lu", (unsigned long) sig->fullExclOffset.size());
         for(int j=0; j<sig->fullExclOffset.size(); j++)
             fprintf(txtOfp, " %d", sig->fullExclOffset[j]);
         fprintf(txtOfp, "\n");
 
         //second line is for modified exclusions (1-4)
-        fprintf(txtOfp, "%d", sig->modExclOffset.size());
+        fprintf(txtOfp, "%lu", (unsigned long) sig->modExclOffset.size());
         for(int j=0; j<sig->modExclOffset.size(); j++)
             fprintf(txtOfp, " %d", sig->modExclOffset[j]);
         fprintf(txtOfp, "\n");

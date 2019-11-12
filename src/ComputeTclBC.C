@@ -140,7 +140,7 @@ int ComputeTclBC::Tcl_print(ClientData,
 int ComputeTclBC::Tcl_wrapmode(ClientData clientData,
         Tcl_Interp *interp, int argc, const char *argv[]) {
   if (argc != 2) {
-    Tcl_SetResult(interp,"usage: wrapmode patch|input|cell|nearest",
+    Tcl_SetResult(interp,(char*)"usage: wrapmode patch|input|cell|nearest",
 								TCL_VOLATILE);
     return TCL_ERROR;
   }
@@ -151,7 +151,7 @@ int ComputeTclBC::Tcl_wrapmode(ClientData clientData,
   else if ( ! strcmp(argv[1],"cell") ) self->wrapmode = WRAPMODE_CELL;
   else if ( ! strcmp(argv[1],"nearest") ) self->wrapmode = WRAPMODE_NEAREST;
   else {
-    Tcl_SetResult(interp,"usage: wrapmode patch|input|cell|nearest",
+    Tcl_SetResult(interp,(char*)"usage: wrapmode patch|input|cell|nearest",
 								TCL_VOLATILE);
     return TCL_ERROR;
   }
@@ -162,7 +162,7 @@ int ComputeTclBC::Tcl_wrapmode(ClientData clientData,
 int ComputeTclBC::Tcl_cleardrops(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   ComputeTclBC *self = (ComputeTclBC *)clientData;
@@ -175,12 +175,12 @@ int ComputeTclBC::Tcl_cleardrops(ClientData clientData,
 int ComputeTclBC::Tcl_dropatom(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   ComputeTclBC *self = (ComputeTclBC *)clientData;
   if ( self->n_atom <= 0 ) {
-    Tcl_SetResult(interp,"no atom available",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"no atom available",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
@@ -192,7 +192,7 @@ int ComputeTclBC::Tcl_dropatom(ClientData clientData,
 int ComputeTclBC::Tcl_nextatom(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   ComputeTclBC *self = (ComputeTclBC *)clientData;
@@ -232,12 +232,12 @@ int ComputeTclBC::Tcl_nextatom(ClientData clientData,
 int ComputeTclBC::Tcl_getcoord(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   ComputeTclBC *self = (ComputeTclBC *)clientData;
   if ( self->n_atom <= 0 ) {
-    Tcl_SetResult(interp,"no atom available",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"no atom available",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
@@ -268,7 +268,7 @@ int ComputeTclBC::Tcl_getcoord(ClientData clientData,
 int ComputeTclBC::Tcl_getcell(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   ComputeTclBC *self = (ComputeTclBC *)clientData;
@@ -311,12 +311,12 @@ int ComputeTclBC::Tcl_getcell(ClientData clientData,
 int ComputeTclBC::Tcl_getmass(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   ComputeTclBC *self = (ComputeTclBC *)clientData;
   if ( self->n_atom <= 0 ) {
-    Tcl_SetResult(interp,"no atom available",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"no atom available",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
@@ -328,12 +328,12 @@ int ComputeTclBC::Tcl_getmass(ClientData clientData,
 int ComputeTclBC::Tcl_getcharge(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   ComputeTclBC *self = (ComputeTclBC *)clientData;
   if ( self->n_atom <= 0 ) {
-    Tcl_SetResult(interp,"no atom available",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"no atom available",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
@@ -345,12 +345,12 @@ int ComputeTclBC::Tcl_getcharge(ClientData clientData,
 int ComputeTclBC::Tcl_getid(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 1) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   ComputeTclBC *self = (ComputeTclBC *)clientData;
   if ( self->n_atom <= 0 ) {
-    Tcl_SetResult(interp,"no atom available",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"no atom available",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
@@ -362,7 +362,7 @@ int ComputeTclBC::Tcl_getid(ClientData clientData,
 int ComputeTclBC::Tcl_addforce(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 2) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
@@ -374,13 +374,13 @@ int ComputeTclBC::Tcl_addforce(ClientData clientData,
        (Tcl_GetDoubleFromObj(interp, force[0],&x) != TCL_OK) ||
        (Tcl_GetDoubleFromObj(interp, force[1],&y) != TCL_OK) ||
        (Tcl_GetDoubleFromObj(interp, force[2],&z) != TCL_OK) ) {
-    Tcl_SetResult(interp,"force not a vector",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"force not a vector",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
   ComputeTclBC *self = (ComputeTclBC *)clientData;
   if ( self->n_atom <= 0 ) {
-    Tcl_SetResult(interp,"no atom available",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"no atom available",TCL_VOLATILE);
     return TCL_ERROR;
   }
   int i = self->i_atom;
@@ -394,13 +394,13 @@ int ComputeTclBC::Tcl_addforce(ClientData clientData,
 int ComputeTclBC::Tcl_addenergy(ClientData clientData,
         Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   if (objc != 2) {
-    Tcl_SetResult(interp,"wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
 
   double energy;
   if ( Tcl_GetDoubleFromObj(interp, objv[1], &energy) != TCL_OK ) {
-    Tcl_SetResult(interp,"energy not a number",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"energy not a number",TCL_VOLATILE);
     return TCL_ERROR;
   }
 

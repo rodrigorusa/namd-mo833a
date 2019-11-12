@@ -15,7 +15,7 @@ int TestArray_write_helper(
     int length,
     int isfp // is floating point?
     ) {
-  char *stype = "unknown";
+  const char *stype = "unknown";
   if      (  isfp && elemsize==8 ) stype = "double";
   else if (  isfp && elemsize==4 ) stype = "float";
   else if ( !isfp && elemsize==8 ) stype = "int64";

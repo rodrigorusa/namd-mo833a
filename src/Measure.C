@@ -111,7 +111,7 @@ static int Tcl_radiusOfGyration(ClientData, Tcl_Interp *interp, int argc, const 
 static int Tcl_loadCoords(ClientData, Tcl_Interp *interp, int objc, Tcl_Obj * const objv[]) {
   
   if (objc < 2 || objc > 3) {
-    Tcl_SetResult(interp,"loadCoords: wrong # args",TCL_VOLATILE);
+    Tcl_SetResult(interp,(char*)"loadCoords: wrong # args",TCL_VOLATILE);
     return TCL_ERROR;
   }
   Tcl_Obj * const vname = objv[1];

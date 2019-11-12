@@ -906,20 +906,20 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
   ncmaps *= nimages;
   nexcls *= nimages;
   if ( nimages != 1 ) {
-    sprintf(buf,"generating %d images of %d atoms",nimages,nmolatoms);
+    sprintf(buf,"generating %ld images of %ld atoms",nimages,nmolatoms);
     print_msg(v,buf);
   }
-  sprintf(buf,"total of %d atoms",natoms);
+  sprintf(buf,"total of %ld atoms",natoms);
   print_msg(v,buf);
-  sprintf(buf,"total of %d bonds",nbonds);
+  sprintf(buf,"total of %ld bonds",nbonds);
   print_msg(v,buf);
-  sprintf(buf,"total of %d angles",nangls);
+  sprintf(buf,"total of %ld angles",nangls);
   print_msg(v,buf);
-  sprintf(buf,"total of %d dihedrals",ndihes);
+  sprintf(buf,"total of %ld dihedrals",ndihes);
   print_msg(v,buf);
-  sprintf(buf,"total of %d impropers",nimprs);
+  sprintf(buf,"total of %ld impropers",nimprs);
   print_msg(v,buf);
-  sprintf(buf,"total of %d explicit exclusions",nexcls);
+  sprintf(buf,"total of %ld explicit exclusions",nexcls);
   print_msg(v,buf);
   if (nexcls) {
     print_msg(v, "ERROR: non-zero number of explicit exclusions, which are not supported by plugin interface");

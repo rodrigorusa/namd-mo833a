@@ -1499,7 +1499,7 @@
                    params.pe, params.timestep, \
                    pExt_0[tmpI32[idx]].index, pExt_1[tmpJ32[idx]].index, \
                    params.ppI, params.p1, params.p2, (int)(tmpI32[idx]), (int)(tmpJ32[idx]), \
-                   pExt_1[tmpJ32[idx]].excl_index, indexDiff, maxDiff, offset, flags \ 
+                   pExt_1[tmpJ32[idx]].excl_index, indexDiff, maxDiff, offset, flags \
                   ); \
           }
         PRNT( 0); PRNT( 1); PRNT( 2); PRNT( 3); PRNT( 4); PRNT( 5); PRNT( 6); PRNT( 7);

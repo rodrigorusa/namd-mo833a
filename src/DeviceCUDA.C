@@ -321,9 +321,10 @@ void DeviceCUDA::initialize() {
     cudaDeviceProp deviceProp;
     cudaCheck(cudaGetDeviceProperties(&deviceProp, dev));
     if ( CmiPhysicalNodeID(masterPe) < 2 )
-    	CkPrintf("Pe %d physical rank %d binding to CUDA device %d on %s: '%s'  Mem: %dMB  Rev: %d.%d  PCI: %x:%x:%x\n",
+    	CkPrintf("Pe %d physical rank %d binding to CUDA device %d on %s: '%s'  Mem: %luMB  Rev: %d.%d  PCI: %x:%x:%x\n",
                CkMyPe(), myRankInPhysicalNode, dev, host,
-               deviceProp.name, deviceProp.totalGlobalMem / (1024*1024),
+               deviceProp.name,
+               (unsigned long) (deviceProp.totalGlobalMem / (1024*1024)),
                deviceProp.major, deviceProp.minor,
                deviceProp.pciDomainID, deviceProp.pciBusID, deviceProp.pciDeviceID);
 
