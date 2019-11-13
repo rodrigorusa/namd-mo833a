@@ -1,10 +1,10 @@
 #***********************************************************************************
 #                                                                                  *
 # Random Acceleration Molecular Dynamics (RAMD)                                    *
-# Implementation for NAMD v2.12                                                    *
+# Implementation for NAMD v2.13                                                    *
 # Version 5.0.4 July 2018                                                     *
 #                                                                                  *
-# Copyright (c) 2017, HITS gGmbH, Heidelberg, Germany                              * 
+# Copyright (c) 2018, HITS gGmbH, Heidelberg, Germany                              * 
 # Authors: Vlad Cojocaru, Stefan Richter, Daria Kokh, Rebecca Wade                 *
 # Email: mcmsoft@h-its.org                                                         *
 #                                                                                  *
@@ -50,7 +50,7 @@ namespace eval ::RAMD {
  TclForcesScript	$RAMDdir/ramd-5_script.tcl
  array set defaults {
   ramdSteps               50
-  namdVersion             2.12
+  namdVersion             2.13
   forceRAMD                16.0
   rMinRamd                 0.01
   forceOutFreq             10

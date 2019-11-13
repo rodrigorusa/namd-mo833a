@@ -130,8 +130,6 @@ namespace eval ::RAMD {
 #proc veclength {v} {
 # return [expr {sqrt([veclength2 $v])}]
 #}
-#***** Source the vectors and matrices procedures from VMD
-#source $RAMD::RAMDdir/vectors.tcl
 
 #***********************************************************
 # PROCEDURE TO GENERATE RANDOMLY ORIENTED ACCELERATION 
@@ -146,7 +144,9 @@ namespace eval ::RAMD {
 # set randTheta [expr "rand()"]
 # set randPsi [expr "rand()"]
  set theta [expr "2*$pi*rand()"]
- set psi [expr "$pi*rand()"]
+# set psi [expr "$pi*rand()"]  replaced by line below to account for
+# different random distribution on a sphere.
+ set psi [expr "acos(1-2*rand())"]
  set sinpsi [expr "sin($psi)"]
  set rx [expr "cos($theta)*$sinpsi"]
  set ry [expr "sin($theta)*$sinpsi"]
