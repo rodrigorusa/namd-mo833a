@@ -1,7 +1,6 @@
 module NamdHybridLB {
 
 extern module HybridBaseLB;
-extern module LBDatabase;
 extern module BaseLB;
 
 include "CentralLB.h";
@@ -19,7 +18,7 @@ message SplitComputesMsg {
 };
 
 group [migratable] NamdHybridLB : HybridBaseLB {
-  entry void NamdHybridLB(void);
+  entry void NamdHybridLB(const CkLBOptions&);
   entry void UpdateLocalLBInfo(LocalLBInfoMsg*);
 //  entry void CollectInfo(Location loc[n], int n, int fromlevel);	
   entry void splitComputes(SplitComputesMsg*);

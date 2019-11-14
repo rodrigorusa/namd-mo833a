@@ -52,7 +52,7 @@ NamdCentLB *AllocateNamdCentLB();
 class NamdCentLB : public CentralLB {
 
 public:
-  NamdCentLB();
+  NamdCentLB(const CkLBOptions& opt);
   NamdCentLB(CkMigrateMessage *);
   CLBMigrateMsg* Strategy(LDStats* stats);
 

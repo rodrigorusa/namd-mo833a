@@ -25,7 +25,8 @@ double *cpuloads = NULL;
 
 void CreateNamdCentLB() {
   // CkPrintf("[%d] creating NamdCentLB %d\n",CkMyPe(),loadbalancer);
-  loadbalancer = CProxy_NamdCentLB::ckNew();
+  int seqno = LdbInfra::Object()->getLoadbalancerTicket();
+  loadbalancer = CProxy_NamdCentLB::ckNew(CkLBOptions(seqno));
   // CkPrintf("[%d] created NamdCentLB %d\n",CkMyPe(),loadbalancer);
   if (CkMyRank() == 0 && cpuloads == NULL) {    
     cpuloads = new double[CkNumPes()];
@@ -47,7 +48,7 @@ NamdCentLB::NamdCentLB(CkMigrateMessage *msg): CentralLB(msg) {
   computeArray = 0;
 } 
 
-NamdCentLB::NamdCentLB(): CentralLB(CkLBOptions(-1))
+NamdCentLB::NamdCentLB(const CkLBOptions& opt): CentralLB(opt)
 {
   //  if (CkMyPe()==0)
   //   CkPrintf("[%d] NamdCentLB created\n",CkMyPe());

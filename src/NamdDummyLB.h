@@ -23,7 +23,7 @@
 class NamdDummyLB : public CentralLB {
 
 public:
-  NamdDummyLB();
+  NamdDummyLB(const CkLBOptions& opt);
   NamdDummyLB(CkMigrateMessage *);
   void work(LDStats* stats);
 

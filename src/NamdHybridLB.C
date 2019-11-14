@@ -47,21 +47,22 @@ extern double *cpuloads;
  * Creates the chare array for the hybrid load balancer.
  */ 
 void CreateNamdHybridLB() {
-	CProxy_NamdHybridLB::ckNew();
+  int seqno = LdbInfra::Object()->getLoadbalancerTicket();
+  CProxy_NamdHybridLB::ckNew(CkLBOptions(seqno));
 
-	// creating an array to store the loads of all processors
-	// to be used with proxy spanning tree
-	if (CkMyPe() == 0 && cpuloads == NULL) {
-		cpuloads = new double[CkNumPes()];
-		CmiAssert(cpuloads != NULL);
-		for (int i=0; i<CkNumPes(); i++) cpuloads[i] = 0.0;
-	}
+  // creating an array to store the loads of all processors
+  // to be used with proxy spanning tree
+  if (CkMyPe() == 0 && cpuloads == NULL) {
+    cpuloads = new double[CkNumPes()];
+    CmiAssert(cpuloads != NULL);
+    for (int i=0; i<CkNumPes(); i++) cpuloads[i] = 0.0;
+  }
 }
 
 /**
  * @brief Default constructor.
  */
-NamdHybridLB::NamdHybridLB(): HybridBaseLB(CkLBOptions(-1))
+NamdHybridLB::NamdHybridLB(const CkLBOptions& opt): HybridBaseLB(opt)
 {
   // setting the name
   lbname = (char *)"NamdHybridLB";

@@ -13,7 +13,8 @@
 #include "LdbCoordinator.h"
 
 void CreateNamdDummyLB() {
-  loadbalancer = CProxy_NamdDummyLB::ckNew();
+  int seqno = LdbInfra::Object()->getLoadbalancerTicket();
+  loadbalancer = CProxy_NamdDummyLB::ckNew(CkLBOptions(seqno));
 }
 
 NamdDummyLB *AllocateNamdDummyLB() {
@@ -24,7 +25,7 @@ NamdDummyLB::NamdDummyLB(CkMigrateMessage *msg): CentralLB(msg) {
   lbname = (char*)"NamdDummyLB";
 }
  
-NamdDummyLB::NamdDummyLB(): CentralLB(CkLBOptions(-1)) {
+NamdDummyLB::NamdDummyLB(const CkLBOptions& opt): CentralLB(opt) {
   lbname = (char*)"NamdDummyLB";
   if (CkMyPe() == 0)
     CkPrintf("[%d] DummyLB created\n",CkMyPe());

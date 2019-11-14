@@ -54,7 +54,9 @@ void LdbCoordinator_initproc() {
   // since the last load balancing, causing hiccups in very fast runs.
   // This is duplicated below for older versions, but putting it here
   // also fixes the first load balance.
+#ifndef LB_MANAGER_VERSION
   LBSetPeriod(1.0e-5);
+#endif
 }
 
 void LdbCoordinator::staticMigrateFn(LDObjHandle handle, int dest)
@@ -93,10 +95,10 @@ void LdbCoordinator::staticReceiveAtSync(void* data)
     //disableBlockingReceives();
 #endif
 
-  ((LdbCoordinator*)data)->ReceiveAtSync();
+  ((LdbCoordinator*)data)->AtSyncBarrierReached();
 }
 
-void LdbCoordinator::ReceiveAtSync()
+void LdbCoordinator::AtSyncBarrierReached()
 {
   theLbdb->RegisteringObjects(myHandle);
 }
@@ -134,7 +136,7 @@ LdbCoordinator::LdbCoordinator()
   processorArray = NULL;
 
   // Register self as an object manager for new charm++ balancer framework
-  theLbdb = LBDatabase::Object(); 
+  theLbdb = LdbInfra::Object();
 
   // Set the load balancing period (in seconds).  Without this the
   // load balancing framework will hang until 1 second has passed
@@ -143,7 +145,9 @@ LdbCoordinator::LdbCoordinator()
   // balancing, but only +LBPeriod 1.0e-5 can fix that in older charm.
   // For newer versions this is handled in initproc above.
 
+#ifndef LB_MANAGER_VERSION
   theLbdb->SetLBPeriod(1.0e-5);
+#endif
 
   myOMid.id.idx = 1;
   LDCallbacks cb = { (LDMigrateFn)staticMigrateFn,
@@ -152,6 +156,9 @@ LdbCoordinator::LdbCoordinator()
                    };
   myHandle = theLbdb->RegisterOM(myOMid,nullptr,cb);
 
+#ifdef LB_MANAGER_VERSION
+  theLbdb->AddClients(this, true, true);
+#else
   // Add myself as a local barrier receiver, so I know when I might
   // be registering objects.
   theLbdb->AddLocalBarrierReceiver((LDBarrierFn)staticReceiveAtSync,
@@ -160,7 +167,8 @@ LdbCoordinator::LdbCoordinator()
   // Also, add a local barrier client, to trigger load balancing
   ldBarrierHandle = theLbdb->
     AddLocalBarrierClient((LDResumeFn)staticResumeFromSync,
-			  (void*)this);
+                          (void*)this);
+#endif
   migrateMsgs = 0; // linked list
   numComputes = 0;
   reg_all_objs = 1;
@@ -638,8 +646,11 @@ void LdbCoordinator::barrier(void)
   {
     NAMD_bug("Load balancer received wrong number of events.\n");
   }
-
+#ifdef LB_MANAGER_VERSION
+  theLbdb->AtLocalBarrier(this);
+#else
   theLbdb->AtLocalBarrier(ldBarrierHandle);
+#endif
 }
 
 void LdbCoordinator::nodeDone(CkReductionMsg *msg)

@@ -17,7 +17,14 @@
 #include <stdio.h>
 
 #include <charm++.h>
+
+#ifdef LB_MANAGER_VERSION
+#include <LBManager.h>
+typedef LBManager LdbInfra;
+#else
 #include <LBDatabase.h>
+typedef LBDatabase LdbInfra;
+#endif
 
 #include "NamdTypes.h"
 #include "BOCgroup.h"
@@ -119,7 +126,7 @@ public:
   static void staticQueryEstLoadFn(LDOMHandle h);
   static void staticReceiveAtSync(void* data);
   static void staticResumeFromSync(void* data);
-  void ReceiveAtSync(void);
+  void AtSyncBarrierReached(void);
   void Migrate(LDObjHandle handle, int dest);
   void RecvMigrate(LdbMigrateMsg*);
   void ExpectMigrate(LdbMigrateMsg*);
@@ -162,13 +169,16 @@ public:
   computeInfo *computeArray;
   patchInfo *patchArray;
   processorInfo *processorArray;
-  LBDatabase *theLbdb;
+
+  LdbInfra *theLbdb;
+#ifndef LB_MANAGER_VERSION
+  LDBarrierClient ldBarrierHandle;
+#endif
   LDOMid myOMid;
   LDOMHandle myHandle;
   LdbMigrateMsg *migrateMsgs;
   int numComputes;
   int nRegisteredObjs;
-  LDBarrierClient ldBarrierHandle;
   int reg_all_objs;
   LDObjHandle* patchHandles;
 

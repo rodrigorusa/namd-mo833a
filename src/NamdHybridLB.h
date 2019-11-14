@@ -56,7 +56,7 @@ class SplitComputesMsg;
 class NamdHybridLB : public HybridBaseLB {
 
 public:
-  NamdHybridLB();
+  NamdHybridLB(const CkLBOptions& opt);
   NamdHybridLB(CkMigrateMessage *m):HybridBaseLB(m) {}
   void UpdateLocalLBInfo(LocalLBInfoMsg *msg);
   //void CollectInfo(Location *loc, int n, int fromlevel);
