@@ -1159,8 +1159,9 @@ void CudaComputeNonbonded::doForce() {
   float3 lata = make_float3(lattice.a().x, lattice.a().y, lattice.a().z);
   float3 latb = make_float3(lattice.b().x, lattice.b().y, lattice.b().z);
   float3 latc = make_float3(lattice.c().x, lattice.c().y, lattice.c().z);
-
-  if (atomsChanged) {
+  bool doPairlist = (savePairlists || !usePairlists);
+  
+  if (doPairlist) {
     int numTileLists = calcNumTileLists();
     // Build initial tile lists and sort
     tileListKernel.buildTileLists(numTileLists, patches.size(), atomStorageSize,
@@ -1178,12 +1179,12 @@ void CudaComputeNonbonded::doForce() {
   beforeForceCompute = CkWallTimer();
 
   // Calculate forces (and refine tile list if atomsChanged=true)
-  nonbondedKernel.nonbondedForce(tileListKernel, atomStorageSize, atomsChanged,
+  nonbondedKernel.nonbondedForce(tileListKernel, atomStorageSize, doPairlist,
     doEnergy, doVirial, doSlow, lata, latb, latc,
     (const float4*)atoms, cutoff2, d_forces, d_forcesSlow, h_forces, h_forcesSlow,
     stream);
 
-  if (atomsChanged) {
+  if (doPairlist) {
     tileListKernel.finishTileList(stream);
   }
 
