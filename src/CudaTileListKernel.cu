@@ -485,8 +485,8 @@ buildTileListsBBKernel(const int numTileLists,
       numJtiles = itileListPos + itileListLen;
       jtileStart = atomicAdd(&tileListStat->numJtiles, numJtiles);
     }
-    numJtiles  = cub::ShuffleIndex(numJtiles,  WARPSIZE-1, WARPSIZE, WARP_FULL_MASK);
-    jtileStart = cub::ShuffleIndex(jtileStart, WARPSIZE-1, WARPSIZE, WARP_FULL_MASK);
+    numJtiles  = cub::ShuffleIndex<WARPSIZE>(numJtiles,  WARPSIZE-1, WARP_FULL_MASK);
+    jtileStart = cub::ShuffleIndex<WARPSIZE>(jtileStart, WARPSIZE-1, WARP_FULL_MASK);    
     if (jtileStart + numJtiles > tileJatomStartSize) {
       // tileJatomStart out of memory, exit
       if (wid == 0) tileListStat->tilesSizeExceeded = true;
@@ -494,7 +494,7 @@ buildTileListsBBKernel(const int numTileLists,
     }
 
     int jStart = itileListPos;
-    int jEnd   = cub::ShuffleDown(itileListPos, 1, WARPSIZE-1, WARP_FULL_MASK);
+    int jEnd   = cub::ShuffleDown<WARPSIZE>(itileListPos, 1, WARPSIZE-1, WARP_FULL_MASK);    
     if (wid == WARPSIZE-1) jEnd = numJtiles;
 
     if (itileListLen > 0) {

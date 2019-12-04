@@ -9,7 +9,7 @@ LIBCUDARTSO=libcudart.dylib
 LIBCUFFTSO=libcufft.dylib
 CUDAFLAGS=-DNAMD_CUDA -DDISABLE_CUDA_TEXTURE_OBJECTS
 CUDAOBJS=$(CUDAOBJSRAWSTATIC)
-CUDA=$(CUDAFLAGS) -I. $(CUDAINCL) $(CUBINCL)
+CUDA=$(CUDAFLAGS) -I. $(CUBINCL) $(CUDAINCL) 
 CUDACC=$(CUDADIR)/bin/nvcc --machine 64
 CUDACCOPTS=-O3 --maxrregcount 48 $(CUDAGENCODE) $(CUDA) -use_fast_math
 # limit CUDADLINKOPTS to architectures available in libcufft_static 
