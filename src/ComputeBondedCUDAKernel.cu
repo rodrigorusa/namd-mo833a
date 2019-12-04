@@ -171,6 +171,11 @@ __device__ void bondForce(
   float r = sqrtf(xij*xij + yij*yij + zij*zij);
 
   float db = r - bondValue.x0;
+  if (bondValue.x1) {
+    // in this case, the bond represents a harmonic wall potential
+    // where x0 is the lower wall and x1 is the upper
+    db = (r > bondValue.x1 ? r - bondValue.x1 : (r > bondValue.x0 ? 0 : db));
+  }
   float fij = db * bondValue.k * bl.scale;
  
   if (doEnergy) {

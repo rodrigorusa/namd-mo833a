@@ -80,8 +80,10 @@ class StringList;
 
 class BondValue {
 public:
-	Real k;		//  Force constant for the bond
-	Real x0;	//  Rest distance for the bond
+  BondValue() : k(0), x0(0), x1(0) { }
+  Real k;    //  Force constant for the bond
+  Real x0;   //  Rest distance for the bond
+  Real x1;   //  Upper wall for harmonic wall potential (with x0 lower wall)
 };
 
 class AngleValue {

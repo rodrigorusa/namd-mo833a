@@ -8280,7 +8280,7 @@ void Molecule::build_extra_bonds(Parameters *parameters, StringList *file) {
 //In the memory optimized version, only the parameters of extraBonds are needed
 //to load
   char err_msg[512];
-  int a1,a2,a3,a4; float k, ref;
+  int a1,a2,a3,a4; float k, ref, upper;
   int anglesNormal = ( simParams->extraBondsCosAngles ? 0 : 1 );
   #ifndef MEM_OPT_VERSION
   ResizeArray<Bond> bonds;
@@ -8340,6 +8340,27 @@ void Molecule::build_extra_bonds(Parameters *parameters, StringList *file) {
         BondValue tmpv;
         tmpv.k = k;  tmpv.x0 = ref;
         bond_params.add(tmpv);                
+      } else if ( ! strncasecmp(type,"wall",4) ) {
+        // harmonic wall potential
+        // expect that upper > ref
+        if ( sscanf(buffer, "%s %d %d %f %f %f %s",
+              type, &a1, &a2, &k, &ref, &upper, err_msg) != 6 ) badline = 1;
+        else if (upper < ref) badline = 1;
+        else {
+          CHECKATOMID(a1)
+          CHECKATOMID(a2)
+        }
+
+        #ifndef MEM_OPT_VERSION
+        Bond tmp;
+        tmp.bond_type = parameters->NumBondParams + bonds.size();
+        tmp.atom1 = a1;  tmp.atom2 = a2;
+        bonds.add(tmp);
+        #endif
+
+        BondValue tmpv;
+        tmpv.k = k;  tmpv.x0 = ref;  tmpv.x1 = upper;
+        bond_params.add(tmpv);
       } else if ( ! strncasecmp(type,"angle",4) ) {
         if ( sscanf(buffer, "%s %d %d %d %f %f %s",
 	    type, &a1, &a2, &a3, &k, &ref, err_msg) != 6 ) badline = 1;

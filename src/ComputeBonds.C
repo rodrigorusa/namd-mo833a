@@ -77,6 +77,7 @@ void BondElem::computeForce(BondElem *tuples, int ntuple, BigReal *reduction,
   // get the bond information
   Real k = value->k * scale;
   Real x0 = value->x0;
+  Real x1 = value->x1;
 
   // compute vectors between atoms and their distances
   const Vector r12 = lattice.delta(p[0]->x[localIndex[0]].position,
@@ -106,6 +107,12 @@ void BondElem::computeForce(BondElem *tuples, int ntuple, BigReal *reduction,
   else {
     BigReal r = r12.length();  // Distance between atoms
     BigReal diff = r - x0;     // Compare it to the rest bond
+
+    if (x1) {
+      // in this case, the bond represents a harmonic wall potential
+      // where x0 is the lower wall and x1 is the upper
+      diff = (r > x1 ? r - x1 : (r > x0 ? 0 : diff));
+    }
 
     //  Add the energy from this bond to the total energy
     energy = k*diff*diff;

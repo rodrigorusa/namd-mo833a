@@ -51,6 +51,7 @@ struct CudaCrossterm {
 struct CudaBondValue {
   float k;   //  Force constant for the bond
   float x0;  //  Rest distance for the bond
+  float x1;  //  Upper wall for harmonic wall potential (with x0 lower wall)
 };
 
 struct CudaAngleValue {

@@ -1319,6 +1319,8 @@ The extra bonds file(s) should contain lines of the following formats:
 \item
 {\tt improper <atom> <atom> <atom> <atom> <k> <n> <ref>}
 \item
+{\tt wall <atom> <atom> <k> <lower> <upper>}
+\item
 {\tt \# <comment ...>}
 \end{itemize}
 
@@ -1331,4 +1333,14 @@ periodicity {\tt <n>} specified and not 0, $U(x) = k (1 + cos(n x - x_{ref}))$.
 Note that $x_{ref}$ is only a minimum for the harmonic potential;
 the sinusoidal potential has minima at $(x_{ref} + 180)/n + i \times 360/n$.
 
+Use of {\tt wall} implements a harmonic wall potential similar to
+the Colvars harmonic wall restraint. The potential function is
+$$
+U(x) =
+\begin{cases}
+        k(x-x_{\text{upper}})^2, &\text{if $x > x_{\text{upper}}$} \\
+        0, &\text{if $x_{\text{lower}} \leq x \leq x_{\text{upper}}$} \\
+        k(x-x_{\text{lower}})^2, &\text{if $x < x_{\text{lower}}$}
+\end{cases}.
+$$
 

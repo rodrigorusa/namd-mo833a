@@ -1385,6 +1385,7 @@ void ComputeBondedCUDA::initialize() {
           for (int i=0;i < NumBondParams;i++) {
             bondValues[i].k  = bond_array[i].k;
             bondValues[i].x0 = bond_array[i].x0;
+            bondValues[i].x1 = bond_array[i].x1;
           }
           bondedKernel.setupBondValues(NumBondParams, bondValues.data());
         }
