@@ -47,6 +47,7 @@ public:
 #ifdef MEASURE_NAMD_WITH_PAPI
 	void resumeAfterPapiMeasureBarrier(int step);
 #endif
+    BigReal accelMDdV; // this is used for on-the-fly reweighting in colvars
 
 protected:
     friend class ScriptTcl;

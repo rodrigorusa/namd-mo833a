@@ -48,6 +48,9 @@ public:
     int status();
     void useController(Controller *controllerPtr);
     void runController(void);
+    const Controller& getController() const {
+        return (*controller);
+    }
 };
 
 #endif /* _NAMDSTATE_H */

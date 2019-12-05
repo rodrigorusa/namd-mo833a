@@ -1840,7 +1840,10 @@ void Controller::rescaleaccelMD(int step, int minimize)
     }
     submit_reduction->submit();
 
-    if (step == simParams->firstTimestep) accelMDdVAverage = 0;
+    if (step == simParams->firstTimestep) {
+        accelMDdVAverage = 0;
+        accelMDdV = 0;
+    }
 //    if ( minimize || ((step < simParams->accelMDFirstStep ) || (step > simParams->accelMDLastStep ))) return;
     if ( minimize || (step < simParams->accelMDFirstStep ) || ( simParams->accelMDLastStep > 0 && step > simParams->accelMDLastStep )) return;
 
@@ -2261,7 +2264,8 @@ void Controller::rescaleaccelMD(int step, int minimize)
     accelMDfactor[1]=factor_tot;
     accelMDfactor[2]=1;
     broadcast->accelMDRescaleFactor.publish(step,accelMDfactor);
-    virial_amd = vir; 
+    virial_amd = vir;
+    accelMDdV = dV;
 
     if ( factor_tot < 0.001 ) {
        iout << iWARN << "accelMD is using a very high boost potential, simulation may become unstable!"
