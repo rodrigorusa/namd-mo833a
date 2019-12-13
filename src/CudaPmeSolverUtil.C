@@ -229,6 +229,13 @@ CudaPmeKSpaceCompute::~CudaPmeKSpaceCompute() {
 }
 
 void CudaPmeKSpaceCompute::solve(Lattice &lattice, const bool doEnergy, const bool doVirial, float* data) {
+#if 0
+  // Check lattice to make sure it is updating for constant pressure
+  fprintf(stderr, "K-SPACE LATTICE  %g %g %g  %g %g %g  %g %g %g\n",
+      lattice.a().x, lattice.a().y, lattice.a().z,
+      lattice.b().x, lattice.b().y, lattice.b().z,
+      lattice.c().x, lattice.c().y, lattice.c().z);
+#endif
   cudaCheck(cudaSetDevice(deviceID));
 
   const bool doEnergyVirial = (doEnergy || doVirial);

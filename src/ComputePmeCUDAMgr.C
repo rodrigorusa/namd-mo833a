@@ -1151,9 +1151,8 @@ void ComputePmeCUDADevice::recvAtoms(PmeAtomMsg *msg) {
   // Store "virial" and "energy" flags
   doVirial = msg->doVirial;
   doEnergy = msg->doEnergy;
-  // Get lattice
-  SimParameters *simParams = Node::Object()->simParameters;
-  Lattice lattice = simParams->lattice;
+  // Store lattice
+  lattice = msg->lattice;
 
   // Primary pencil index
   int pp0 = 0-ylo + (0-zlo)*yNBlocks;
@@ -1315,6 +1314,8 @@ void ComputePmeCUDADevice::sendAtomsToNeighbor(int y, int z, int atomIval) {
   // Store energy and virial flags
   msgPencil->doEnergy = doEnergy;
   msgPencil->doVirial = doVirial;
+  // Store lattice
+  msgPencil->lattice = lattice;
   int node = mgrProxy.ckLocalBranch()->getNode(yt, zt);
   mgrProxy[node].recvAtomsFromNeighbor(msgPencil);
 }
@@ -1335,6 +1336,8 @@ void ComputePmeCUDADevice::recvAtomsFromNeighbor(PmeAtomPencilMsg *msg) {
   // Read energy and virial flags
   doEnergy = msg->doEnergy;
   doVirial = msg->doVirial;
+  // Read lattice
+  lattice = msg->lattice;
   // Pencil index where atoms came from
   int pp = y-ylo + (z-zlo)*yNBlocks;
   // Store atoms and mark down the patch index where these atoms were added
@@ -1380,9 +1383,7 @@ void ComputePmeCUDADevice::spreadCharge() {
   std::swap(atomI, forceI);
   // Re-allocate force buffer if needed
   reallocate_host<CudaForce>(&force, &forceCapacity, numAtoms, 1.5f);
-  // Setup patches and atoms
-  SimParameters *simParams = Node::Object()->simParameters;
-  Lattice lattice = simParams->lattice;
+  // (already have the updated lattice)
   pmeRealSpaceCompute->copyAtoms(numAtoms, atoms);
   // Spread charge
   beforeWalltime = CmiWallTimer();
@@ -1414,9 +1415,7 @@ void ComputePmeCUDADevice::spreadCharge() {
 void ComputePmeCUDADevice::gatherForce() {
   traceUserBracketEvent(CUDA_PME_SPREADCHARGE_EVENT, beforeWalltime, CmiWallTimer());
   beforeWalltime = CmiWallTimer();
-  // gather (i.e. un-grid) forces
-  SimParameters *simParams = Node::Object()->simParameters;
-  Lattice lattice = simParams->lattice;
+  // (already have the updated lattice)
   pmeRealSpaceCompute->gatherForce(lattice, force);
   // Set callback that will call gatherForceDone() once gatherForce is done
   ((CudaPmeRealSpaceCompute*)pmeRealSpaceCompute)->gatherForceSetCallback(this);

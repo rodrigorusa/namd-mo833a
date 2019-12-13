@@ -212,6 +212,7 @@ public:
   ComputePmeCUDA* compute;
   int pe;
   bool doEnergy, doVirial;
+  Lattice lattice;
   // int miny, minz;
 };
 
@@ -251,6 +252,7 @@ public:
   int y, z;
   int srcY, srcZ;
   bool doEnergy, doVirial;
+  Lattice lattice;
 };
 
 class PmeForcePencilMsg : public CMessage_PmeForcePencilMsg {
@@ -322,7 +324,9 @@ public:
   void gatherForceDoneSubset(int first, int last);
 
 private:
-  //
+  // Store updated lattice
+  Lattice lattice;
+  // Store virial and energy flags
   bool doVirial, doEnergy;
   // PME grid definiton
   PmeGrid pmeGrid;

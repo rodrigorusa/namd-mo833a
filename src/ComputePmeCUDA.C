@@ -218,6 +218,7 @@ void ComputePmeCUDA::sendAtoms() {
     msg->pe = CkMyPe();
     msg->doEnergy = doEnergy;
     msg->doVirial = doVirial;
+    msg->lattice = lattice;
     CudaAtom *atoms = msg->atoms;
     // BigReal miny = 1.0e20;
     // BigReal minz = 1.0e20;
