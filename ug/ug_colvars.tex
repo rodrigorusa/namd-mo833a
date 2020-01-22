@@ -1,6 +1,6 @@
 % This file is part of the Collective Variables module (Colvars).
 % The original version of Colvars and its updates are located at:
-% https://github.com/colvars/colvars
+% https://github.com/Colvars/colvars
 % Please update all Colvars source files before making any changes.
 % If you wish to distribute your changes, please submit them to the
 % Colvars repository at GitHub.
@@ -168,6 +168,16 @@ If variables are modified, added or deleted interactively or by an external scri
 Starting the dashboard also enables trajectory animation using the left/right arrow keys within VMD's graphical window.
 Atomic coordinates can be modified using VMD's ``Mouse/Move'' functions, and the Colvars Module can then be updated by pressing F5 directly from the graphical window.
 
+A dropdown list allows for changing the current unit system if no variables are defined.
+If some variables are already defined, it is recommended to edit the configuration for all of
+them at once (eg. pressing Ctrl-a, then Ctrl-e), checking that all quantities are expressed in the desired set of units, and adding the
+\texttt{units} keyword to the general parameters, outside of \texttt{colvar \{\}} blocks (\ref{sec:units}).
+
+Another dropdown lets the user change which VMD molecule is associated with the Colvars module.
+Internally, this requires recording the configuration of currently defined colvars, deleting the current instance of the Colvars module,
+creating a new one linked to the target molecule, and applying the saved configuration.
+Beware of incompatible colvar definitions, such as atom groups listing atom IDs that exist in one molecule, but not the other.
+Auto-updating selections (see below) can be used to adapt the colvar definitions to a different system using VMD selection texts.
 
 \cvsubsec{Loading / Saving configuration files}{sec:dashboard_load_save}
 
@@ -183,15 +193,28 @@ Using the ``Edit'' button, the configuration of selected variables is loaded, an
 The editor window offers links to online documentation, as well as helpers to write correct configuration files.
 
 As a first step, the most useful helper is the collection of template files.
-Parameters that must be supplied are indicated by the symbol @.
-Colvar templates can be inserted at the beginning of the configuration, whereas ``component'' templates found in the directory of the same name define basis functions that belong inside a colvar block.
+Some parameters that must be supplied are indicated by the symbol @.
+Colvar templates can be inserted at the beginning of the configuration, whereas ``component'' templates define basis functions that belong inside a colvar block.
 Templates are indented using 4 spaces per level to indicate their position in the nested structure of the configuration: general options, colvars and biases at level 0,
 bias and colvar parameters like components at level 1, component parameters such as atom groups at level 2, and atom group parameters at level 3.
 
 The next helper buttons allow importing atom selections from VMD, either typing a VMD atom selection text, by copying the selection of an existing graphical representation, or by inserting the list of atoms currently labeled in VMD using the ``Pick atom'' feature.
 Atom selections should be inserted within an atom group block, within a component block (such as \texttt{distance}).
+By default atom selections are preceded with a comment line marking them as \emph{auto-updating}.
+This instructs the Dashboard to update the list of atoms whenever the configuration is applied, that is, when it is edited, when the file is loaded by the Dashboard, or when changing the VMD molecule linked to Colvars.
+This is useful when working across systems with different atom numberings, but topologies that make the relevant atom groups identifiable using VMD selection texts.
+Special fields (O, B, and user) may be used, as well as atom positions (e.g. \texttt{z > 0}).
+If the selection text is modified manually, the atom list will be updated when applying the new configuration.
+This auto-updating behavior can be disabled by removing the special comment line or altering the keywords ``auto-updating selection''.
+
+Note that atom lists are \textbf{not auto-updated}:
+\begin{enumerate}
+  \item when changing frame within the same molecule (animating a trajectory);
+  \item when the configuration is read by the Colvars module outside of VMD (eg. within an MD engine).
+\end{enumerate}
 
 The ``Insert labeled...'' button combined with the selection box allows for inserting components matching VMD's geometry measurements: Bonds (distances), angles, and dihedrals.
+Hidden labels are not used for inserting components.
 
 \cvsubsec{Plotting and visualizing collective variables}{sec:dashboard_visualization}
 
@@ -210,6 +233,12 @@ Clicking a circle jumps to the corresponding frame.
 Each atom group is shown in a different color.
 ``Show gradient'' is available for scalar variables only.
 It creates a graphical representation of the atomic gradients of the selected variables, visualizing how the value of the collective variable would vary in response to a change in atomic coordinates.
+Vectors representing the gradient are rescaled as indicated by the radio buttons \emph{Set max. vector norm} and \emph{Set scaling factor}.
+\emph{Set max. vector norm} rescales gradients so that the largest vector component of each colvar's gradient is represented by an arrow of the specified length, in \AA.
+\emph{Set scaling factor} rescales gradients by the specified factor, divided by the colvar's \texttt{width} parameter (1 by default, see~\ref{sec:colvar_grid_params}).
+This use of \texttt{width} makes it easier to compare the gradients of collective variables that are not commensurate.
+The scaling factor has the unit $\AA * L / (cv / width)$, where $L$ is the current length unit, and $cv$ represents the natural unit of the collective variable.
+By default $width$ is unity, but $(cv / width)$ may be seen as dimensionless if $width$ is expressed in cv units.
 
 } % cvvmdonly dashboard
 
@@ -218,6 +247,38 @@ It creates a graphical representation of the atomic gradients of the selected va
 Here, we document the syntax of the commands and parameters used to set up and use the Colvars module in \MDENGINE{}.
 One of these parameters is the configuration file or the configuration text for the module itself, whose syntax is described in \ref{sec:colvars_config_syntax} and in the following sections.
 
+\cvsubsec{Units in the Colvars module}{sec:units}
+
+The ``internal units'' of the Colvars module are the units in which values are expected to be in the configuration file, and in which collective variable values, energies, etc. are expressed in the output and colvars trajectory files. 
+Generally \textbf{the Colvars module uses internally the same units as its back-end MD engine, with the exception of VMD}, where different unit sets are supported to allow for easy setup, visualization and analysis of Colvars simulations performed with any simulation engine.
+
+Note that \textbf{angles} are expressed in degrees, and derived quantites such as force constants are based on degrees as well. 
+Atomic coordinates read from \textbf{XYZ files} (and PDB files where applicable) are expected to be expressed in \AA{}ngstr\"om, no matter what unit system is in use by the back-end or the Colvars Module.
+
+To avoid errors due to reading configuration files written in a different unit system, it can be specified within the input:
+
+\begin{itemize}
+\item %
+\key
+  {units}{%
+  global}{%
+  Unit system to be used}{%
+  string}{%
+  A string defining the units to be used internally by Colvars.
+  \cvlammpsonly{Allowed values are the following LAMMPS unit styles:
+  \textit{real} (\AA, kcal/mol), \textit{metal} (\AA, eV), and \textit{electron} (Bohr, Hartree).
+  However only the unit system currently in use by LAMMPS is accepted:
+  other values will trigger an error.}
+  \cvnamdonly{In NAMD the only allowed value is NAMD's native units: \textit{real} (\AA, kcal/mol).}
+  \cvvmdonly{Allowed values are:  \textit{real} (\AA, kcal/mol), \textit{gromacs} (nm, kJ/mol), \textit{metal} (\AA, eV), and \textit{electron} (Bohr, Hartree).
+  In VMD, the default system of units for Colvars is VMD's native units: \textit{real} (\AA, kcal/mol).
+  However, the \texttt{units} keyword will switch to a different unit system than the
+  current one if no colvars were defined before reading the current configuration.
+  If colvars are already defined, \texttt{units} will refuse changing the unit system to avoid making the definition of those variables erroneous in the new system of units.
+  If needed this precaution can be overridden using the \texttt{cv units} scripting command
+  (\ref{sec:cv_command_general}).}
+  }
+\end{itemize}
 
 \cvnamdonly{
 \cvsubsec{NAMD parameters}{sec:colvars_mdengine_params}
@@ -382,14 +443,16 @@ The following sections explain the syntax of the various sub-commands of \texttt
 
 \begin{itemize}
 \cvvmdonly{
-\item \texttt{molid} \emph{$<$molid$>$}: setup the Colvars module for the given molecule; \emph{$<$molid$>$} is the identifier of a valid VMD molecule, either an integer or \texttt{top} for the top molecule;
+\item \texttt{molid} [\emph{$<$molid$>$}]: setup the Colvars module for the given molecule; \emph{$<$molid$>$} is the identifier of a valid VMD molecule, either an integer or \texttt{top} for the top molecule; without argument, return the molid currently associated with Colvars.
 \item \texttt{delete}: delete the Colvars module; after this, the module can be setup again using \texttt{cv molid};
 }
 \item \texttt{configfile} \emph{$<$file name$>$}: read configuration from a file;
 \item \texttt{config} \emph{$<$string$>$}: read configuration from the given string; both \texttt{config} and \texttt{configfile} subcommands may be invoked multiple times;
 \cvvmdonly{see \ref{sec:colvars_config_syntax} for the configuration syntax;}
 \item \texttt{reset}: delete all internal configuration and atom selections of the Colvars module;
+\item \texttt{units} [\emph{$<$style$>$}]: switch internal Colvars units to \emph{style} (see \ref{sec:units}); without argument, return the current style, or an empty string if it is the default.
 \item \texttt{version}: return the version of the Colvars module (see \ref{sec:colvars_config_changes} for any changes to older keywords).
+
 \end{itemize}
 
 \cvsubsubsec{Input and output commands}{sec:cv_command_io}
@@ -518,7 +581,8 @@ The following keywords are available in the global context of the Colvars config
     UNIX filename}{%
     This option reads an index file (usually with a \texttt{.ndx}
     extension) as produced by the \texttt{make\_ndx} tool of GROMACS.
-    This keyword may be repeated to load multiple index files: the same group name cannot appear in multiple index files.
+    This keyword may be repeated to load multiple index files.
+    A group with the same name may appear multiple times, as long as it contains the same indices in identical order each time: an error is raised otherwise.
     \cvlammpsonly{In LAMMPS, the \texttt{group2ndx} command can be used to generate such file from existing groups.
     Note that the Colvars module reads the indices of atoms from the index file: therefore, the LAMMPS groups do not need to remain active during the simulation, and could be deleted right after issuing \texttt{group2ndx}.
 }
@@ -2279,10 +2343,10 @@ In the \texttt{gspathCV~\{...\}} and the \texttt{gzpathCV~\{...\}} block all vec
 \item %
   \key
     {pathFile}{%
-    \texttt{gspathCV} and \texttt{gspathCV}}{%
+    \texttt{gspathCV} and \texttt{gzpathCV}}{%
     The file name of the path file.}{%
     UNIX filename}{%
-		The path is defined by the \texttt{pathFile}. The lines of the \texttt{pathFile} matches the total number of reference frames. The columns of the \texttt{pathFile} matches the number of CVs in this block and are seperated by space.
+		Defines the nodes or images that constitutes the path in CV space. The CVs of an image are listed in a line of \texttt{pathFile} using space-seperated format. Lines from top to button in \texttt{pathFile} corresponds images from initial to last.
     }
 
 \end{cvcoptions}
@@ -2352,6 +2416,116 @@ The usage of \texttt{gzpathCV} and \texttt{gspathCV} is illustrated below:
 \-~~~~\}\\
 \-~~\}\\
 \}}
+
+
+\cvsubsec{Arithmetic path collective variables in CV space}{sec:cvc_apathCV}
+
+The arithmetic path collective variable in CV space uses the same formula as the one proposed by Branduardi\cite{Branduardi2007} et al., except that it computes $s$ and $z$ in CV space instead of RMSDs in Cartesian space. Moreover, this implementation allows different coefficients for each CV components as described in \cite{Hovan2019}. Assuming a path is composed of $N$ reference frames and defined in an $M$-dimensional CV space, then the equations of $s$ and $z$ of the path are 
+
+\begin{equation}
+s = \frac{\sum_{i=1}^{N} i \exp\left(-\lambda\sum_{j=1}^{M} c_j^2 \left(x_j-x_{i,j}\right)^2\right)}{\sum_{i=1}^{N} \exp\left(-\lambda\sum_{j=1}^{M} c_j^2 \left(x_j-x_{i,j}\right)^2\right)}
+\end{equation}
+
+\begin{equation}
+z = -\frac{1}{\lambda} \ln \left(\sum_{i=1}^{N} \exp\left(-\lambda\sum_{j=1}^{M} c_j^2 \left(x_j-x_{i,j}\right) \right)\right)
+\end{equation}
+where $c_j$ is the coefficient(weight) of the $j$-th CV, $x_{i,j}$ is the value of $j$-th CV of $i$-th reference frame and $x_{j}$ is the value of $j$-th CV of current frame. $\lambda$ is a parameter to smooth the variation of $s$ and $z$.
+
+\cvsubsubsec{\texttt{aspathCV}: progress along a path defined in CV space.}{sec:cvc_aspathCV}
+
+This colvar component computes the $s$ variable.
+
+\labelkey{colvar|aspathCV}
+
+\begin{cvcoptions}
+\item %
+  \keydef
+    {weights}{%
+    \texttt{aspathCV} and \texttt{azpathCV}}{%
+    Coefficients of the collective variables}{%
+    space-seperated numbers in a \texttt{\{...\}} block}{%
+    \texttt{\{1.0 ...\}}}{%
+    Define the coefficients. The $j$-th value in the \texttt{\{...\}} block corresponds the $c_{j}$ in the equations.
+  }
+
+\item %
+  \keydef
+    {lambda}{%
+    \texttt{aspathCV} and \texttt{azpathCV}}{%
+    Smoothness of the variation of $s$ and $z$}{%
+    decimal}{%
+    inverse of the mean square displacements of successive reference frames}{%
+    The value of $\lambda$ in the equations.
+  }
+
+\item %
+  \key
+    {pathFile}{%
+    \texttt{aspathCV} and \texttt{azpathCV}}{%
+    The file name of the path file.}{%
+    UNIX filename}{%
+		Defines the nodes or images that constitutes the path in CV space. The CVs of an image are listed in a line of \texttt{pathFile} using space-seperated format. Lines from top to button in \texttt{pathFile} corresponds images from initial to last.
+    }
+
+\end{cvcoptions}
+
+\cvsubsubsec{\texttt{azpathCV}: distance from a path defined in CV space.}{sec:cvc_azpathCV}
+
+This colvar component computes the $z$ variable. Options are the same as in \ref{sec:cvc_aspathCV}.
+
+The usage of \texttt{azpathCV} and \texttt{aspathCV} is illustrated below:
+
+\bigskip
+{%
+% verbatim can't appear within commands
+\noindent\ttfamily colvar \{\\
+\-~~\# Progress along the path\\
+\-~~name as\\
+\-~~\# Path defined by the CV space of two dihedral angles\\
+\-~~aspathCV \{\\
+\-~~~~pathFile ./path.txt\\
+\-~~~~weights \{1.0 1.0\}\\
+\-~~~~lambda 0.005\\
+\-~~~~dihedral \{\\
+\-~~~~~~name 001\\
+\-~~~~~~group1 \{atomNumbers \{5\}\}\\
+\-~~~~~~group2 \{atomNumbers \{7\}\}\\
+\-~~~~~~group3 \{atomNumbers \{9\}\}\\
+\-~~~~~~group4 \{atomNumbers \{15\}\}\\
+\-~~~~\}\\
+\-~~~~dihedral \{\\
+\-~~~~~~name 002\\
+\-~~~~~~group1 \{atomNumbers \{7\}\}\\
+\-~~~~~~group2 \{atomNumbers \{9\}\}\\
+\-~~~~~~group3 \{atomNumbers \{15\}\}\\
+\-~~~~~~group4 \{atomNumbers \{17\}\}\\
+\-~~~~\}\\
+\-~~\}\\
+\}\\
+\noindent\ttfamily colvar \{\\
+\-~~\# Distance from the path\\
+\-~~name az\\
+\-~~azpathCV \{\\
+\-~~~~pathFile ./path.txt\\
+\-~~~~weights \{1.0 1.0\}\\
+\-~~~~lambda 0.005\\
+\-~~~~dihedral \{\\
+\-~~~~~~name 001\\
+\-~~~~~~group1 \{atomNumbers \{5\}\}\\
+\-~~~~~~group2 \{atomNumbers \{7\}\}\\
+\-~~~~~~group3 \{atomNumbers \{9\}\}\\
+\-~~~~~~group4 \{atomNumbers \{15\}\}\\
+\-~~~~\}\\
+\-~~~~dihedral \{\\
+\-~~~~~~name 002\\
+\-~~~~~~group1 \{atomNumbers \{7\}\}\\
+\-~~~~~~group2 \{atomNumbers \{9\}\}\\
+\-~~~~~~group3 \{atomNumbers \{15\}\}\\
+\-~~~~~~group4 \{atomNumbers \{17\}\}\\
+\-~~~~\}\\
+\-~~\}\\
+\}}
+
 
 
 \cvsubsec{Shared keywords for all components}{sec:cvc_common}
@@ -3692,10 +3866,12 @@ All biasing and analysis methods implemented recognize the following options:
 
 \cvsubsec{Thermodynamic integration}{sec:colvarbias_ti}
 
-Most of the methods here implemented feature a different estimators of free-energies, either at run-time or with the use of post-processing tools.
-The specifics of each estimator are discussed in the documentation of each method.
+The methods implemented here provide a variety of estimators of conformational free-energies.
+These are carried out at run-time, or with the use of post-processing tools over the generated output files.
+The specifics of each estimator are discussed in the documentation of each biasing or analysis method.
 
-Additionally, most restraints (\ref{sec:colvarbias_harmonic}, \ref{sec:colvarbias_harmonic_walls}, \ref{sec:colvarbias_linear}, ...) as well as metadynamics (\ref{sec:colvarbias_meta}) offer the following optional keywords, allowing the use of thermodynamic integration (TI) to compute potentials of mean force (PMFs).  In adaptive biasing force (ABF) (\ref{sec:colvarbias_abf}) the same keywords are not recognized, because their functionality is always included.
+A special case is the traditional thermodynamic integration (TI) method, used for example to compute potentials of mean force (PMFs).
+Most types of restraints (\ref{sec:colvarbias_harmonic}, \ref{sec:colvarbias_harmonic_walls}, \ref{sec:colvarbias_linear}, ...) as well as metadynamics (\ref{sec:colvarbias_meta}) can optionally use TI alongside their own estimator, based on the keywords documented below.
 
 \begin{itemize}
 
@@ -3729,6 +3905,9 @@ Additionally, most restraints (\ref{sec:colvarbias_harmonic}, \ref{sec:colvarbia
 }
 
 \end{itemize}
+
+In adaptive biasing force (ABF) (\ref{sec:colvarbias_abf}) the above keywords are not recognized, because their functionality is either included already (conventional ABF) or not available (extended-system ABF).
+
 
 
 \cvsubsec{Adaptive Biasing Force}{sec:colvarbias_abf}
@@ -3839,8 +4018,8 @@ by the adaptive bias, evolution of the system along $\bm{\xi}$
 is governed mainly by diffusion.
 Although this implementation of ABF can in principle be used in 
 arbitrary dimension, a higher-dimension collective variable space is likely
-to result in sampling difficulties.
-Most commonly, the number of variables is one or two.
+to be difficult to sample and visualize.
+Most commonly, the number of variables is one or two, sometimes three.
 
 
 \cvsubsubsec{ABF requirements on collective variables}{sec:colvarbias_abf_req}
@@ -3896,7 +4075,7 @@ The following specific parameters can be set in the ABF configuration block:
 
 \item \dupkey{name}{\texttt{abf}}{sec:colvarbias}{biasing and analysis methods}
 \item \dupkey{colvars}{\texttt{abf}}{sec:colvarbias}{biasing and analysis methods}
-%\item \dupkey{outputEnergy}{sec:colvarbias}{biasing and analysis methods}
+\item \dupkey{outputEnergy}{\texttt{abf}}{sec:colvarbias}{biasing and analysis methods}
 
 \item \keydef{fullSamples}{\texttt{abf}}{%
     Number of samples in a bin prior
@@ -4037,9 +4216,10 @@ The ABF bias produces the following files, all in multicolumn text format (\ref{
 \item \outputName\texttt{.grad}: current estimate of the free energy gradient (grid),
   in multicolumn;
 \item \outputName\texttt{.count}: histogram of samples collected, on the same grid;
-\item \outputName\texttt{.pmf}: only for one-dimensional calculations, integrated
-  free energy profile or PMF.
+\item \outputName\texttt{.pmf}: integrated free energy profile or PMF (for dimensions 1, 2 or 3).
 \end{itemize}
+
+Also in the case of one-dimensional calculations, the ABF bias can report its current energy via \texttt{outputEnergy}; in higher dimensions, such computation is not implemented and the energy reported is zero.
 
 If several ABF biases are defined concurrently, their name is inserted to produce
 unique filenames for output, as in \outputName\texttt{.abf1.grad}.
@@ -4051,15 +4231,28 @@ ABF simulations have been run, the resulting data can be merged using the
 \texttt{inputPrefix} option described above (a run of 0 steps is enough).
 
 
-\cvsubsubsec{Post-processing: reconstructing a multidimensional free energy surface}{sec:colvarbias_abf_post}
+
+\cvsubsubsec{Multidimensional free energy surfaces}{sec:colvarbias_abf_post}
 
 If a one-dimensional calculation is performed, the estimated free energy
-gradient is automatically integrated and a potential of mean force is written
-under the file name \texttt{<outputName>.pmf}, in a plain text format that
-can be read by most data plotting and analysis programs (e.g. gnuplot).
+gradient is integrated using a simple rectangle rule.
+In dimension 2 or 3, it is calculated as the solution of a Poisson equation:
+\begin{equation}
+ \Delta A(\xi) = - \nabla \cdot \langle F_\xi \rangle
+\end{equation}
+wehere $\Delta A$ is the Laplacian of the free energy.
+The potential of mean force is written under the file name \texttt{<outputName>.pmf},
+in a plain text format (see \ref{sec:colvar_multicolumn_grid}) that can be read by most data plotting and analysis programs (e.g.{} Gnuplot).
+This applies periodic boundary conditions to periodic coordinates, and Neumann boundary
+conditions otherwise (imposed free energy gradient at the boundary of the domain).
+Note that the grid used for free energy discretization is extended by one point along
+non-periodic coordinates, but not along periodic coordinates.
 
-In dimension 2 or greater, integrating the discretized gradient becomes non-trivial. The
+In dimension 4 or greater, integrating the discretized gradient becomes non-trivial. The
 standalone utility \texttt{abf\_integrate} is provided to perform that task.
+Because 4D ABF calculations are uncommon, this tool is practically deprecated by
+the Poisson integration described above.
+
 \texttt{abf\_integrate} reads the gradient data and uses it to perform a Monte-Carlo (M-C)
 simulation in discretized collective variable space (specifically, on the same grid
 used by ABF to discretize the free energy gradient).
@@ -4623,7 +4816,39 @@ The following options define the configuration for the ``well-tempered'' metadyn
 
 
 \cvsubsubsec{Multiple-walker metadynamics}{sec:colvarbias_meta_mr}
-The following options define metadynamics calculations with multiple replicas that share a common history (multiple-walker metadynamics) \cite{Raiteri2006}:
+Metadynamics calculations can be performed concurrently by multiple replicas that share a common history.
+This variant of the method is called multiple-walker metadynamics \cite{Raiteri2006}: the Gaussian hills of all replicas are periodically combined into a single biasing potential, intended to converge to a single PMF.
+
+In the implementation here described~\cite{Fiorin2013}, replicas communicate through files.
+This arrangement allows launching the replicas either (1) as a bundle (i.e.{} a single job in a cluster's queueing system) or (2) as fully independent runs (i.e.{} as separate jobs for the queueing system).
+One advantage of the use case (1) is that an identical Colvars configuration can be used for all replicas (otherwise, \texttt{replicaID} needs to be manually set to a different string for each replica).
+However, the use case (2) is less demanding in terms of high-performance computing resources: a typical scenario would be a computer cluster (including virtual servers from a cloud provider) where not all nodes are connected to each other at high speed, and thus each replica runs on a small group of nodes or a single node.
+
+Whichever way the replicas are started (coupled or not), a shared filesystem is needed so that each replica can read the files created by the others: paths to these files are stored in the shared file \texttt{replicasRegistry}.
+This file, and those listed in it, are read every \texttt{replicaUpdateFrequency} steps.
+Each time the Colvars state file is written (for example, \texttt{colvarsRestartFrequency} steps), the file named:\\
+\outputName\texttt{.colvars.}\emph{name}\texttt{.}\emph{replicaID}\texttt{.state}\\
+is written as well; this file contains only the state of the metadynamics bias, which the other replicas will read in turn.
+In between the times when this file is modified/replaced, new hills are also temporarily written to the file named:\\
+\outputName\texttt{.colvars.}\emph{name}\texttt{.}\emph{replicaID}\texttt{.hills}\\
+Both files are only used for communication, and may be deleted after the replica begins writing files with a new \outputName.\\
+
+\noindent\textbf{Example:} Multiple-walker metadynamics with file-based communication.\\
+{\noindent\ttfamily
+\-metadynamics \{\\
+\-\-~~name mymtd\\
+\-\-~~colvars x\\
+\-\-~~hillWeight 0.001\\
+\-\-~~newHillFrequency 1000\\
+\-\-~~hillWidth 3.0\\
+\-\-~~\\
+\-\-~~multipleReplicas       on\\
+\-\-~~replicasRegistry       /shared-folder/mymtd-replicas.txt\\
+\-\-~~replicaUpdateFrequency 50000  \# Best if larger than newHillFrequency\\
+\-\}\\
+}
+
+The following are the multiple-walkers related options:
 
 \begin{itemize}
 
@@ -4634,88 +4859,51 @@ The following options define metadynamics calculations with multiple replicas th
     Enable multiple-walker metadynamics}{%
     boolean}{%
     \texttt{off}}{%
-    If this option is \texttt{on}, multiple replicas of the
-    same system can be run at the same time. Their hills are shared periodically,
-    and combined to obtain a single PMF.  Replicas are
-    identified by the value of \texttt{replicaID}.  Communication is
-    done by files: each replica must be able to read the files
-    created by the others, whose paths are communicated through the file
-    \texttt{replicasRegistry}.  This file, and the files listed in it,
-    are read every \texttt{replicaUpdateFrequency} steps.  Every time
-    the colvars state file is written
-    (\texttt{colvarsRestartFrequency}), the file:\\
-    ``\outputName\texttt{.colvars.}\emph{name}\texttt{.}\emph{replicaID}\texttt{.state}''
-    is also written, containing
-    the state of the metadynamics bias for \texttt{replicaID}.  In the
-    time steps between \texttt{colvarsRestartFrequency}, new hills are
-    temporarily written to the file:\\
-    ``\outputName\texttt{.colvars.}\emph{name}\texttt{.}\emph{replicaID}\texttt{.hills}'',
-    which serves as communication
-    buffer.  These files are only required for communication, and may be
-    deleted after a new MD run is started with a different
-    \texttt{outputName}.  }
+    This option turns on multiple-walker communication between replicas. }
   
 \item %
   \key
-    {replicaID}{%
-    \texttt{metadynamics}}{%
-    Set the identifier for this replica}{%
-    string}{%
-    If \texttt{multipleReplicas} is \texttt{on}, this option sets a
-    unique identifier for this replica.  All replicas should use
-    identical collective variable configurations, except for the value
-    of this option.}
-  
-\item %
-  \keydef
     {replicasRegistry}{%
     \texttt{metadynamics}}{%
     Multiple replicas database file}{%
     UNIX filename}{%
-    ``\emph{name}\texttt{.replica\_files.txt}''}{%
-    If \texttt{multipleReplicas} is \texttt{on}, this option sets the
-    path to the replicas' database file.
-    % Each line in this file
-    % contains one \texttt{replicaID}, and the absolute path to a file
-    % listing the state file and the hills-file for that replica (see
-    % \texttt{multipleReplicas}).  All these files are generated
-    % automatically, but it is advisable that at least
-    % \texttt{replicasRegistry} is written by hand to avoid race
-    % conditions (multiple replicas writing concurrently to the same
-    % file).
+    If \texttt{multipleReplicas} is \texttt{on}, this option sets the path to the replicas' shared database file.
+    It is best to use an absolute path (especially when running individual replicas in separate folders).
+  }
+
+\item %
+  \key
+    {replicaUpdateFrequency}{%
+    \texttt{metadynamics}}{%
+    How often hills are shared between replicas}{%
+    positive integer}{%
+    If \texttt{multipleReplicas} is \texttt{on}, this option sets the number of steps after which each replica tries to read the other replicas' files.
+    On a networked file system, it is best to use a number of steps that corresponds to at least a minute of wall time.
   }
 
 \item %
   \keydef
-    {replicaUpdateFrequency}{%
+    {replicaID}{%
     \texttt{metadynamics}}{%
-    How often hills are communicated between
-    replicas}{%
-    positive integer}{%
-    \texttt{newHillFrequency}}{%
-    If \texttt{multipleReplicas} is \texttt{on}, this option sets the
-    number of steps after which each replica (re)reads the other
-    replicas' files.  The lowest meaningful value of this number is
-    \texttt{newHillFrequency}.  If access to the file system is
-    significantly affecting the simulation performance, this number can
-    be increased, at the price of reduced synchronization between
-    replicas.  Values higher than \texttt{colvarsRestartFrequency} may
-    not improve performance significantly.}
+    Set the identifier for this replica}{%
+    string}{%
+    replica index (only if a shared communicator is used)}{%
+    If \texttt{multipleReplicas} is \texttt{on}, this option sets a unique identifier for this replicas.
+    When the replicas are launched in a single command (i.e.{} they share a parallel communicator and are tightly synchronized) this value is optional, and defaults to the replica's numeric index (starting at zero).
+    However, when the replicas are launched as independent runs this option is required.
+}
 
 \item %
   \keydef
-    {dumpPartialFreeEnergyFile}{%
+    {writePartialFreeEnergyFile}{%
     \texttt{metadynamics}}{%
     Periodically write the contribution to the
     PMF from this replica}{%
     boolean}{%
-    \texttt{on}}{%
-    When \texttt{multipleReplicas} is \texttt{on}, the file
-    \outputName\texttt{.pmf} contains the combined PMF from all
-    replicas, provided that \texttt{useGrids} is \texttt{on} (default).
-    Enabling this option produces an additional file
-    \outputName\texttt{.partial.pmf}, which can be useful to
-    quickly monitor the contribution of each replica to the PMF.}
+    \texttt{off}}{%
+    If \texttt{multipleReplicas} is \texttt{on}, enabling this option produces  an additional file \outputName\texttt{.partial.pmf}, which can be useful to monitor the contribution of each replica to the total PMF (which is written to the file \outputName\texttt{.pmf}).
+    \textbf{Note:} the name of this file is chosen for consistency and convenience, \emph{but its content is not a PMF} and it is not expected to converge, even if the total PMF does.
+}
 
 \end{itemize}
 
@@ -4723,30 +4911,6 @@ The following options define metadynamics calculations with multiple replicas th
 \cvsubsubsec{Compatibility and post-processing}{sec:colvarbias_meta_post}
 The following options may be useful only for applications that go beyond the calculation of a PMF by metadynamics:
 \begin{itemize}
-
-\item %
-  \keydef
-    {name}{%
-    \texttt{metadynamics}}{%
-    Name of this metadynamics instance}{%
-    string}{%
-    ``\texttt{meta}'' + rank number}{%
-    This option sets the name for this metadynamics instance.  While it
-    is not advisable to use more than one metadynamics instance within
-    the same simulation, this allows to distinguish each instance from
-    the others.  If there is more than one metadynamics instance, the
-    name of this bias is included in the metadynamics output file names, such as e.g.~the \texttt{.pmf} file.}
-
-% \item %
-%   \keydef
-%     {gridsUpdateFrequency}{%
-%     \texttt{metadynamics}}{%
-%  Frequency of update of the grids}{%
-%     positive integer}{%
-%     \texttt{newHillFrequency}}{%
-%     When \texttt{useGrids} is \texttt{on}, all the newly created hills
-%     are projected onto the two grids every
-%     \texttt{gridsUpdateFrequency} steps.}
 
 \item %
   \keydef
@@ -4770,11 +4934,11 @@ The following options may be useful only for applications that go beyond the cal
     boolean}{%
     \texttt{off}}{%
     If this option is \texttt{on}, a logfile is written by the
-    \texttt{metadynamics} bias, with the name
-    ``\outputName\texttt{.colvars.$<$name$>$.hills.traj}'', which
+    \texttt{metadynamics} bias, with the name:\\
+    ``\outputName\texttt{.colvars.$<$name$>$.hills.traj}'',\\ which
     can be useful to follow the time series of the hills.  When
-    \texttt{multipleReplicas} is \texttt{on}, its name changes to\\
-    ``\outputName\texttt{.colvars.$<$name$>$.$<$replicaID$>$.hills.traj}''.
+    \texttt{multipleReplicas} is \texttt{on}, its name changes to:\\
+    ``\outputName\texttt{.colvars.$<$name$>$.$<$replicaID$>$.hills.traj}''.\\
     This file can be used to quickly visualize the positions of all
     added hills, in case \texttt{newHillFrequency} does not coincide
     with \texttt{colvarsRestartFrequency}.}
@@ -5596,3 +5760,22 @@ please be aware that \emph{several of these tutorials are not actively maintaine
 \cvnamdonly{\cvurl{https://colvars.github.io/colvars-refman-namd/colvars-refman-namd.html}}
 \cvlammpsonly{\cvurl{https://colvars.github.io/colvars-refman-lammps/colvars-refman-lammps.html}}
 \cvvmdonly{\cvurl{https://colvars.github.io/colvars-refman-vmd/colvars-refman-vmd.html}}
+
+
+\cvrefmanonly{
+
+\cvsec{Compilation notes}{sec:compilation_notes}
+
+The Colvars module is typically built using the recipes of each supported software package: for this reason, no installation instructions are needed, and the vast majority of the features described in this manual are supported in the most common builds of each package.
+This section lists the few cases where the choice of compilation settings affects features in the Colvars module.
+
+\begin{itemize}
+\item Scripting commands using the Tcl language (\cvurl{https://www.tcl.tk}) are supported in VMD and NAMD.  All precompiled builds of each code include Tcl, and it is highly recommended to enable Tcl support in any custom build, using precompiled Tcl libraries from the UIUC website.
+\item The Lepton library (\cvurl{https://simtk.org/projects/lepton}) used to implement the \texttt{customFunction} feature is currently included only in NAMD (always on) and in LAMMPS (on by default).
+\item Some features require compilation using the C++11 language standard.
+  Although it is becoming commonplace, this standard is not yet available on all scientific computing systems.
+  Deailed information can be found at:\\
+  \cvurl{https://colvars.github.io/README-c++11.html}
+\end{itemize}
+
+}

@@ -2,7 +2,7 @@
 
 // This file is part of the Collective Variables module (Colvars).
 // The original version of Colvars and its updates are located at:
-// https://github.com/colvars/colvars
+// https://github.com/Colvars/colvars
 // Please update all Colvars source files before making any changes.
 // If you wish to distribute your changes, please submit them to the
 // Colvars repository at GitHub.
@@ -219,7 +219,7 @@ public:
   /// Implements possible actions to be carried out
   /// when a given feature is enabled
   /// Base function does nothing, can be overloaded
-  virtual void do_feature_side_effects(int id) {}
+  virtual void do_feature_side_effects(int /* id */) {}
 
   // NOTE that all feature enums should start with f_*_active
   enum features_biases {

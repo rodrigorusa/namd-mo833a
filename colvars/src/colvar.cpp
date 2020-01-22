@@ -2,7 +2,7 @@
 
 // This file is part of the Collective Variables module (Colvars).
 // The original version of Colvars and its updates are located at:
-// https://github.com/colvars/colvars
+// https://github.com/Colvars/colvars
 // Please update all Colvars source files before making any changes.
 // If you wish to distribute your changes, please submit them to the
 // Colvars repository at GitHub.
@@ -296,13 +296,13 @@ int colvar::init(std::string const &conf)
 #ifdef LEPTON
 int colvar::init_custom_function(std::string const &conf)
 {
-  std::string expr;
+  std::string expr, expr_in; // expr_in is a buffer to remember expr after unsuccessful parsing
   std::vector<Lepton::ParsedExpression> pexprs;
   Lepton::ParsedExpression pexpr;
   size_t pos = 0; // current position in config string
   double *ref;
 
-  if (!key_lookup(conf, "customFunction", &expr, &pos)) {
+  if (!key_lookup(conf, "customFunction", &expr_in, &pos)) {
     return COLVARS_OK;
   }
 
@@ -310,6 +310,7 @@ int colvar::init_custom_function(std::string const &conf)
   cvm::log("This colvar uses a custom function.\n");
 
   do {
+    expr = expr_in;
     if (cvm::debug())
       cvm::log("Parsing expression \"" + expr + "\".\n");
     try {
@@ -337,8 +338,7 @@ int colvar::init_custom_function(std::string const &conf)
             // To keep the same workflow, we use a pointer to a double here
             // that will receive CVC values - even though none was allocated by Lepton
             ref = &dev_null;
-            if (cvm::debug())
-              cvm::log("Variable " + vn + " is absent from expression \"" + expr + "\".\n");
+            cvm::log("Warning: Variable " + vn + " is absent from expression \"" + expr + "\".\n");
           }
           value_eval_var_refs.push_back(ref);
         }
@@ -348,7 +348,7 @@ int colvar::init_custom_function(std::string const &conf)
       cvm::error("Error compiling expression \"" + expr + "\".\n", INPUT_ERROR);
       return INPUT_ERROR;
     }
-  } while (key_lookup(conf, "customFunction", &expr, &pos));
+  } while (key_lookup(conf, "customFunction", &expr_in, &pos));
 
 
   // Now define derivative with respect to each scalar sub-component
@@ -373,8 +373,7 @@ int colvar::init_custom_function(std::string const &conf)
             catch (...) { // Variable is absent from derivative
               // To keep the same workflow, we use a pointer to a double here
               // that will receive CVC values - even though none was allocated by Lepton
-              if (cvm::debug())
-                cvm::log("Variable " + vvn + " is absent from derivative of \"" + expr + "\" wrt " + vn + ".\n");
+              cvm::log("Warning: Variable " + vvn + " is absent from derivative of \"" + expr + "\" wrt " + vn + ".\n");
               ref = &dev_null;
             }
             grad_eval_var_refs.push_back(ref);
@@ -439,6 +438,21 @@ int colvar::init_custom_function(std::string const &conf)
 
 int colvar::init_custom_function(std::string const &conf)
 {
+
+  std::string expr;
+  size_t pos = 0;
+  if (key_lookup(conf, "customFunction", &expr, &pos)) {
+    std::string msg("Error: customFunction requires the Lepton library.");
+#if (__cplusplus < 201103L)
+    // NOTE: this is not ideal; testing for the Lepton library's version would
+    // be more accurate, but also less portable
+    msg +=
+      std::string("  Note also that recent versions of Lepton require C++11: "
+                  "please see https://colvars.github.io/README-c++11.html.");
+#endif
+    return cvm::error(msg, COLVARS_NOT_IMPLEMENTED);
+  }
+
   return COLVARS_OK;
 }
 
@@ -568,7 +582,8 @@ int colvar::init_extended_Lagrangian(std::string const &conf)
     cvm::log("Enabling the extended Lagrangian term for colvar \""+
              this->name+"\".\n");
 
-    x_ext.type(value());
+    // Mark x_ext as uninitialized so we can initialize it to the colvar value when updating
+    x_ext.type(colvarvalue::type_notset);
     v_ext.type(value());
     fr.type(value());
 
@@ -646,7 +661,7 @@ int colvar::init_output_flags(std::string const &conf)
     bool temp;
     if (get_keyval(conf, "outputSystemForce", temp, false, colvarparse::parse_silent)) {
       cvm::error("Option outputSystemForce is deprecated: only outputTotalForce is supported instead.\n"
-                 "The two are NOT identical: see http://colvars.github.io/totalforce.html.\n", INPUT_ERROR);
+                 "The two are NOT identical: see https://colvars.github.io/totalforce.html.\n", INPUT_ERROR);
       return INPUT_ERROR;
     }
   }
@@ -664,7 +679,7 @@ int colvar::init_output_flags(std::string const &conf)
 // read the configuration and set up corresponding instances, for
 // each type of component implemented
 template<typename def_class_name> int colvar::init_components_type(std::string const &conf,
-                                                                   char const *def_desc,
+                                                                   char const * /* def_desc */,
                                                                    char const *def_config_key)
 {
   size_t def_count = 0;
@@ -793,9 +808,11 @@ int colvar::init_components(std::string const &conf)
   error_code |= init_components_type<eigenvector>(conf, "eigenvector", "eigenvector");
   error_code |= init_components_type<gspath>(conf, "geometrical path collective variables (s)", "gspath");
   error_code |= init_components_type<gzpath>(conf, "geometrical path collective variables (z)", "gzpath");
-  error_code |= init_components_type<linearCombination>(conf, "linear combination of other collective variables", "subColvar");
+  error_code |= init_components_type<linearCombination>(conf, "linear combination of other collective variables", "linearCombination");
   error_code |= init_components_type<gspathCV>(conf, "geometrical path collective variables (s) for other CVs", "gspathCV");
   error_code |= init_components_type<gzpathCV>(conf, "geometrical path collective variables (z) for other CVs", "gzpathCV");
+  error_code |= init_components_type<aspathCV>(conf, "arithmetic path collective variables (s) for other CVs", "aspathCV");
+  error_code |= init_components_type<azpathCV>(conf, "arithmetic path collective variables (s) for other CVs", "azpathCV");
 
   if (!cvcs.size() || (error_code != COLVARS_OK)) {
     cvm::error("Error: no valid components were provided "
@@ -804,12 +821,24 @@ int colvar::init_components(std::string const &conf)
     return INPUT_ERROR;
   }
 
+  size_t i, j;
+  // Check for uniqueness of CVC names (esp. if user-provided)
+  for (i = 0; i < cvcs.size(); i++) {
+    for (j = i+1; j < cvcs.size(); j++) {
+      if (cvcs[i]->name == cvcs[j]->name) {
+        cvm::error("Components " + cvm::to_str(i) + " and " + cvm::to_str(j) +\
+          " cannot have the same name \"" +  cvcs[i]->name+ "\".\n", INPUT_ERROR);
+        return INPUT_ERROR;
+      }
+    }
+  }
+
   n_active_cvcs = cvcs.size();
 
   cvm::log("All components initialized.\n");
 
   // Store list of children cvcs for dependency checking purposes
-  for (size_t i = 0; i < cvcs.size(); i++) {
+  for (i = 0; i < cvcs.size(); i++) {
     add_child(cvcs[i]);
   }
 
@@ -921,7 +950,7 @@ int colvar::parse_analysis(std::string const &conf)
         return cvm::error("Error: collective variable \""+acf_colvar_name+
                           "\" is not defined at this time.\n", INPUT_ERROR);
       }
-      cv2->enable(f_cv_fdiff_velocity);
+      cv2->enable(f_cv_fdiff_velocity); // Manual dependency to object of same type
     } else if (acf_type_str == to_lower_cppstr(std::string("coordinate_p2"))) {
       acf_type = acf_p2coor;
     } else {
@@ -1227,7 +1256,7 @@ int colvar::collect_cvc_data()
 }
 
 
-int colvar::check_cvc_range(int first_cvc, size_t num_cvcs)
+int colvar::check_cvc_range(int first_cvc, size_t /* num_cvcs */)
 {
   if ((first_cvc < 0) || (first_cvc >= ((int) cvcs.size()))) {
     cvm::error("Error: trying to address a component outside the "
@@ -1512,7 +1541,7 @@ int colvar::calc_colvar_properties()
 
     // initialize the restraint center in the first step to the value
     // just calculated from the cvcs
-    if (cvm::step_relative() == 0 && !after_restart) {
+    if ((cvm::step_relative() == 0 && !after_restart) || x_ext.type() == colvarvalue::type_notset) {
       x_ext = x;
       v_ext.reset(); // (already 0; added for clarity)
     }

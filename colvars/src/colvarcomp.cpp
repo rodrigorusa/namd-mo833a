@@ -2,7 +2,7 @@
 
 // This file is part of the Collective Variables module (Colvars).
 // The original version of Colvars and its updates are located at:
-// https://github.com/colvars/colvars
+// https://github.com/Colvars/colvars
 // Please update all Colvars source files before making any changes.
 // If you wish to distribute your changes, please submit them to the
 // Colvars repository at GitHub.
@@ -76,7 +76,7 @@ int colvar::cvc::init(std::string const &conf)
   get_keyval(conf, "period", period, period);
   get_keyval(conf, "wrapAround", wrap_center, wrap_center);
 
-  get_keyval_feature(dynamic_cast<colvarparse *>(this), conf, "debugGradients",
+  get_keyval_feature(this, conf, "debugGradients",
                      f_cvc_debug_gradient, false, parse_silent);
 
   bool b_no_PBC = !is_enabled(f_cvc_pbc_minimum_image); // Enabled by default
@@ -537,7 +537,7 @@ colvarvalue colvar::cvc::dist2_rgrad(colvarvalue const &x1,
 }
 
 
-void colvar::cvc::wrap(colvarvalue &x_unwrapped) const
+void colvar::cvc::wrap(colvarvalue & /* x_unwrapped */) const
 {
   return;
 }
