@@ -264,7 +264,7 @@ void BackEnd::init(int argc, char **argv) {
 void cuda_finalize();
 
 // called on proc 0 by front end
-void BackEnd::exit(void) {
+void BackEnd::exit(int status) {
   float cpuTime = CmiCpuTimer() - cpuTime_start;
   float wallTime = CmiWallTimer() - wallTime_start;
   CmiPrintf("====================================================\n\n"
@@ -291,7 +291,7 @@ void BackEnd::exit(void) {
   }
 #endif
 #endif
-  CkExit();
+  CkExit(status);
 }
 
 // start scheduler

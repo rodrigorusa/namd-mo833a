@@ -13,7 +13,7 @@ class BackEnd {
 public:
 
   static void init(int argc, char **argv);  // Must call at program startup
-  static void exit(void);  // Must call at program shutdown
+  static void exit(int status=0);  // Must call at program shutdown
 
   static void suspend(void);  // Let message code run...
   static void awaken(void);  // ...then return
