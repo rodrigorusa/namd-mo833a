@@ -70,13 +70,8 @@ void NAMD_quit(const char *err_msg)
   if (CmiNumPartitions() > 1) {
     sprintf(repstr,"REPLICA %d ", CmiMyPartition());
   }
-  char msgbuf[256];
-  sprintf(msgbuf,"%sEXITING: %216s\n", repstr, err_msg);
-#if CHARM_VERSION >= 61000
-  CkAbort("%s", msgbuf);
-#else
-  CkAbort(msgbuf);
-#endif
+  CkError("%sEXITING: %s\n", repstr, err_msg);
+  CkExit(0);
 }
 
  
@@ -90,13 +85,8 @@ void NAMD_die(const char *err_msg)
   if (CmiNumPartitions() > 1) {
     sprintf(repstr,"REPLICA %d ", CmiMyPartition());
   }
-  char msgbuf[256];
-  sprintf(msgbuf,"%sFATAL ERROR: %216s\n", repstr, err_msg);
-#if CHARM_VERSION >= 61000
-  CkAbort("%s", msgbuf);
-#else
-  CkAbort(msgbuf);
-#endif
+  CkError("%sFATAL ERROR: %s\n", repstr, err_msg);
+  CkExit(1);
 }
 
 
@@ -112,13 +102,8 @@ void NAMD_err(const char *err_msg)
   if (CmiNumPartitions() > 1) {
     sprintf(repstr,"REPLICA %d ", CmiMyPartition());
   }
-  char msgbuf[256];
-  sprintf(msgbuf,"%sFATAL ERROR: %136s: %80s\n", repstr, err_msg, sys_err_msg);
-#if CHARM_VERSION >= 61000
-  CkAbort("%s", msgbuf);
-#else
-  CkAbort(msgbuf);
-#endif
+  CkError("%sFATAL ERROR: %s: %s\n", repstr, err_msg, sys_err_msg);
+  CkExit(1);
 }
 
 
@@ -134,13 +119,8 @@ void NAMD_bug(const char *err_msg)
   if (CmiNumPartitions() > 1) {
     sprintf(repstr,"REPLICA %d ", CmiMyPartition());
   }
-  char msgbuf[256];
-  sprintf(msgbuf,"%sFATAL ERROR: %136s\n%80s\n", repstr, err_msg, bug_msg);
-#if CHARM_VERSION >= 61000
-  CkAbort("%s", msgbuf);
-#else
-  CkAbort(msgbuf);
-#endif
+  CkError("%sFATAL ERROR: %s\n%s\n", repstr, err_msg, bug_msg);
+  CkExit(2);
 }
 
 
