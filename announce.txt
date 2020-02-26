@@ -46,7 +46,7 @@ NAMD 2.13 has many advantages over NAMD 2.12, including:
 
 - Support for billion-atom systems
 
-- Update to Charm++ 6.10.0
+- Update to Charm++ 6.10.1
 
 - Require CUDA 8.0 or greater, Kepler or newer GPUs
 
