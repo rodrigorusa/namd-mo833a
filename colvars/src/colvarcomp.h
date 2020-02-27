@@ -26,9 +26,10 @@
 #include "colvar_arithmeticpath.h"
 
 #if (__cplusplus >= 201103L)
+// C++11-only functions
 #include "colvar_geometricpath.h"
 #include <functional>
-#endif // C++11 checking
+#endif
 
 #include <map>
 
@@ -98,10 +99,7 @@ public:
   /// \brief Exponent in the polynomial combination (default: 1)
   int       sup_np;
 
-  /// \brief Is this a periodic component?
-  bool b_periodic;
-
-  /// \brief Period of this cvc value, (default: 0.0, non periodic)
+  /// \brief Period of the values of this CVC (default: 0.0, non periodic)
   cvm::real period;
 
   /// \brief If the component is periodic, wrap around this value (default: 0.0)
@@ -262,10 +260,13 @@ public:
   std::vector<cvm::atom_group *> atom_groups;
 
   /// \brief Store a pointer to new atom group, and list as child for dependencies
-  inline void register_atom_group(cvm::atom_group *ag) {
-    atom_groups.push_back(ag);
-    add_child(ag);
-  }
+  void register_atom_group(cvm::atom_group *ag);
+
+  /// Pointer to the gradient of parameter param_name
+  virtual colvarvalue const *get_param_grad(std::string const &param_name);
+
+  /// Set the named parameter to the given value
+  virtual int set_param(std::string const &param_name, void const *new_value);
 
   /// \brief Whether or not this CVC will be computed in parallel whenever possible
   bool b_try_scalable;
@@ -287,6 +288,24 @@ protected:
   /// \brief Calculated Jacobian derivative (divergence of the inverse
   /// gradients): serves to calculate the phase space correction
   colvarvalue jd;
+
+  /// \brief Set data types for a scalar distance (convenience function)
+  void init_as_distance();
+
+  /// \brief Set data types for a bounded angle (convenience function)
+  void init_as_angle();
+
+  /// \brief Set two scalar boundaries (convenience function)
+  void init_scalar_boundaries(cvm::real lb, cvm::real ub);
+
+  /// \brief Location of the lower boundary (not defined by user choice)
+  colvarvalue lower_boundary;
+
+  /// \brief Location of the upper boundary (not defined by user choice)
+  colvarvalue upper_boundary;
+
+  /// \brief CVC-specific default colvar width
+  cvm::real width;
 };
 
 
@@ -539,7 +558,6 @@ protected:
   bool b_no_PBC;
 public:
   distance_inv(std::string const &conf);
-  distance_inv();
   virtual ~distance_inv() {}
   virtual void calc_value();
   virtual void calc_gradients();
@@ -615,9 +633,7 @@ protected:
   /// Atoms involved
   cvm::atom_group  *atoms;
 public:
-  /// Constructor
   gyration(std::string const &conf);
-  gyration();
   virtual ~gyration() {}
   virtual void calc_value();
   virtual void calc_gradients();
@@ -753,7 +769,6 @@ public:
   angle(std::string const &conf);
   /// \brief Initialize the three groups after three atoms
   angle(cvm::atom const &a1, cvm::atom const &a2, cvm::atom const &a3);
-  angle();
   virtual ~angle() {}
   virtual void calc_value();
   virtual void calc_gradients();
@@ -903,7 +918,6 @@ protected:
 public:
 
   coordnum(std::string const &conf);
-  coordnum();
   ~coordnum();
 
   virtual void calc_value();
@@ -973,7 +987,6 @@ protected:
 public:
 
   selfcoordnum(std::string const &conf);
-  selfcoordnum();
   ~selfcoordnum();
   virtual void calc_value();
   virtual void calc_gradients();
@@ -1012,7 +1025,6 @@ protected:
 public:
   /// Constructor
   groupcoordnum(std::string const &conf);
-  groupcoordnum();
   virtual ~groupcoordnum() {}
   virtual void calc_value();
   virtual void calc_gradients();
@@ -1233,7 +1245,6 @@ class colvar::orientation_angle
 public:
 
   orientation_angle(std::string const &conf);
-  orientation_angle();
   virtual int init(std::string const &conf);
   virtual ~orientation_angle() {}
   virtual void calc_value();
@@ -1286,7 +1297,6 @@ protected:
 public:
 
   tilt(std::string const &conf);
-  tilt();
   virtual int init(std::string const &conf);
   virtual ~tilt() {}
   virtual void calc_value();

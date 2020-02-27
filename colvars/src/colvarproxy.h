@@ -16,7 +16,7 @@
 #include "colvarmodule.h"
 #include "colvartypes.h"
 #include "colvarvalue.h"
-
+#include "colvarproxy_tcl.h"
 
 /// \file colvarproxy.h
 /// \brief Colvars proxy classes
@@ -29,7 +29,7 @@
 ///
 /// To interface to a new MD engine, the simplest solution is to derive a new
 /// class from \link colvarproxy \endlink.  Currently implemented are: \link
-/// colvarproxy_lammps \endlink, \link colvarproxy_namd \endlink, \link
+/// colvarproxy_lammps, \endlink, \link colvarproxy_namd, \endlink, \link
 /// colvarproxy_vmd \endlink.
 
 
@@ -121,7 +121,14 @@ public:
   /// Are total forces from the current step available?
   virtual bool total_forces_same_step() const;
 
+  /// Get the molecule ID when called in VMD; raise error otherwise
+  /// \param molid Set this argument equal to the current VMD molid
+  virtual int get_molid(int &molid);
+
 protected:
+
+  /// Whether the total forces have been requested
+  bool total_force_requested;
 
   /// \brief Type of boundary conditions
   ///
@@ -542,46 +549,6 @@ public:
 };
 
 
-/// Methods for using Tcl within Colvars
-class colvarproxy_tcl {
-
-public:
-
-  /// Constructor
-  colvarproxy_tcl();
-
-  /// Destructor
-  virtual ~colvarproxy_tcl();
-
-  /// Is Tcl available? (trigger initialization if needed)
-  int tcl_available();
-
-  /// Tcl implementation of script_obj_to_str()
-  char const *tcl_obj_to_str(unsigned char *obj);
-
-  /// Run a user-defined colvar forces script
-  int tcl_run_force_callback();
-
-  int tcl_run_colvar_callback(
-              std::string const &name,
-              std::vector<const colvarvalue *> const &cvcs,
-              colvarvalue &value);
-
-  int tcl_run_colvar_gradient_callback(
-              std::string const &name,
-              std::vector<const colvarvalue *> const &cvcs,
-              std::vector<cvm::matrix2d<cvm::real> > &gradient);
-
-protected:
-
-  /// Pointer to Tcl interpreter object
-  void *tcl_interp_;
-
-  /// Set Tcl pointers
-  virtual void init_tcl_pointers();
-};
-
-
 /// Methods for data input/output
 class colvarproxy_io {
 
@@ -731,13 +698,19 @@ public:
   /// Print a message to the main log
   virtual void log(std::string const &message) = 0;
 
-  /// Print a message to the main log and let the rest of the program handle the error
+  /// Print a message to the main log and/or let the host code know about it
   virtual void error(std::string const &message) = 0;
 
-  /// Print a message to the main log and exit with error code
-  virtual void fatal_error(std::string const &message) = 0;
+  /// Record error message (used by VMD to collect them after a script call)
+  void add_error_msg(std::string const &message);
 
-  /// \brief Restarts will be written each time this number of steps has passed
+  /// Retrieve accumulated error messages
+  std::string const & get_error_msgs();
+
+  /// As the name says
+  void clear_error_msgs();
+
+  /// Restarts will be written each time this number of steps has passed
   virtual size_t restart_frequency();
 
   /// Whether a simulation is running (warn against irrecovarable errors)
@@ -756,6 +729,9 @@ public:
   }
 
 protected:
+
+  /// Collected error messages
+  std::string error_output;
 
   /// Whether a simulation is running (warn against irrecovarable errors)
   bool b_simulation_running;

@@ -32,6 +32,41 @@ namespace {
 }
 
 
+colvarparse::colvarparse()
+{
+  init();
+}
+
+
+void colvarparse::init()
+{
+  config_string.clear();
+  clear_keyword_registry();
+}
+
+
+colvarparse::colvarparse(const std::string& conf)
+{
+  init(conf);
+}
+
+
+void colvarparse::init(std::string const &conf)
+{
+  if (! config_string.size()) {
+    init();
+    config_string = conf;
+  }
+}
+
+
+colvarparse::~colvarparse()
+{
+  init();
+}
+
+
+
 bool colvarparse::get_key_string_value(std::string const &conf,
                                        char const *key, std::string &data)
 {
@@ -805,6 +840,17 @@ bool colvarparse::key_lookup(std::string const &conf,
 }
 
 
+colvarparse::read_block::read_block(std::string const &key_in,
+                                    std::string *data_in)
+  : key(key_in), data(data_in)
+{
+}
+
+
+colvarparse::read_block::~read_block()
+{}
+
+
 std::istream & operator>> (std::istream &is, colvarparse::read_block const &rb)
 {
   size_t start_pos = is.tellg();
@@ -821,7 +867,9 @@ std::istream & operator>> (std::istream &is, colvarparse::read_block const &rb)
   }
 
   if (next != "{") {
-    (*rb.data) = next;
+    if (rb.data) {
+      *(rb.data) = next;
+    }
     return is;
   }
 
@@ -835,9 +883,15 @@ std::istream & operator>> (std::istream &is, colvarparse::read_block const &rb)
       br_old = br;
       br++;
     }
-    if (brace_count) (*rb.data).append(line + "\n");
+    if (brace_count) {
+      if (rb.data) {
+        (rb.data)->append(line + "\n");
+      }
+    }
     else {
-      (*rb.data).append(line, 0, br_old);
+      if (rb.data) {
+        (rb.data)->append(line, 0, br_old);
+      }
       break;
     }
   }

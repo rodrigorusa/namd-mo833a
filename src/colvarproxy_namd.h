@@ -49,8 +49,6 @@ protected:
   bool first_timestep;
   size_t previous_NAMD_step;
 
-  bool total_force_requested;
-
   /// Used to submit restraint energy as MISC
   SubmitReduction *reduction;
 
@@ -74,7 +72,6 @@ public:
 
   void log(std::string const &message);
   void error(std::string const &message);
-  void fatal_error(std::string const &message);
   int set_unit_system(std::string const &units_in, bool check_only);
   void exit(std::string const &message);
   void add_energy(cvm::real energy);

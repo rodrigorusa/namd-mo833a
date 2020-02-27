@@ -40,7 +40,6 @@ colvarproxy_namd::colvarproxy_namd()
   version_int = get_version_from_string(COLVARPROXY_VERSION);
 
   first_timestep = true;
-  total_force_requested = false;
   requestTotalForce(total_force_requested);
 
   angstrom_value = 1.;
@@ -91,8 +90,8 @@ colvarproxy_namd::colvarproxy_namd()
 
   // check if it is possible to save output configuration
   if ((!output_prefix_str.size()) && (!restart_output_prefix_str.size())) {
-    fatal_error("Error: neither the final output state file or "
-                "the output restart file could be defined, exiting.\n");
+    error("Error: neither the final output state file or "
+          "the output restart file could be defined, exiting.\n");
   }
 
 
@@ -119,6 +118,7 @@ colvarproxy_namd::colvarproxy_namd()
   cvm::log("Using NAMD interface, version "+
            cvm::to_str(COLVARPROXY_VERSION)+".\n");
 
+  errno = 0;
   if (config) {
     colvars->read_config_file(config->data);
   }
@@ -203,6 +203,8 @@ int colvarproxy_namd::setup()
 
   cvm::log("Updating NAMD interface:\n");
 
+  errno = 0;
+
   if (simparams->wrapAll) {
     cvm::log("Warning: enabling wrapAll can lead to inconsistent results "
              "for Colvars calculations: please disable wrapAll, "
@@ -264,9 +266,11 @@ int colvarproxy_namd::reset()
 
 void colvarproxy_namd::calculate()
 {
+  errno = 0;
+
   if (first_timestep) {
 
-    this->setup();
+    colvarproxy_namd::setup();
     colvars->setup();
     colvars->setup_input();
     colvars->setup_output();
@@ -540,6 +544,7 @@ void colvarproxy_namd::request_total_force(bool yesno)
   }
 }
 
+
 void colvarproxy_namd::log(std::string const &message)
 {
   std::istringstream is(message);
@@ -549,21 +554,24 @@ void colvarproxy_namd::log(std::string const &message)
   iout << endi;
 }
 
+
 void colvarproxy_namd::error(std::string const &message)
 {
-  // In NAMD, all errors are fatal
-  fatal_error(message);
-}
-
-
-void colvarproxy_namd::fatal_error(std::string const &message)
-{
   log(message);
+  switch (cvm::get_error()) {
+  case FILE_ERROR:
+    errno = EIO; break;
+  case COLVARS_NOT_IMPLEMENTED:
+    errno = ENOSYS; break;
+  case MEMORY_ERROR:
+    errno = ENOMEM; break;
+  }
+  char const *msg = "Error in the collective variables module "
+    "(see above for details)";
   if (errno) {
-    // log(strerror(errno));
-    NAMD_err("Error in the collective variables module");
+    NAMD_err(msg);
   } else {
-    NAMD_die("Error in the collective variables module: exiting.\n");
+    NAMD_die(msg);
   }
 }
 
@@ -1012,11 +1020,8 @@ int colvarproxy_namd::backup_file(char const *filename)
 
 char const *colvarproxy_namd::script_obj_to_str(unsigned char *obj)
 {
-  if (cvm::debug()) {
-    cvm::log("Called colvarproxy_namd::script_obj_to_str().\n");
-  }
 #ifdef NAMD_TCL
-  return Tcl_GetString(reinterpret_cast<Tcl_Obj *>(obj));
+  return colvarproxy_tcl::tcl_get_str(obj);
 #else
   // This is most likely not going to be executed
   return colvarproxy::script_obj_to_str(obj);

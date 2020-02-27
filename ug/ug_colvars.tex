@@ -283,8 +283,9 @@ To avoid errors due to reading configuration files written in a different unit s
 \cvnamdonly{
 \cvsubsec{NAMD parameters}{sec:colvars_mdengine_params}
 
-To enable a Colvars-based calculation, two parameters must be added to the NAMD configuration file, \texttt{colvars} and \texttt{colvarsConfig}.
-An optional third parameter, \texttt{colvarsInput}, can be used to continue a previous simulation.
+To enable a Colvars-based calculation, the \texttt{colvars on} command must be added to the NAMD script.
+Two optional commands, \texttt{colvarsConfig} and \texttt{colvarsInput} can be used to define the module's configuration or continue a previous simulation.
+Because these are static parameters, it is typically more convenient to use the \texttt{cv} command in the rest of the NAMD script.
 
 \begin{itemize}
 %  \setlength{\itemsep}{0.4cm}
@@ -296,9 +297,7 @@ An optional third parameter, \texttt{colvarsInput}, can be used to continue a pr
     Enable the Colvars module}{%
     boolean}{%
     \texttt{off}}{%
-    If this flag is on, the Colvars module within
-    NAMD is enabled; the module requires a separate configuration
-    file, to be provided with \texttt{colvarsConfig}.}
+    If this flag is on, the Colvars module within NAMD is enabled.}
 
 \item %
   \key
@@ -306,9 +305,9 @@ An optional third parameter, \texttt{colvarsInput}, can be used to continue a pr
     NAMD configuration file}{%
     Configuration file for the collective variables}{%
     UNIX filename}{%
-    This file contains the definition of all collective variables and
-    their biasing or analysis methods.
-    This file can also be provided by the Tcl command \texttt{cv configfile}; alternatively, the contents of the file itself can be given as an argument to the command \texttt{cv config}.
+    Name of the Colvars configuration file (\ref{sec:colvars_config_syntax}, \ref{sec:colvars_global} and following sections).
+    This file can also be provided by the Tcl command \texttt{cv configfile}.
+    Alternatively, the contents of the file (as opposed to the file itself) can be given as a string argument to the command \texttt{cv config}.
   }
 
 \item %
@@ -317,10 +316,8 @@ An optional third parameter, \texttt{colvarsInput}, can be used to continue a pr
     NAMD configuration file}{%
     Input state file for the collective variables}{%
     UNIX filename}{%
-    When continuing a previous simulation run, this file contains the current state of all collective variables and of their associated algorithms.
-    It is written automatically at the end of any simulation with collective variables.
-    The step number contained by this file will be used internally by Colvars to control time-dependent biases, unless \texttt{firstTimestep} is given, in which case that value will be used.
-    This file can also be loaded with the Tcl command \texttt{cv load}.
+    Keyword used to specify the input state file's name (\ref{sec:colvars_input}).
+    If the input file is meant to be loaded within a Tcl script section, the \texttt{cv load} command may be used instead.
   }
 
 \end{itemize}
@@ -401,7 +398,8 @@ At any moment during the execution of \MDENGINE{}, several options in the Colvar
 \noindent\texttt{cv~$<$subcommand$>$ [args...]}\\
 \noindent{}For example, to record the value of a collective variable named \texttt{myVar} into the Tcl variable \texttt{value}, use the following syntax:\\
 \noindent\texttt{set value [cv colvar myVar value]}\\
-\noindent{}All subcommands of \texttt{cv} are documented below.
+\noindent{}All major subcommands of \texttt{cv} are documented in detail below.
+A complete list of commands is provided in section~\ref{sec:cvscript_tcl}.
 
 \cvvmdonly{
 \textbf{Note:} in VMD, Colvars must be attached to one molecule (system).
@@ -677,6 +675,29 @@ harmonic \{\\
 Section \ref{sec:colvar} explains how to define a colvar and its behavior, regardless of its specific functional form.
 To define colvars that are appropriate to a specific physical system, Section \ref{sec:colvar_atom_groups} documents how to select atoms, and section \ref{sec:colvar} lists all of the available functional forms, which we call ``colvar components''.
 Finally, section \ref{sec:colvarbias} lists the available methods and algorithms to perform biased simulations and multidimensional analysis of colvars.
+
+
+
+\cvsubsec{Input state file}{sec:colvars_input}
+
+Because many of the methods implemented in Colvars are history-dependent, a \emph{state file} is often needed to continue a long simulation over consecutive runs.
+Such state file is written automatically at the end of any simulation with Colvars, and contains data accumulated during that simulation along with the step number at the end of it.
+The step number read from the state file is then used to control such time-dependent biases: because of this essential role, the step number internal to Colvars may not always match the step number reported by the MD program that carried during the simulation (which may instead restart from zero each time).
+\cvnamdonly{If a state file is not given, the NAMD command \texttt{firstTimestep} may be used to control the Colvars step number.}
+
+Depending on the configuration, a state file may need to be loaded issued at the beginning of a new simulation when time-dependent biasing methods are applied (moving restraints, metadynamics, ABF, ...).
+\cvnamdonly{When the Colvars module is initialized in NAMD, the \texttt{colvarsInput} keyword can be used to give the name of the state file}.
+\cvlammpsonly{When the Colvars fix is defined in LAMMPS, the keyword \texttt{input} can be used to load the state file, although it is typically easier to use the LAMMPS \texttt{read\_restart} to re-initialize Colvars together with other fixes.}
+After initialization, a state file may be loaded at any time \cvnamdonly{with the Tcl command \texttt{cv load}}%
+\cvvmdonly{with the Tcl command \texttt{cv load}}%
+\cvlammpsonly{with the \texttt{fix\_modify <fix-ID> load <filename>} LAMMPS command}.
+
+It is possible to load a state file even if the configuration has changed:
+for example, new variables may be defined or restraints be added in between consecutive runs.
+For each newly defined variable or bias, no information will be read from the state file if this is unavailable: such new objects will remain uninitialized until the first compute step.
+Conversely, any information that the state file has about variables or biases that are not defined any longer is silently ignored.
+\emph{Because these checks are done by the names of variables or biases, it is the user's responsibility to ensure that these are consistent between runs.}
+
 
 
 \cvsubsec{Output files}{sec:colvars_output}
@@ -1521,21 +1542,15 @@ lets the RMSD component decribe the deviation of atoms
 from fixed positions in the laboratory frame: this allows for custom
 positional restraints within the Colvars module;
 \item fitting the atomic positions to different reference coordinates
-than those used in the RMSD calculation itself;
+than those used in the RMSD calculation itself
+(by specifying \refkey{refPositions}{atom-group|refPositions} or \refkey{refPositionsFile}{atom-group|refPositionsFile}
+within the atom group as well as within the \texttt{rmsd} block);
 \item applying the optimal rotation and/or translation from a separate
-atom group, defined through \texttt{fittingGroup}: the RMSD then
-reflects the deviation from reference coordinates in a separate, moving
-reference frame.
+atom group, defined through \texttt{fittingGroup}:
+the RMSD then reflects the deviation from reference coordinates in a separate, moving
+reference frame (see example in the section on \refkey{fittingGroup}{atom-group|fittingGroup}).
 \end{enumerate}
 
-
-\cvscriptonly{
-\cvsubsubsec{Path collective variables}{sec:pathcv}
-
-An application of the \texttt{rmsd} component is "path collective variables",\cite{Branduardi2007}
-which are implemented as Tcl-scripted combinations or RMSDs.
-The implementation is available as file \texttt{colvartools/pathCV.tcl}, and
-an example is provided in file \texttt{examples/10\_pathCV.namd} of the Colvars public repository.}
 
 
 \cvsubsubsec{\texttt{eigenvector}: projection of the atomic  coordinates on a vector.}{sec:cvc_eigenvector}
@@ -2418,16 +2433,18 @@ The usage of \texttt{gzpathCV} and \texttt{gspathCV} is illustrated below:
 \}}
 
 
-\cvsubsec{Arithmetic path collective variables in CV space}{sec:cvc_apathCV}
+\cvsubsec{Arithmetic path collective variables}{sec:cvc_apathCV}
 
 The arithmetic path collective variable in CV space uses the same formula as the one proposed by Branduardi\cite{Branduardi2007} et al., except that it computes $s$ and $z$ in CV space instead of RMSDs in Cartesian space. Moreover, this implementation allows different coefficients for each CV components as described in \cite{Hovan2019}. Assuming a path is composed of $N$ reference frames and defined in an $M$-dimensional CV space, then the equations of $s$ and $z$ of the path are 
 
 \begin{equation}
 s = \frac{\sum_{i=1}^{N} i \exp\left(-\lambda\sum_{j=1}^{M} c_j^2 \left(x_j-x_{i,j}\right)^2\right)}{\sum_{i=1}^{N} \exp\left(-\lambda\sum_{j=1}^{M} c_j^2 \left(x_j-x_{i,j}\right)^2\right)}
+\label{eq:apath_s}
 \end{equation}
 
 \begin{equation}
 z = -\frac{1}{\lambda} \ln \left(\sum_{i=1}^{N} \exp\left(-\lambda\sum_{j=1}^{M} c_j^2 \left(x_j-x_{i,j}\right) \right)\right)
+\label{eq:apath_z}
 \end{equation}
 where $c_j$ is the coefficient(weight) of the $j$-th CV, $x_{i,j}$ is the value of $j$-th CV of $i$-th reference frame and $x_{j}$ is the value of $j$-th CV of current frame. $\lambda$ is a parameter to smooth the variation of $s$ and $z$.
 
@@ -2526,6 +2543,34 @@ The usage of \texttt{azpathCV} and \texttt{aspathCV} is illustrated below:
 \-~~\}\\
 \}}
 
+
+
+\cvscriptonly{
+\cvsubsubsec{Path collective variables in Cartesian coordinates}{sec:apath_scripted}
+
+The path collective variables defined by Branduardi et al.~\cite{Branduardi2007}
+are based on RMSDs in Cartesian coordinates.
+Noting $d_i$ the RMSD between the current set of Cartesian coordinates and those of image number $i$ of the path:
+
+\begin{equation}
+s = \frac{1}{N-1} \frac{\sum_{i=1}^{N} (i-1) \exp\left(-\lambda d_i^2\right)}
+{\sum_{i=1}^{N} \exp\left(-\lambda d_i^2\right)}
+\end{equation}
+
+\begin{equation}
+z = -\frac{1}{\lambda} \ln \left(\sum_{i=1}^{N} \exp(-\lambda d_i^2)\right)
+\end{equation}
+
+where $\lambda$ is the smoothing parameter.
+
+
+These coordinates are implemented as Tcl-scripted combinations of \texttt{rmsd} components.
+The implementation is available as file \texttt{colvartools/pathCV.tcl}, and
+an example is provided in file \texttt{examples/10\_pathCV.namd} of the Colvars public repository.
+It implements an optimization procedure, whereby the distance to a given image is only calculated if its contribution
+to the sum is larger than a user-defined \texttt{tolerance} parameter.
+All distances are calculated every \texttt{freq} timesteps to update the list of nearby images.
+}
 
 
 \cvsubsec{Shared keywords for all components}{sec:cvc_common}
@@ -2836,7 +2881,7 @@ same meaning as in periodic components (see \ref{sec:cvc_periodic} for details).
 
 An example of elaborate scripted colvar is given in example 10, in the
 form of path-based collective variables as defined by Branduardi et al\cite{Branduardi2007}
-(\ref{sec:pathcv}).
+(Section~\ref{sec:apath_scripted}).
 
 \begin{itemize}
  \item %
@@ -2919,44 +2964,49 @@ The parameters described below offer a way to specify these parameters only once
 
 \item %
   \labelkey{colvar|lowerBoundary}
-  \key
+  \keydef
     {lowerBoundary}{%
     \texttt{colvar}}{%
     Lower boundary of the colvar}{%
     decimal}{%
-    Defines the lowest end of the interval of ``relevant'' values for the colvar.
-    This number can be either a true physical boundary, or a user-defined number.  
-    Together with \texttt{upperBoundary} and \texttt{width}, it is used to define a grid of values along the variable (not available for variables with vector values, \ref{sec:cvc_non_scalar}).
-    \emph{This option does not affect dynamics: to confine a colvar within a certain interval, use a \texttt{harmonicWalls} bias.}
+    natural boundary of the function}{%
+    Defines the lowest end of the interval of ``relevant'' values for the variable.
+    This number can be, for example, a true physical boundary imposed by the choice of function (e.g.{} the \texttt{distance} function is always larger than zero): if this is the case, and only one function is used to define the variable, the default value of this number is set to the lowest end of the range of values of that function, if available (see Section~\ref{sec:cvc_list}).
+    Alternatively, this value may be provided by the user, to represent for example the left-most point of a PMF calculation along this variable.
+    In the latter case, it is the user's responsibility to either \emph{(a)} ensure the variable does not go significantly beyond the boundary (for example by adding a \texttt{harmonicWalls} restraint, \ref{sec:colvarbias_harmonic_walls}), or \emph{(b)} instruct the code that this is a true physical boundary by setting \refkey{hardLowerBoundary}{colvar|hardLowerBoundary}.
 }
 
 \item %
   \labelkey{colvar|upperBoundary} %
-  \key
+  \keydef
     {upperBoundary}{%
     \texttt{colvar}}{%
     Upper boundary of the colvar}{%
     decimal}{%
-    Similarly to \texttt{lowerBoundary}, defines the highest possible or allowed value.}
+    natural boundary of the function}{%
+    Similarly to \texttt{lowerBoundary}, defines the highest of the ``relevant'' values of the variable.}
 
 \item %
+  \labelkey{colvar|hardLowerBoundary} %
   \keydef
     {hardLowerBoundary}{%
     \texttt{colvar}}{%
     Whether the lower boundary is the physical lower limit}{%
     boolean}{%
-    \texttt{off}}{%
-    This option does not affect simulation results, but enables some internal optimizations.
-    Depending on its mathematical definition, a colvar may have ``natural'' boundaries: for example, a \texttt{distance} colvar has a ``natural'' lower boundary at 0.  Setting this option instructs the Colvars module that the user-defined lower boundary is ``natural''.
-See Section~\ref{sec:cvc_list} for the physical ranges of values of each component.}
+    provided by the component}{%
+    When the colvar has a ``natural'' boundary (for example, a \texttt{distance} colvar cannot go below 0) this flag is automatically enabled.
+    For more complex variable definitions, or when \refkey{lowerBoundary}{colvar|lowerBoundary} is provided directly by the user, it may be useful to set this flag explicitly.
+    This option does not affect simulation results, but enables some internal optimizations by letting the code know that the variable is unable to cross the lower boundary, regardless of whether restraints are applied to it.
+}
 
 \item %
+  \labelkey{colvar|hardUpperBoundary} %
   \keydef
     {hardUpperBoundary}{%
     \texttt{colvar}}{%
     Whether the upper boundary is the physical upper limit of the colvar's values}{%
     boolean}{%
-    \texttt{off}}{%
+    provided by the component}{%
     Analogous to \texttt{hardLowerBoundary}.}
 
 \item %
@@ -2967,9 +3017,7 @@ See Section~\ref{sec:cvc_list} for the physical ranges of values of each compone
     Allow to expand the two boundaries if needed}{%
     boolean}{%
     \texttt{off}}{%
-    If defined, biasing and analysis methods may keep their own copies
-    of \texttt{lowerBoundary} and \texttt{upperBoundary}, and expand
-    them to accommodate values that do not fit in the initial range.
+    If defined, \texttt{lowerBoundary} and \texttt{upperBoundary} may be automatically expanded to accommodate colvar values that do not fit in the initial range.
     Currently, this option is used by the metadynamics bias
     (\ref{sec:colvarbias_meta}) to keep all of its hills fully within
     the grid.  This option cannot be used when
@@ -3142,11 +3190,19 @@ For two dimensional grid files, this allows quick visualization by programs such
 The following options enable extended-system
 dynamics, where a colvar is coupled to an additional degree of freedom 
 (fictitious particle) by a harmonic spring.
-All biasing and confining forces are then applied to the extended degree
-of freedom. The ``actual'' geometric colvar (function of Cartesian 
+This extended coordinate masks the colvar and replaces it transparently from
+the perspective of biasing and analysis methods.
+Biasing forces are then applied to the extended degree
+of freedom, and the actual geometric colvar (function of Cartesian
 coordinates) only feels the force from the harmonic spring.
-This is particularly useful when combined with an ABF bias (\ref{sec:colvarbias_abf})
+This is particularly useful when combined with an \refkey{abf}{sec:colvarbias_abf} bias
 to perform eABF simulations (\ref{sec:eABF}).
+
+Note that for some biases (\refkey{harmonicWalls}{sec:colvarbias_harmonic_walls}, \refkey{histogram}{sec:colvarbias_histogram}),
+this masking behavior is controlled by the keyword \refkey{bypassExtendedLagrangian}{colvarbias|bypassExtendedLagrangian}.
+Specifically for \texttt{harmonicWalls}, the default behavior is to bypass extended Lagrangian
+coordinates and act directly on the actual colvars.
+
 
 \begin{itemize}
 \item %
@@ -3164,7 +3220,8 @@ to perform eABF simulations (\ref{sec:eABF}).
     atoms directly.  This implements the extended Lagrangian formalism
     used in some metadynamics simulations~\cite{Iannuzzi2003}.
     \cvnamdonly{The energy associated with the extended degree of freedom is reported
-    under the MISC title in NAMD's energy output.}
+    along with bias energies
+    under the MISC title in NAMD's energy output}.
     }
 
 \item %
@@ -3673,30 +3730,34 @@ Be careful when using these options in ABF simulations or when using total force
     atom group}{%
     Use an alternate set of atoms to define the roto-translation}{%
     Block \texttt{fittingGroup \{ ... \}}}{%
-    This group itself}{%
+    This atom group itself}{%
     If either \texttt{centerReference} or \texttt{rotateReference} is defined, this keyword defines an alternate atom group to calculate the optimal roto-translation.
     Use this option to define a continuous rotation if the structure of the group involved changes significantly (a typical symptom would be the message ``Warning: discontinuous rotation!'').
 
 \cvnamebasedonly{
-    The following example illustrates the syntax of \texttt{fittingGroup}: a group called ``\texttt{atoms}'' is defined, including 8 C$_{\alpha}$ atoms of a protein of 100 residues.
-    An optimal roto-translation is calculated automatically by fitting the C$_{\alpha}$ trace of the rest of the protein onto the coordinates provided by a PDB file.}
+    The following example illustrates the use of \texttt{fittingGroup} as part of a Distance to Bound Configuration (DBC)
+    coordinate for use in ligand restraints for binding affinity calculations.\cite{Salari2018}
+    The group called ``\texttt{atoms}'' describes coordinates of a ligand's atoms, expressed in a moving frame of
+    reference tied to a binding site (here within a protein).
+    An optimal roto-translation is calculated automatically by fitting the C$_{\alpha}$ trace of the rest of the protein onto the coordinates provided by a PDB file.
+    To define a DBC coordinate, this atom group would be used within an \refkey{rmsd}{sec:cvc_rmsd} function.}
 
 {%
 \noindent\ttfamily
-\# Example: defining a group "atoms", with its coordinates expressed \\
-\# on a roto-translated frame of reference defined by a second group\\
+\# Example: defining a group "atoms" (the ligand) whose coordinates are expressed \\
+\# in a roto-translated frame of reference defined by a second group (the receptor)\\
 atoms \{\\
 \\
-\-~~psfSegID              PROT\\
-\-~~atomNameResidueRange  CA 41-48\\
+\-~~atomNumbers 1 2 3 4 5 6 7 \# atoms of the ligand (1-based)\\
 \\
 \-~~centerReference yes\\
 \-~~rotateReference yes\\
 \-~~fittingGroup \{\\
-\-~~~~\# define the frame by fitting the rest of the protein\\
+\-~~~~\# define the frame by fitting alpha carbon atoms\\
+\-~~~~\# in 2 protein segments close to the site\\
 \-~~~~psfSegID              PROT PROT\\
-\-~~~~atomNameResidueRange  CA  1-40\\
-\-~~~~atomNameResidueRange  CA 49-100\\
+\-~~~~atomNameResidueRange  CA 1-40\\
+\-~~~~atomNameResidueRange  CA 59-100\\
 \-~~\} \\
 \-~~refPositionsFile all.pdb  \# can be the entire system\\
 \}\\}
@@ -3858,8 +3919,22 @@ All biasing and analysis methods implemented recognize the following options:
     Write the current bias energy to the trajectory file}{%
     boolean}{%
     \texttt{off}}{%
-    If this option is chosen and  \texttt{colvarsTrajFrequency} is not zero, the current value of the biasing energy will be written to the trajectory file during the simulation.
-}
+    If this option is chosen and  \texttt{colvarsTrajFrequency} is not zero, the current value of the biasing energy will be written to the trajectory file during the simulation.}
+
+\item %
+  \labelkey{colvarbias|bypassExtendedLagrangian}
+  \keydef
+    {bypassExtendedLagrangian}{%
+    colvar bias}{%
+    Apply bias to actual colvars, bypassing extended coordinates}{%
+    boolean}{%
+    \texttt{off}}{%
+    This option is implemented by the \refkey{harmonicWalls}{sec:colvarbias_harmonic_walls} and
+    \refkey{histogram}{sec:colvarbias_histogram} biases.
+    It is only relevant if the bias is applied to one or several extended-Lagrangian colvars (\ref{sec:colvar_extended}),
+    for example within an eABF (\ref{sec:eABF}) simulation.
+    Usually, biases use the value of the extended coordinate as a proxy for the actual colvar, and their biasing forces are applied to the extended coordinates as well.
+    If \texttt{bypassExtendedLagrangian} is enabled, the bias behaves as if there were no extended coordinates, and accesses the value of the underlying colvars, applying any biasing forces along the gradients of those variables.}
 
 \end{itemize}
 
@@ -4250,7 +4325,7 @@ non-periodic coordinates, but not along periodic coordinates.
 
 In dimension 4 or greater, integrating the discretized gradient becomes non-trivial. The
 standalone utility \texttt{abf\_integrate} is provided to perform that task.
-Because 4D ABF calculations are uncommon, this tool is practically deprecated by
+Because 4D ABF calculations are uncommon, \textbf{this tool is practically deprecated} by
 the Poisson integration described above.
 
 \texttt{abf\_integrate} reads the gradient data and uses it to perform a Monte-Carlo (M-C)
@@ -4320,7 +4395,7 @@ The theory of eABF and the present implementation are documented in detail
 in reference~\cite{Lesage2017}.
 
 Defining an ABF bias on a colvar wherein the \texttt{extendedLagrangian} option
-is active will perform eABF; there is no dedicated option. 
+is active will perform eABF automatically; there is no dedicated option.
 
 The extended variable $\lambda$ is coupled to the colvar $z=\xi(q)$ by the harmonic potential
 $(k/2) (z - \lambda)^2$.
@@ -4510,26 +4585,79 @@ Assuming that the set of collective variables includes all relevant degrees of f
 In typical applications, a good rule of thumb can be to choose the ratio $W/\delta{}t$ much smaller than $\kappa_{\mathrm{B}}T/\tau_{\bm{\xi}}$, where $\tau_{\bm{\xi}}$ is the longest among $\bm{\xi}$'s correlation times: $\sigma_{\xi_{i}}$ then dictates the resolution of the calculated PMF.
 
 If the metadynamics parameters are chosen correctly, after an equilibration time, $t_{e}$, the estimator provided 
-by eq. \ref{eq:colvars_meta_fes} oscillates on time around the ``real'' free energy, thereby a better estimate of the latter
- can be obtained as the time average of the bias potential after $t_{e}$ \cite{Marinelli2009,Crespo2010}:
-
+by eq. \ref{eq:colvars_meta_fes} oscillates on time around the ``real'' free energy, thereby a better estimate of the latter can be obtained as the time average of the bias potential after $t_{e}$ \cite{Marinelli2009,Crespo2010}:
 \begin{equation}
   \label{eq:colvars_meta_fes_av}
   A(\bm{\xi}) \; = \; {-\frac{1}{t_{tot}-t_{e}} \int_{t_{e}}^{t_{tot}} {
     V_{\mathrm{meta}}(\bm{\xi},t)dt}
   }
 \end{equation}
+where $t_{e}$ is the time after which the bias potential grows (approximately) evenly during the simulation and $t_{tot}$ is the total simulation time. The free energy calculated according to eq.~\ref{eq:colvars_meta_fes_av} can thus be obtained averaging on time mutiple time-dependent free energy estimates, that can be printed out through the keyword \texttt{keepFreeEnergyFiles}. An alternative is to obtain the free energy profiles by summing the hills added during the simulation; the hills trajectory can be printed out by enabling the option \texttt{writeHillsTrajectory}.
 
-where $t_{e}$ is the time after which the bias potential grows (approximately) evenly during the simulation 
-and $t_{tot}$ is the total simulation time. The free energy calculated according to eq. \ref{eq:colvars_meta_fes_av} 
-can thus be obtained averaging on time mutiple time-dependent free energy estimates, that can be printed out through 
-the keyword \texttt{keepFreeEnergyFiles}. An alternative is to obtain the free energy profiles by summing 
-the hills added during the simulation; the hills trajectory can be printed out by enabling the option \texttt{writeHillsTrajectory}.
+\cvsubsubsec{Treatment of the PMF boundaries}{sec:colvarbias_meta_boundaries}
 
-\cvsubsubsec{Basic syntax}{sec:colvarbias_meta_basics}
+In typical scenarios the Gaussian hills of a metadynamics potential are interpolated and summed together onto a grid, which is much more efficient than computing each hill independently at every step (the keyword \refkey{useGrids}{metadynamics|useGrids} is \texttt{on} by default).
+This numerical approximation typically yields neglibile errors in the resulting PMF \cite{Fiorin2013}.
+However, due to the finite thickness of the Gaussian function, the metadynamics potential would suddenly vanish each time a variable exceeds its grid boundaries.
+
+To avoid such discontinuity the Colvars metadynamics code will keep an explicit copy of each hill that straddles a grid's boundary, and will use it to compute metadynamics forces outside the grid. 
+This measure is taken to protect the accuracy and stability of a metadynamics simulation, except in cases of ``natural'' boundaries (for example, the $[0:180]$ interval of an \texttt{angle} colvar) or when the flags \refkey{hardLowerBoundary}{colvar|hardLowerBoundary} and \refkey{hardUpperBoundary}{colvar|hardUpperBoundary} are explicitly set by the user.
+Unfortunately, processing explicit hills alongside the potential and force grids could easily become inefficient, slowing down the simulation and increasing the state file's size.
+
+In general, it is a good idea to \emph{define a repulsive potential to avoid hills from coming too close to the grid's boundaries}, for example as a \texttt{harmonicWalls} restraint (see \ref{sec:colvarbias_harmonic_walls}).\\
+
+\noindent\textbf{Example:} Using harmonic walls to protect the grid's boundaries.
+{\noindent\ttfamily
+\\
+\-colvar \{\\
+\-\-~~name r\\
+\-\-~~distance \{ ... \}\\
+\-\-~~upperBoundary 15.0\\
+\-\-~~width 0.2\\
+\-\}\\
+\\
+\-metadynamics \{\\
+\-\-~~name meta\_r\\
+\-\-~~colvars r\\
+\-\-~~hillWeight 0.001\\
+\-\-~~hillWidth 2.0\\
+\-\}\\
+\\
+\-harmonicWalls \{\\
+\-\-~~name wall\_r\\
+\-\-~~colvars r\\
+\-\-~~upperWall 13.0\\
+\-\-~~upperWallConstant 2.0\\
+\-\}\\
+}
+
+In the colvar \texttt{r}, the \texttt{distance} function used has a \texttt{lowerBoundary} automatically set to 0~\AA{} by default, thus the keyword \texttt{lowerBoundary} itself is not mandatory and \texttt{hardLowerBoundary} is set to \texttt{yes} internally.
+However, \texttt{upperBoundary} does not have such a ``natural'' choice of value.
+The metadynamics potential \texttt{meta\_r} will individually process any hill whose center is too close to the \texttt{upperBoundary}, more precisely within fewer grid points than 6 times the Gaussian $\sigma$ parameter plus one.
+It goes without saying that if the colvar \texttt{r} represents a distance between two freely-moving molecules, it will cross this ``threshold'' rather frequently.
+
+In this example, where the value of \texttt{hillWidth} ($2\sigma$) amounts to 2 grid points, the threshold is 6+1 = 7 grid points away from \texttt{upperBoundary}: in explicit units, the threshold is 15.0 - 7$\times$0.2 = 13.6~\AA.
+
+The \texttt{wall\_r} restraint included in the example prevents this: the position of its \texttt{upperWall} is 13~\AA{}, i.e.{} 3 grid points below the buffer's threshold (13.6~\AA).
+For the chosen value of \texttt{upperWallConstant}, the energy of the \texttt{wall\_r} bias at \texttt{r} = $r_{\mathrm{upper}}$ = 13.6~\AA{} is:
+\begin{equation*}
+  E(\mathrm{wall\_r}) = \frac{1}{2} \- k \left(\frac{r - r_{\mathrm{upper}}}{\mathtt{width}(r)}\right)^2 = \frac{1}{2} \- 2.0 \left(-3\right)^2 = 9~\mathrm{kcal/mol}
+\end{equation*}
+which results in a relative probability $\exp(-E(\mathrm{wall\_r})/\kappa_{\mathrm{B}}T) \simeq$ $3\times{}10^{-7}$ that \texttt{r} crosses the threshold.
+The probability that \texttt{r} exceeds \texttt{upperBoundary}, which is further away, has also become vanishingly small.
+At that point, you may want to set \texttt{hardUpperBoundary} to \texttt{yes} for \texttt{r}, and let \texttt{meta\_r} know that no special treatment near the grid's boundaries will be needed.
+
+\emph{What is the impact of the wall restraint onto the PMF?} Not a very complicated one: the PMF reconstructed by metadynamics will simply show a sharp increase in free-energy where the wall potential kicks in (\texttt{r}~$>$ 13~\AA{}).
+You may then choose between using the PMF only up until that point and discard the rest, or subtracting the energy of the \texttt{harmonicWalls} restraint from the PMF itself.
+Keep in mind, however, that the statistical convergence of metadynamics may be less accurate where the wall potential is strong.
+
+In summary, although it would be simpler to set the wall's position \texttt{upperWall} and the grid's boundary \texttt{upperBoundary} to the same number, the finite width of the Gaussian hills calls for setting the former strictly within the latter.
+
+
+\cvsubsubsec{Basic configuration keywords}{sec:colvarbias_meta_basics}
 
 To enable a metadynamics calculation, a \texttt{metadynamics \{...\}} block must be defined in the Colvars configuration file.
-Its mandatory keywords are \refkey{colvars}{colvarbias|colvars}, which lists all the variables involved, \refkey{hillWeight}{metadynamics|hillWeight}, which specifies the weight parameter $W$, and \refkey{hillWidth}{metadynamics|hillWidth}, which defines the Gaussian width $2\sigma_{\xi}$ as a number of grid points.
+Its mandatory keywords are \refkey{colvars}{colvarbias|colvars}, the variables involved, \refkey{hillWeight}{metadynamics|hillWeight}, the weight parameter $W$, and the widths $2\sigma$ of the Gaussian hills in each dimension given by the single dimensionless parameter \refkey{hillWidth}{metadynamics|hillWidth}, or more explicitly by the \refkey{gaussianSigmas}{metadynamics|gaussianSigmas}.
 
 \begin{itemize}
 
@@ -4554,11 +4682,24 @@ Its mandatory keywords are \refkey{colvars}{colvarbias|colvars}, which lists all
   \key
     {hillWidth}{%
     \texttt{metadynamics}}{%
-    Width of a Gaussian hill, measured in number of grid points}{%
+    Width $2\sigma$ of a Gaussian hill, measured in number of grid points}{%
     positive decimal}{%
-    The value of this keyword is the Gaussian width $2\sigma_{\xi_{i}}$, expressed in number of grid points: the grid spacing is determined by \refkey{width}{colvar|width}.
-    The values of the parameter $\sigma_{\xi_{i}}$ for each variable $\xi_{i}$ inits physical units are printed by \MDENGINE{} at initialization time.
-    Values between 1 and 3 are recommended: smaller values fail to adequately interpolate each Gaussian \cite{Fiorin2013}, while larger values may be unable to account for steep free-energy gradients.}
+    This keyword sets the Gaussian width $2\sigma_{\xi_{i}}$ for all colvars, expressed in \emph{number of grid points}, with the grid spacing along each colvar $\xi$ determined by the respective value of \refkey{width}{colvar|width}.
+    Values between 1 and 3 are recommended for this option: smaller numbers will fail to adequately interpolate each Gaussian function \cite{Fiorin2013}, while larger values may be unable to account for steep free-energy gradients.
+    The values of each half-width $\sigma_{\xi_{i}}$ in the physical units of $\xi_{i}$ are also printed by \MDENGINE{} at initialization time; alternatively, they may be set explicitly via \refkey{gaussianSigmas}{metadynamics|gaussianSigmas}.
+    }
+
+\item %
+  \labelkey{metadynamics|gaussianSigmas}
+  \key
+    {gaussianSigmas}{%
+    \texttt{metadynamics}}{%
+    Half-widths $\sigma$ of the Gaussian hill (one for each colvar)}{%
+    space-separated list of decimals}{%
+    This option sets the parameters $\sigma_{\xi_i}$ of the Gaussian hills along each colvar $\xi_i$, expressed in \emph{the same unit of $\xi_i$}.
+    No restrictions are placed on each value, but a warning will be printed if \refkey{useGrids}{metadynamics|useGrids} is \texttt{on} and the Gaussian width $2\sigma_{\xi_i}$ is smaller than the corresponding grid spacing, $\mathtt{width}({\xi_i})$.
+    If not given, default values will be computed from the dimensionless number \refkey{hillWidth}{metadynamics|hillWidth}.
+    }
 
 \item %
   \labelkey{metadynamics|newHillFrequency}
@@ -4605,15 +4746,6 @@ The following two options allow to disable or control this behavior and to track
 
 \end{itemize}
 
-\textbf{Note:} when Gaussian hills are deposited near the \refkey{lowerBoundary}{colvar|lowerBoundary} or \refkey{upperBoundary}{colvar|upperBoundary} and interpolating grids are used (default behavior), their truncation can give rise to accumulating errors.
-In these cases, as a measure of fault-tolerance all Gaussian hills near the boundaries are included in the output state file, and are recalculated analytically whenever the variable falls outside the grid's boundaries.
-(Such measure protects the accuracy of the calculation, and can only be disabled by \texttt{hardLowerBoundary} or \texttt{hardUpperBoundary}.)
-To avoid gradual loss of performance and growth of the state file, either one of the following solutions is recommended:
-\begin{itemize}
-\item enabling the option \texttt{expandBoundaries}, so that the grid's boundaries are automatically recalculated whenever necessary; the resulting \texttt{.pmf} will have its abscissas expanded accordingly;
-\item applying a \texttt{harmonicWalls} bias with the wall locations well within the interval delimited by \texttt{lowerBoundary} and \texttt{upperBoundary}.
-\end{itemize}
-
 
 \cvsubsubsec{Performance optimization}{sec:colvarbias_meta_performance}
 The following options control the computational cost of metadynamics calculations, but do not affect results.
@@ -4622,6 +4754,7 @@ Default values are chosen to minimize such cost with no loss of accuracy.
 \begin{itemize}
 
 \item %
+  \labelkey{metadynamics|useGrids}
   \keydef
     {useGrids}{%
     \texttt{metadynamics}}{%
@@ -4747,7 +4880,6 @@ Instead, multiple probability distributions on different variables can be target
 \-\-~~~~group1 \{ atomNumbers 991 992 \}\\
 \-\-~~~~group2 \{ atomNumbers 1762 1763 \}\\
 \-\-~~\}\\
-\-\-~~lowerBoundary    0.0 \\
 \-\-~~upperBoundary  100.0 \\
 \-\-~~width            0.1 \\
 \-\}\\
@@ -4795,9 +4927,8 @@ The following options define the configuration for the ``well-tempered'' metadyn
     If enabled, this flag causes well-tempered metadynamics as
     described by Barducci et al.\cite{Barducci2008}
     to be performed, rather than standard metadynamics.  The parameter
-    \texttt{biasTemperature} is then required.\cvnamdugonly{This feature was contributed by
-    Li Li (Luthey-Schulten group, Departement of Chemistry, UIUC).}\cvrefmanonly{This feature 
-    was contributed by Li Li (Luthey-Schulten group, Departement of Chemistry, UIUC).}}
+    \texttt{biasTemperature} is then required.
+    This feature was contributed by Li Li (Luthey-Schulten group, Department of Chemistry, UIUC).}
 
 \item %
   \key
@@ -4927,21 +5058,20 @@ The following options may be useful only for applications that go beyond the cal
     added hills, \texttt{writeHillsTrajectory} is preferable.}
 
 \item %
+  \labelkey{metadynamics|writeHillsTrajectory}
   \keydef
     {writeHillsTrajectory}{%
     \texttt{metadynamics}}{%
     Write a log of new hills}{%
     boolean}{%
     \texttt{off}}{%
-    If this option is \texttt{on}, a logfile is written by the
-    \texttt{metadynamics} bias, with the name:\\
-    ``\outputName\texttt{.colvars.$<$name$>$.hills.traj}'',\\ which
-    can be useful to follow the time series of the hills.  When
-    \texttt{multipleReplicas} is \texttt{on}, its name changes to:\\
+    If this option is \texttt{on}, a logfile is written by the \texttt{metadynamics} bias, with the name:\\
+    ``\outputName\texttt{.colvars.$<$name$>$.hills.traj}'',\\ which can be useful to post-process the time series of the Gassian hills.
+    When \texttt{multipleReplicas} is \texttt{on}, its name is changed to:\\
     ``\outputName\texttt{.colvars.$<$name$>$.$<$replicaID$>$.hills.traj}''.\\
-    This file can be used to quickly visualize the positions of all
-    added hills, in case \texttt{newHillFrequency} does not coincide
-    with \texttt{colvarsRestartFrequency}.}
+    The columns of this file are the centers of the hills, $\xi_{i}(t')$, followed by the half-widths, $\sigma_{\xi_{i}}$, and the weight, $W$.
+    \textbf{Note:} prior to version 2020-02-24, the full-width $2\sigma$ of the Gaussian was reported in lieu of $\sigma$.
+    }
 
 \end{itemize}
 
@@ -5273,7 +5403,7 @@ The \texttt{harmonicWalls} bias implements the following options:
 \item %
   \simkey{upperWallConstant}{\texttt{harmonicWalls}}{lowerWallConstant}
 
-\item \dupkey{targetForceConstant}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{Harmonic restraints}
+\item \dupkey{targetForceConstant}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{harmonic restraints}
 
 \item %
   \key
@@ -5287,12 +5417,25 @@ The \texttt{harmonicWalls} bias implements the following options:
     \textbf{Note:} if only one of the two force constants is meant to change over time, it is possible to use two instances of \texttt{harmonicWalls}, and apply the changing schedule only to one of them.
   }
 
-\item \dupkey{targetNumSteps}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{Harmonic restraints}
-\item \dupkey{targetForceExponent}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{Harmonic restraints}
-\item \dupkey{targetEquilSteps}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{Harmonic restraints}
-\item \dupkey{targetNumStages}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{Harmonic restraints}
-\item \dupkey{lambdaSchedule}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{Harmonic restraints}
-\item \dupkey{outputAccumulatedWork}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{Harmonic restraints}
+\item \dupkey{targetNumSteps}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{harmonic restraints}
+\item \dupkey{targetForceExponent}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{harmonic restraints}
+\item \dupkey{targetEquilSteps}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{harmonic restraints}
+\item \dupkey{targetNumStages}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{harmonic restraints}
+\item \dupkey{lambdaSchedule}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{harmonic restraints}
+\item \dupkey{outputAccumulatedWork}{\texttt{harmonicWalls}}{sec:colvarbias_harmonic}{harmonic restraints}
+
+\item %
+  \labelkey{harmonicWalls|bypassExtendedLagrangian}
+  \keydef
+    {bypassExtendedLagrangian}{%
+    \texttt{harmonicWalls}}{%
+    Apply bias to actual colvars, bypassing extended coordinates}{%
+    boolean}{%
+    \texttt{on}}{%
+    This option behaves as \refkey{bypassExtendedLagrangian}{colvarbias|bypassExtendedLagrangian} for other biases,
+    but \textbf{it defaults to \texttt{on}, unlike in the general case}.
+    Thus, by default, the \texttt{harmonicWalls} bias applies to the actual colvars, so that the distribution of the colvar between the walls is unaffected by the bias, which then applies a flat-bottom potential \emph{as a function of the colvar value}. This bias will affect the extended coordinate distribution near the walls.
+    If \texttt{bypassExtendedLagrangian} is disabled, \texttt{harmonicWalls} applies a flat-bottom potential \emph{as a function of the extended coordinate}. Conversely, this bias will then modify the distribution of the actual colvar value near the walls.}
 
 \end{itemize}
 
@@ -5460,17 +5603,7 @@ an optimization algorithm until the bias has converged}.
 \cvsubsec{Multidimensional histograms}{sec:colvarbias_histogram}
 
 The \texttt{histogram} feature is used to record the distribution of a set of collective
-variables in the form of a N-dimensional histogram.
-
-As with any other biasing and analysis method, when a histogram is applied to
-an extended-system colvar (\ref{sec:colvar_extended}), it accesses the value
-of the fictitious coordinate rather than that of the ``true'' colvar.
-A joint histogram of the ``true'' colvar and the fictitious coordinate
-may be obtained by specifying the colvar name twice in a row
-in the \texttt{colvars} parameter: the first instance will be understood as the
-``true'' colvar, and the second, as the fictitious coordinate.
-
-A \texttt{histogram} block may define the following parameters:
+variables in the form of a N-dimensional histogram. A \texttt{histogram} block may define the following parameters:
 
 \begin{itemize}
 
@@ -5534,7 +5667,20 @@ A \texttt{histogram} block may define the following parameters:
     When \texttt{gatherVectorColvars} is \texttt{on}, the components of each multi-dimensional colvar are accumulated with a different weight.
     For example, if $x$ and $y$ are two distinct \texttt{cartesian} variables defined on the same group of atoms, the corresponding 2D histogram can be weighted on a per-atom basis\cvvmdonly{: to compute an electron density map, it is possible to use \texttt{weights [\${sel} get atomicnumber]}} in the definition of \texttt{histogram}.
   }
+\end{itemize}
 
+  
+As with any other biasing and analysis method, when a histogram is applied to
+an extended-system colvar (\ref{sec:colvar_extended}), it accesses the value
+of the extended coordinate rather than that of the actual colvar.
+This can be overridden by enabling the \refkey{bypassExtendedLagrangian}{colvarbias|bypassExtendedLagrangian} option.
+A \emph{joint histogram} of the actual colvar and the extended coordinate
+may be collected by specifying the colvar name twice in a row
+in the \texttt{colvars} parameter (e.g. \texttt{colvars myColvar myColvar}): the first instance will be understood as the
+actual colvar, and the second, as the extended coordinate.
+
+\begin{itemize}
+  \item \dupkey{bypassExtendedLagrangian}{\texttt{histogram}}{colvarbias|bypassExtendedLagrangian}{biasing and analysis methods}
 \end{itemize}
 
 \cvsubsubsec{Grid definition for multidimensional histograms}{sec:colvarbias_histogram_grid}
@@ -5723,6 +5869,13 @@ The following options allow to fine-tune this schedule:
 }
 
 
+\cvscriptonly{
+\cvsec{Scripting interface (Tcl): list of commands}{sec:cvscript_tcl}
+This section lists all the commands used in \MDENGINE{} to control the behavior of the Colvars module from within a run script.
+\input{cvscript-tcl.tex}
+}
+
+
 \cvsec{Syntax changes from older versions}{sec:colvars_config_changes}
 
 The following is a list of syntax changes in Colvars since its first release.
@@ -5749,10 +5902,18 @@ please be aware that \emph{several of these tutorials are not actively maintaine
 \item \textbf{Colvars version 2018-11-15 or later \cvnamdonly{(NAMD version 2.14b1 or later)}\cvvmdonly{(VMD version 1.9.4 or later)}\cvlammpsonly{(LAMMPS version 23Nov2018 or later)}.}\\
   The global \texttt{analysis} keyword has been discontinued: specific analysis tasks are controlled directly by the keywords \refkey{corrFunc}{colvar|corrFunc} and \refkey{runAve}{colvar|runAve}, which continue to remain \texttt{off} by default.
 
-\item \textbf{Deprecation warning for calculations including wall potentials.}\\
-  The legacy keywords \texttt{lowerWall} and \texttt{upperWall} will stop having default values and will need to be set explicitly (preferably as part of the \texttt{harmonicWalls} restraint).
+\item \textbf{Colvars version 2020-02-25 or later\cvnamdonly{ (NAMD version 2.14b1 or later)}\cvvmdonly{ (VMD version 1.9.4 or later)}.}\\
+  The parameter \refkey{hillWidth}{metadynamics|hillWidth}, expressing the Gaussian width $2\sigma$ in relative units (number of grid points), does not have a default value any more.
+  A new alternative parameter \refkey{gaussianSigmas}{metadynamics|gaussianSigmas} allows setting the $\sigma$ parameters explicitly for each variable if needed.\\
+  Furthermore, to facilitate the use of other analysis tools such as for example \texttt{sum\_hills}:\\
+\cvurl{https://www.plumed.org/doc-v2.6/user-doc/html/sum_hills.html}\\
+  the format of the file written by \refkey{writeHillsTrajectory}{metadynamics|writeHillsTrajectory} has also been changed to use $\sigma$ instead of $2\sigma$.
+  This change does not affect how the biasing potential is written in the state file, or the simulated trajectory.
+
+\item \textbf{Colvars version 2020-02-25 or later\cvnamdonly{ (NAMD version 2.14b1 or later)}\cvvmdonly{ (VMD version 1.9.4 or later)}.}\\
+  The legacy keywords \texttt{lowerWall} and \texttt{upperWall} of a \texttt{colvar} definition block do not have default values any longer, and need to be set explicitly, preferably as part of the \texttt{harmonicWalls} restraint.
   When using an ABF bias, it is recommended to set the two walls equal to \refkey{lowerBoundary}{colvar|lowerBoundary} and \refkey{upperBoundary}{colvar|upperBoundary}, respectively.
-  When using a metadynamics bias, it is recommended to set the two walls \emph{within} \refkey{lowerBoundary}{colvar|lowerBoundary} and \refkey{upperBoundary}{colvar|upperBoundary}.  This guarantees that the tails of each Gaussian hill are accounted in the region between the grid boundaries and the wall potentials.  See also \refkey{expandBoundaries}{colvar|expandBoundaries} for an automatic definition of the PMF grid boundaries.
+  When using a metadynamics bias, it is recommended to set the two walls strictly \emph{within} \refkey{lowerBoundary}{colvar|lowerBoundary} and \refkey{upperBoundary}{colvar|upperBoundary}; see \ref{sec:colvarbias_meta_boundaries} for details.
 
 \end{itemize}
 
