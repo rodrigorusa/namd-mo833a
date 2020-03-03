@@ -369,7 +369,7 @@ nonbondedForceKernel(
         int jatomStart = tileJatomStart[jtile];
 
         float4 xyzq_j = xyzq[jatomStart + wid];
-        __syncwarp();        
+        WARP_SYNC(WARP_FULL_MASK);        
 
         // Check for early bail
         if (doPairlist) {
@@ -407,7 +407,7 @@ nonbondedForceKernel(
         s_jforce[iwarp][wid] = make_float3(0.0f, 0.0f, 0.0f);
         if (doSlow)
           s_jforceSlow[iwarp][wid] = make_float3(0.0f, 0.0f, 0.0f); 
-        __syncwarp();
+        WARP_SYNC(WARP_FULL_MASK);
         
 
         int t = (self) ? 1 : 0;
@@ -507,7 +507,7 @@ nonbondedForceKernel(
             } // (excl & 1)
             excl >>= 1;
           } // t
-          __syncwarp();
+          WARP_SYNC(WARP_FULL_MASK);
         }
 
 
