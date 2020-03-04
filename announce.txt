@@ -1,10 +1,10 @@
 +--------------------------------------------------------------------+
 |                                                                    |
-|                   NAMD 2.13 Release Announcement                   |
+|                  NAMD 2.14b1 Release Announcement                  |
 |                                                                    |
 +--------------------------------------------------------------------+
 
-                                                      November 9, 2018
+                                                         March 9, 2020
 
 The Theoretical and Computational Biophysics Group at the University of
 Illinois is proud to announce the public release of a new version of
@@ -12,46 +12,36 @@ NAMD, a parallel, object-oriented molecular dynamics code designed for
 high-performance simulation of large biomolecular systems.  NAMD is
 distributed free of charge and includes source code.  NAMD development
 is supported by the NIH National Institute of General Medical Sciences
-grant number NIH P41-GM104601.
+through grant number NIH P41-GM104601.
 
-NAMD 2.13 has many advantages over NAMD 2.12, including:
+NAMD 2.14b1 has many advantages over NAMD 2.13, including:
 
-- GPU-accelerated simulations less limited by CPU performance
+- Hybrid single-dual topology alchemical free energy calculation
 
-- Improved GPU-accelerated performance for non-orthogonal cells
-
-- Updated CUDA compatibility to version 9.x
-
-- Replica exchange solute tempering, 2nd generation (REST2)
-
-- Constant-pH MD
+- Improvements to alchemical free energy calculation
 
 - Improvements to hybrid QM/MM simulation
 
-- Stochastic velocity rescaling thermostat
+- Updated collective variables module, featuring:
 
-- Gaussian accelerated MD (GaMD)
+  - More flexible colvars scripting interface
 
-- Improved lonepair support
+  - Geometric path collective variables
 
-- Interleaved double-wide sampling for FEP
+- Update to random acceleration MD (RAMD) 5.0.5
 
-- Extend nonbondedScaling to LJ correction term
+- Update to Charm++ 6.10.1, enabling:
 
-- Collective variables module improvements
+  - Improved scaling on InfiniBand via ucx network layer
 
-- IMDignoreForces option for QwikMD
+  - Improved multi-copy on POWER via pamilrts network layer
 
-- Various psfgen improvements
+  - Clean exit with non-zero status for many failures
 
-- Support for billion-atom systems
-
-- Update to Charm++ 6.10.1
-
-- Require CUDA 8.0 or greater, Kepler or newer GPUs
+- Support for CUDA versions 8.0-10.x on Kepler or newer GPUs
 
 
-Details at http://www.ks.uiuc.edu/Research/namd/2.13/features.html
+Details at http://www.ks.uiuc.edu/Research/namd/2.14/features.html
 
 NAMD is available from http://www.ks.uiuc.edu/Research/namd/
 
