@@ -1,3 +1,0 @@
-include .rootdir/arch/BlueGeneQ-xlC.arch
-CHARMARCH = mpi-bluegeneq-xlc
-
