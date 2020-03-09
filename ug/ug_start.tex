@@ -360,7 +360,9 @@ The keyword ``off'' will return to writing the local trajectory file set by the 
 
 NAMD may be compiled with an embedded Python interpreter
 via the config script option \verb$--$with\verb$-$python.
-Currently, Python 3.x versions are not yet supported.
+Both Python 2.x and 3.x versions are supported, with 3.x the default if found.
+The config script option \verb$--$python\verb$-$prefix can be used to 
+specify the path to the python installation to be used.
 The default embedded Tcl interpreter is also required to enable Python scripting.
 Released NAMD binaries do not support Python scripting at this time
 due to portability issues with the extensive Python library.
@@ -399,6 +401,9 @@ e.g., ``namd.run(1000)'' and ``namd.output('myfile')''.
 The NAMD 1-4scaling parameter is incompatible with Python syntax, but may be accessed
 several other ways, e.g., ``namd.param('1-4scaling',1.0)'', ``tcl.call('1-4scaling',1.0)'',
 or ``tcl.eval('1-4scaling 1.0')''.
+
+The namd object is available as the namd {\em module}, which can be accessed from user-written
+Python modules by the standard import statement (i.e, ``import namd'').
 
 The following example illustrates various aspects of the Python scripting interface:
 \begin{verbatim}
