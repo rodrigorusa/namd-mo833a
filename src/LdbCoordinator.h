@@ -171,9 +171,7 @@ public:
   processorInfo *processorArray;
 
   LdbInfra *theLbdb;
-#ifndef LB_MANAGER_VERSION
   LDBarrierClient ldBarrierHandle;
-#endif
   LDOMid myOMid;
   LDOMHandle myHandle;
   LdbMigrateMsg *migrateMsgs;

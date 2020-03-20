@@ -157,7 +157,13 @@ LdbCoordinator::LdbCoordinator()
   myHandle = theLbdb->RegisterOM(myOMid,nullptr,cb);
 
 #ifdef LB_MANAGER_VERSION
-  theLbdb->AddClients(this, true, true);
+  // Add myself as a local barrier receiver, so I know when I might
+  // be registering objects.
+  theLbdb->AddLocalBarrierReceiver(this, &LdbCoordinator::AtSyncBarrierReached);
+
+  // Also, add a local barrier client, to trigger load balancing
+  ldBarrierHandle = theLbdb->
+    AddLocalBarrierClient(this, &LdbCoordinator::ResumeFromSync);
 #else
   // Add myself as a local barrier receiver, so I know when I might
   // be registering objects.
@@ -646,11 +652,7 @@ void LdbCoordinator::barrier(void)
   {
     NAMD_bug("Load balancer received wrong number of events.\n");
   }
-#ifdef LB_MANAGER_VERSION
-  theLbdb->AtLocalBarrier(this);
-#else
   theLbdb->AtLocalBarrier(ldBarrierHandle);
-#endif
 }
 
 void LdbCoordinator::nodeDone(CkReductionMsg *msg)
