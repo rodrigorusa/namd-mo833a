@@ -252,7 +252,7 @@ int colvar::init(std::string const &conf)
     // components may have different types only for scripted functions
     if (!(is_enabled(f_cv_scripted) || is_enabled(f_cv_custom_function)) && (colvarvalue::check_types(cvcs[i]->value(),
                                                                 cvcs[0]->value())) ) {
-      cvm::error("ERROR: you are definining this collective variable "
+      cvm::error("ERROR: you are defining this collective variable "
                  "by using components of different types. "
                  "You must use the same type in order to "
                  "sum them together.\n", INPUT_ERROR);
@@ -541,7 +541,7 @@ int colvar::init_grid_parameters(std::string const &conf)
       cvm::log("Reading legacy options lowerWall and lowerWallConstant: "
                "consider using a harmonicWalls restraint (caution: force constant would then be scaled by width^2).\n");
       if (!get_keyval(conf, "lowerWall", lower_wall)) {
-        error_code != cvm::error("Error: the value of lowerWall must be set "
+        error_code |= cvm::error("Error: the value of lowerWall must be set "
                                  "explicitly.\n", INPUT_ERROR);
       }
       lw_conf = std::string("\n\
@@ -554,7 +554,7 @@ int colvar::init_grid_parameters(std::string const &conf)
       cvm::log("Reading legacy options upperWall and upperWallConstant: "
                "consider using a harmonicWalls restraint (caution: force constant would then be scaled by width^2).\n");
       if (!get_keyval(conf, "upperWall", upper_wall)) {
-        error_code != cvm::error("Error: the value of upperWall must be set "
+        error_code |= cvm::error("Error: the value of upperWall must be set "
                                  "explicitly.\n", INPUT_ERROR);
       }
       uw_conf = std::string("\n\
@@ -616,7 +616,7 @@ harmonicWalls {\n\
                              "are enabled).\n", INPUT_ERROR);
   }
 
-  return COLVARS_OK;
+  return error_code;
 }
 
 
@@ -681,6 +681,9 @@ int colvar::init_extended_Lagrangian(std::string const &conf)
       // Adjust Langevin sigma for slow time step if time_step_factor != 1
       ext_sigma = cvm::sqrt(2.0 * cvm::boltzmann() * temp * ext_gamma * ext_mass / (cvm::dt() * cvm::real(time_step_factor)));
     }
+
+    get_keyval_feature(this, conf, "reflectingLowerBoundary", f_cv_reflecting_lower_boundary, false);
+    get_keyval_feature(this, conf, "reflectingUpperBoundary", f_cv_reflecting_upper_boundary, false);
   }
 
   return COLVARS_OK;
@@ -1107,6 +1110,14 @@ int colvar::init_dependencies() {
 
     init_feature(f_cv_hard_upper_boundary, "hard_upper_boundary", f_type_user);
     require_feature_self(f_cv_hard_upper_boundary, f_cv_upper_boundary);
+
+    init_feature(f_cv_reflecting_lower_boundary, "reflecting_lower_boundary", f_type_user);
+    require_feature_self(f_cv_reflecting_lower_boundary, f_cv_lower_boundary);
+    require_feature_self(f_cv_reflecting_lower_boundary, f_cv_extended_Lagrangian);
+
+    init_feature(f_cv_reflecting_upper_boundary, "reflecting_upper_boundary", f_type_user);
+    require_feature_self(f_cv_reflecting_upper_boundary, f_cv_upper_boundary);
+    require_feature_self(f_cv_reflecting_upper_boundary, f_cv_extended_Lagrangian);
 
     init_feature(f_cv_grid, "grid", f_type_dynamic);
     require_feature_self(f_cv_grid, f_cv_lower_boundary);
@@ -1610,6 +1621,15 @@ int colvar::calc_colvar_properties()
     // just calculated from the cvcs
     if ((cvm::step_relative() == 0 && !after_restart) || x_ext.type() == colvarvalue::type_notset) {
       x_ext = x;
+      if (is_enabled(f_cv_reflecting_lower_boundary) && x_ext < lower_boundary) {
+        cvm::log("Warning: initializing extended coordinate to reflective lower boundary, as colvar value is below.");
+        x_ext = lower_boundary;
+      }
+      if (is_enabled(f_cv_reflecting_upper_boundary) && x_ext > upper_boundary) {
+        cvm::log("Warning: initializing extended coordinate to reflective upper boundary, as colvar value is above.");
+        x_ext = upper_boundary;
+      }
+
       v_ext.reset(); // (already 0; added for clarity)
     }
 
@@ -1748,6 +1768,14 @@ cvm::real colvar::update_forces_energy()
       }
       v_ext  += (0.5 * dt) * f_ext / ext_mass;
       x_ext  += dt * v_ext;
+
+      cvm::real delta = 0; // Length of overshoot past either reflecting boundary
+      if ((is_enabled(f_cv_reflecting_lower_boundary) && (delta = x_ext - lower_boundary) < 0) ||
+          (is_enabled(f_cv_reflecting_upper_boundary) && (delta = x_ext - upper_boundary) > 0)) {
+        x_ext -= 2.0 * delta;
+        v_ext *= -1.0;
+      }
+
       x_ext.apply_constraints();
       this->wrap(x_ext);
     } else {

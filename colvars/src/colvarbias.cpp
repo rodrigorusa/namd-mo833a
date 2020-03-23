@@ -98,7 +98,7 @@ int colvarbias::init(std::string const &conf)
   get_keyval(conf, "outputEnergy", b_output_energy, b_output_energy);
 
   // Disabled by default in base class; default value can be overridden by derived class constructor
-  get_keyval_feature(this, conf, "bypassExtendedLagrangian", f_cvb_bypass_ext_lagrangian, is_enabled(f_cvb_bypass_ext_lagrangian), parse_silent);
+  get_keyval_feature(this, conf, "bypassExtendedLagrangian", f_cvb_bypass_ext_lagrangian, is_enabled(f_cvb_bypass_ext_lagrangian), parse_echo);
 
   get_keyval(conf, "timeStepFactor", time_step_factor, 1);
   if (time_step_factor < 1) {
@@ -544,7 +544,7 @@ std::istream & colvarbias::read_state_data_key(std::istream &is, char const *key
   size_t const start_pos = is.tellg();
   std::string key_in;
   if ( !(is >> key_in) ||
-       !(key_in == to_lower_cppstr(std::string(key))) ) {
+       !(to_lower_cppstr(key_in) == to_lower_cppstr(std::string(key))) ) {
     cvm::error("Error: in reading restart configuration for "+
                bias_type+" bias \""+this->name+"\" at position "+
                cvm::to_str(static_cast<size_t>(is.tellg()))+

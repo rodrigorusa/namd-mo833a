@@ -21,7 +21,7 @@
 /// system. They may be enabled or disabled depending on dependencies.
 /// 2. User features may be enabled based on user input (they may trigger a failure upon dependency resolution, though)
 /// 3. Static features are static properties of the object, determined
-///   programatically at initialization time.
+///   programmatically at initialization time.
 ///
 /// The following diagram summarizes the dependency tree at the bias, colvar, and colvarcomp levels.
 /// Isolated and atom group features are not shown to save space.
@@ -302,6 +302,10 @@ public:
     f_cv_hard_lower_boundary,
     /// \brief The upper boundary is not defined from user's choice
     f_cv_hard_upper_boundary,
+    /// \brief Reflecting lower boundary condition
+    f_cv_reflecting_lower_boundary,
+    /// \brief Reflecting upper boundary condition
+    f_cv_reflecting_upper_boundary,
     /// \brief Provide a discretization of the values of the colvar to
     /// be used by the biases or in analysis (needs lower and upper
     /// boundary)
