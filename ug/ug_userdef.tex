@@ -206,14 +206,17 @@ in ${\rm kcal} / ({\rm mol} \; charge)$}
 {scale factor for grid potential}
 {Vector of decimals {\it scale}$_x$ {\it scale}$_y$ {\it scale}$_z$ }
 {1 1 1}
-{Scale factor applied to the grid potential values}
+{Defines the scale factors that modulate the amplitude of the grid potential forces in each dimension.
+  When the three values are the same number, the grid potential's value is also included in the MISC column of the energy output.
+  After initialization, the three scale factors may be updated between ``run'' commands by the {\tt updategridforcescale} command.
+  In the special case when ``0 0 0'' is given for this option, the corresponding grid potential can be used a collective variable in the Colvars module (Sec.~\ref{section:colvars}), allowing the use of restraint potentials and fully time-dependent forces.}
 
 \item
 \NAMDCONFTAGWDEF{updategridforcescale}
 {scale factor for grid potential}
 {Vector of decimals {\it scale}$_x$ {\it scale}$_y$ {\it scale}$_z$ }
 {1 1 1}
-{Scale factor applied to the grid potential values. Can be issued between ``run'' commands.}
+{Provides new scale factors to be applied to the grid potential values. This comand can be issued between ``run'' commands to modify the amplitude of the grid potential. The values provided remain constant for the duration of each ``run'' command.}
 
 
 \item

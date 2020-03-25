@@ -15,6 +15,7 @@
 #include "AtomMap.h"
 #include "ComputeGlobal.h"
 #include "ComputeGlobalMsgs.h"
+#include "GridForceGrid.h"
 #include "PatchMgr.h"
 #include "Molecule.h"
 #include "ReductionMgr.h"
@@ -24,14 +25,15 @@
 #include <stdio.h>
 #include <algorithm>
 
-//#define DEBUGM
-#define MIN_DEBUG_LEVEL 1
 #include "Debug.h"
+
+#include "GridForceGrid.inl"
+#include "MGridforceParams.h"
 
 // CLIENTS
 
 ComputeGlobal::ComputeGlobal(ComputeID c, ComputeMgr *m)
-	: ComputeHomePatches(c)
+  : ComputeHomePatches(c)
 {
   DebugM(3,"Constructing client\n");
   aid.resize(0);
@@ -56,71 +58,144 @@ ComputeGlobal::ComputeGlobal(ComputeID c, ComputeMgr *m)
   int numPatches = PatchMap::Object()->numPatches();
   forcePtrs = new Force*[numPatches];
   atomPtrs = new FullAtom*[numPatches];
-  for ( int i = 0; i < numPatches; ++i ) { forcePtrs[i] = 0; atomPtrs[i] = 0; }
+  gridForcesPtrs = new ForceList **[numPatches];
+  numGridObjects = numActiveGridObjects = 0;
+  for ( int i = 0; i < numPatches; ++i ) {
+    forcePtrs[i] = NULL; atomPtrs[i] = NULL;
+    gridForcesPtrs[i] = NULL;
+  }
 }
 
 ComputeGlobal::~ComputeGlobal()
 {
   delete[] isRequested;
   delete[] forcePtrs;
+  deleteGridObjects();
+  delete[] gridForcesPtrs;
   delete[] atomPtrs;
   delete reduction;
 }
 
-void ComputeGlobal::configure(AtomIDList &newaid, AtomIDList &newgdef) {
+void ComputeGlobal::configure(AtomIDList &newaid, AtomIDList &newgdef, IntList &newgridobjid) {
   DebugM(4,"Receiving configuration (" << newaid.size() <<
-	" atoms and " << newgdef.size() << " atoms/groups) on client\n");
+         " atoms, " << newgdef.size() << " atoms/groups and " <<
+         newgridobjid.size() << " grid objects) on client\n" << endi);
 
   AtomIDList::iterator a, a_e;
-  
- if ( forceSendEnabled ) {
-  // clear previous data
-  int max = -1;
-  for (a=newaid.begin(),a_e=newaid.end(); a!=a_e; ++a) {
-    if ( *a > max ) max = *a;
-  }
-  for (a=newgdef.begin(),a_e=newgdef.end(); a!=a_e; ++a) {
-    if ( *a > max ) max = *a;
-  }
-  endRequested = max+1;
-  if ( endRequested > isRequestedAllocSize ) {
-    delete [] isRequested;
-    isRequestedAllocSize = endRequested+10;
-    isRequested = new char[isRequestedAllocSize];
-    memset(isRequested, 0, isRequestedAllocSize);
-  } else {
-    for (a=aid.begin(),a_e=aid.end(); a!=a_e; ++a) {
-      isRequested[*a] = 0;
+
+  if ( forceSendEnabled ) {
+    // clear previous data
+    int max = -1;
+    for (a=newaid.begin(),a_e=newaid.end(); a!=a_e; ++a) {
+      if ( *a > max ) max = *a;
     }
-    for (a=gdef.begin(),a_e=gdef.end(); a!=a_e; ++a) {
-      if ( *a != -1 ) isRequested[*a] = 0;
+    for (a=newgdef.begin(),a_e=newgdef.end(); a!=a_e; ++a) {
+      if ( *a > max ) max = *a;
     }
+    endRequested = max+1;
+    if ( endRequested > isRequestedAllocSize ) {
+      delete [] isRequested;
+      isRequestedAllocSize = endRequested+10;
+      isRequested = new char[isRequestedAllocSize];
+      memset(isRequested, 0, isRequestedAllocSize);
+    } else {
+      for (a=aid.begin(),a_e=aid.end(); a!=a_e; ++a) {
+        isRequested[*a] = 0;
+      }
+      for (a=gdef.begin(),a_e=gdef.end(); a!=a_e; ++a) {
+        if ( *a != -1 ) isRequested[*a] = 0;
+      }
+    }
+    // reserve space
+    gpair.resize(0);
+    gpair.resize(newgdef.size());
+    gpair.resize(0);
   }
-  // reserve space
-  gpair.resize(0);
-  gpair.resize(newgdef.size());
-  gpair.resize(0);
- }
 
   // store data
   aid.swap(newaid);
   gdef.swap(newgdef);
-  
- if ( forceSendEnabled ) {
-  int newgcount = 0;
-  for (a=aid.begin(),a_e=aid.end(); a!=a_e; ++a) {
-    isRequested[*a] = 1;
+
+  if (newgridobjid.size()) configureGridObjects(newgridobjid);
+
+  if ( forceSendEnabled ) {
+    int newgcount = 0;
+    for (a=aid.begin(),a_e=aid.end(); a!=a_e; ++a) {
+      isRequested[*a] = 1;
+    }
+    for (a=gdef.begin(),a_e=gdef.end(); a!=a_e; ++a) {
+      if ( *a == -1 ) ++newgcount;
+      else {
+        isRequested[*a] |= 2;
+        gpair.add(intpair(*a,newgcount));
+      }
+    }
+    std::sort(gpair.begin(),gpair.end());
+    numGroupsRequested = newgcount;
   }
-  for (a=gdef.begin(),a_e=gdef.end(); a!=a_e; ++a) {
-    if ( *a == -1 ) ++newgcount;
-    else {
-      isRequested[*a] |= 2;
-      gpair.add(intpair(*a,newgcount));
+}
+
+void ComputeGlobal::deleteGridObjects()
+{
+  if (numGridObjects == 0) return;
+  ResizeArrayIter<PatchElem> ap(patchList);
+  for (ap = ap.begin(); ap != ap.end(); ap++) {
+    ForceList **gridForces = gridForcesPtrs[ap->p->getPatchID()];
+    if (gridForces != NULL) {
+      for (size_t ig = 0; ig < numGridObjects; ig++) {
+        if (gridForces[ig] != NULL) {
+          delete gridForces[ig];
+          gridForces[ig] = NULL;
+        }
+      }
+      delete [] gridForces;
+      gridForces = NULL;
     }
   }
-  std::sort(gpair.begin(),gpair.end());
-  numGroupsRequested = newgcount;
- }
+  numGridObjects = numActiveGridObjects = 0;
+}
+
+void ComputeGlobal::configureGridObjects(IntList &newgridobjid)
+{
+  Molecule *mol = Node::Object()->molecule;
+
+  deleteGridObjects();
+
+  numGridObjects = mol->numGridforceGrids;
+  numActiveGridObjects = 0;
+
+  gridObjActive.resize(numGridObjects);
+  gridObjActive.setall(0);
+
+  IntList::const_iterator goid_i = newgridobjid.begin();
+  IntList::const_iterator goid_e = newgridobjid.end();
+  for ( ; goid_i != goid_e; goid_i++) {
+    if ((*goid_i < 0) || (*goid_i >= numGridObjects)) {
+      NAMD_bug("Requested illegal gridForceGrid index.");
+    } else {
+      DebugM(3,"Adding grid with index " << *goid_i << " to ComputeGlobal\n");
+      gridObjActive[*goid_i] = 1;
+      numActiveGridObjects++;
+    }
+  }
+
+  for (size_t ig = 0; ig < numGridObjects; ig++) {
+    DebugM(3,"Grid index " << ig << " is active or inactive? "
+           << gridObjActive[ig] << "\n" << endi);
+  }
+
+  ResizeArrayIter<PatchElem> ap(patchList);
+  for (ap = ap.begin(); ap != ap.end(); ap++) {
+    gridForcesPtrs[ap->p->getPatchID()] = new ForceList *[numGridObjects];
+    ForceList **gridForces = gridForcesPtrs[ap->p->getPatchID()];
+    for (size_t ig = 0; ig < numGridObjects; ig++) {
+      if (gridObjActive[ig]) {
+        gridForces[ig] = new ForceList;
+      } else {
+        gridForces[ig] = NULL;
+      }
+    }
+  }
 }
 
 #if 0
@@ -177,7 +252,7 @@ void ComputeGlobal::recvResults(ComputeGlobalResultsMsg *msg) {
     }
     DebugM(1,"done with the loop\n");
 
-  // calculate forces for atoms in groups
+    // calculate forces for atoms in groups
     AtomIDList::iterator g_i, g_e;
     g_i = gdef.begin(); g_e = gdef.end();
     ForceList::iterator gf_i = msg->gforce.begin();
@@ -201,6 +276,10 @@ void ComputeGlobal::recvResults(ComputeGlobalResultsMsg *msg) {
     }
     DebugM(1,"done with the groups\n");
 
+    if (numActiveGridObjects > 0) {
+      applyGridObjectForces(msg, &extForce, &extVirial);
+    }
+
     ADD_VECTOR_OBJECT(reduction,REDUCTION_EXT_FORCE_NORMAL,extForce);
     ADD_TENSOR_OBJECT(reduction,REDUCTION_VIRIAL_NORMAL,extVirial);
     reduction->submit();
@@ -208,7 +287,10 @@ void ComputeGlobal::recvResults(ComputeGlobalResultsMsg *msg) {
   // done setting the forces, close boxes below
 
   // Get reconfiguration if present
-  if ( msg->reconfig ) configure(msg->newaid, msg->newgdef);
+  if ( msg->reconfig ) {
+    DebugM(3,"Reconfiguring\n");
+    configure(msg->newaid, msg->newgdef, msg->newgridobjid);
+  }
 
   // send another round of data if requested
 
@@ -256,6 +338,7 @@ void ComputeGlobal::doWork()
       msg->lat.add(patchList[0].p->lattice);
       msg->step = -1;
       msg->count = 1;
+      msg->patchcount = 0;
       comm->sendComputeGlobalData(msg);
     }
     firsttime = 0;
@@ -270,13 +353,13 @@ void ComputeGlobal::sendData()
   // Get positions from patches
   AtomMap *atomMap = AtomMap::Object();
   const Lattice & lattice = patchList[0].p->lattice;
-  ResizeArrayIter<PatchElem> ap(patchList);
   FullAtom **t = atomPtrs;
 
   ComputeGlobalDataMsg *msg = new  ComputeGlobalDataMsg;
 
-  msg->count = 0;
   msg->step = patchList[0].p->flags.step;
+  msg->count = 0;
+  msg->patchcount = 0;
 
   AtomIDList::iterator a = aid.begin();
   AtomIDList::iterator a_e = aid.end();
@@ -312,6 +395,10 @@ void ComputeGlobal::sendData()
     msg->gmass.add(mass);
   }
 
+  if (numActiveGridObjects > 0) {
+    computeGridObjects(msg);
+  }
+
   msg->fid.swap(fid);
   msg->tf.swap(totalForce);
   fid.resize(0);
@@ -321,13 +408,198 @@ void ComputeGlobal::sendData()
   msg->count += ( msg->fid.size() + gfcount );
   gfcount = 0;
 
-  DebugM(3,"Sending data (" << msg->aid.size() << " positions) on client\n");
+  DebugM(3,"Sending data (" << msg->p.size() << " positions, "
+         << msg->gcom.size() << " groups, " << msg->gridobjvalue.size()
+         << " grid objects) on client\n");
   if ( hasPatchZero ) { msg->count++;  msg->lat.add(lattice); }
-  if ( msg->count ) comm->sendComputeGlobalData(msg);
+  if ( msg->count || msg->patchcount ) comm->sendComputeGlobalData(msg);
   else delete msg;
   comm->enableComputeGlobalResults();
 }
 
+template<class T> void ComputeGlobal::computeGridForceGrid(FullAtomList::iterator aii,
+                                                           FullAtomList::iterator aei,
+                                                           ForceList::iterator gfii,
+                                                           Lattice const &lattice,
+                                                           int gridIndex,
+                                                           T *grid,
+                                                           BigReal &gridObjValue)
+{
+  ForceList::iterator gfi = gfii;
+  FullAtomList::iterator ai = aii;
+  FullAtomList::iterator ae = aei;
+  Molecule *mol = Node::Object()->molecule;
+  for ( ; ai != ae; ai++, gfi++) {
+    *gfi = Vector(0.0, 0.0, 0.0);
+    if (! mol->is_atom_gridforced(ai->id, gridIndex)) {
+      continue;
+    }
+    Real scale;
+    Charge charge;
+    Vector dV;
+    float V;
+    mol->get_gridfrc_params(scale, charge, ai->id, gridIndex);
+    Position pos = grid->wrap_position(ai->position, lattice);
+    DebugM(1, "id = " << ai->id << ", scale = " << scale
+           << ", charge = " << charge << ", position = " << pos << "\n");
+    if (grid->compute_VdV(pos, V, dV)) {
+      // out-of-bounds atom
+      continue;
+    }
+    // ignore global gfScale
+    *gfi = -charge * scale * dV;
+    gridObjValue += charge * scale * V;
+    DebugM(1, "id = " << ai->id << ", force = " << *gfi << "\n");
+  }
+  DebugM(3, "gridObjValue = " << gridObjValue << "\n" << endi);
+}
+
+void ComputeGlobal::computeGridObjects(ComputeGlobalDataMsg *msg)
+{
+  DebugM(3,"computeGridObjects\n" << endi);
+  Molecule *mol = Node::Object()->molecule;
+  const Lattice &lattice = patchList[0].p->lattice;
+
+  if (mol->numGridforceGrids < 1) {
+    NAMD_bug("No grids loaded in memory but ComputeGlobal has been requested to use them.");
+  }
+
+  msg->gridobjindex.resize(numActiveGridObjects);
+  msg->gridobjindex.setall(-1);
+  msg->gridobjvalue.resize(numActiveGridObjects);
+  msg->gridobjvalue.setall(0.0);
+
+  size_t ig = 0, gridobjcount = 0;
+
+  // loop over home patches
+  ResizeArrayIter<PatchElem> ap(patchList);
+  for (ap = ap.begin(); ap != ap.end(); ap++) {
+
+    msg->patchcount++;
+
+    int const numAtoms = ap->p->getNumAtoms();
+    ForceList **gridForces = gridForcesPtrs[ap->p->getPatchID()];
+
+    gridobjcount = 0;
+    for (ig = 0; ig < numGridObjects; ig++) {
+
+      DebugM(2,"Processing grid index " << ig << "\n" << endi);
+
+      // Only process here objects requested by the GlobalMasters
+      if (!gridObjActive[ig]) {
+        DebugM(2,"Skipping grid index " << ig << "; it is handled by "
+               "ComputeGridForce\n" << endi);
+        continue;
+      }
+
+      ForceList *gridForcesGrid = gridForces[ig];
+      gridForcesGrid->resize(numAtoms);
+
+      ForceList::iterator gfi = gridForcesGrid->begin();
+      FullAtomList::iterator ai = ap->p->getAtomList().begin();
+      FullAtomList::iterator ae = ap->p->getAtomList().end();
+
+      DebugM(2, "computeGridObjects(): patch = " << ap->p->getPatchID()
+             << ", grid index = " << ig << "\n" << endi);
+      GridforceGrid *grid = mol->get_gridfrc_grid(ig);
+
+      msg->gridobjindex[gridobjcount] = ig;
+      BigReal &gridobjvalue = msg->gridobjvalue[gridobjcount];
+
+      if (grid->get_grid_type() == GridforceGrid::GridforceGridTypeFull) {
+
+        GridforceFullMainGrid *g = dynamic_cast<GridforceFullMainGrid *>(grid);
+        computeGridForceGrid(ai, ae, gfi, ap->p->lattice, ig, g, gridobjvalue);
+
+      } else if (grid->get_grid_type() == GridforceGrid::GridforceGridTypeLite) {
+
+        GridforceLiteGrid *g = dynamic_cast<GridforceLiteGrid *>(grid);
+        computeGridForceGrid(ai, ae, gfi, ap->p->lattice, ig, g, gridobjvalue);
+      }
+
+      gridobjcount++;
+    }
+  }
+
+  for (gridobjcount = 0; gridobjcount < numActiveGridObjects; gridobjcount++) {
+    DebugM(3, "Total gridObjValue[" << msg->gridobjindex[gridobjcount]
+           << "] = " << msg->gridobjvalue[gridobjcount] << "\n");
+  }
+
+  DebugM(2,"computeGridObjects done\n");
+}
+
+void ComputeGlobal::applyGridObjectForces(ComputeGlobalResultsMsg *msg,
+                                          Force *extForce_in,
+                                          Tensor *extVirial_in)
+{
+  if (msg->gridobjforce.size() == 0) return;
+
+  if (msg->gridobjforce.size() != numActiveGridObjects) {
+    NAMD_bug("ComputeGlobal received a different number of grid forces than active grids.");
+  }
+
+  Molecule *mol = Node::Object()->molecule;
+  const Lattice &lattice = patchList[0].p->lattice;
+  AtomMap *atomMap = AtomMap::Object();
+  Force &extForce = *extForce_in;
+  Tensor &extVirial = *extVirial_in;
+
+  // map applied forces from the message
+  BigRealList gridObjForces;
+  gridObjForces.resize(numGridObjects);
+  gridObjForces.setall(0.0);
+  BigRealList::iterator gridobjforce_i = msg->gridobjforce.begin();
+  BigRealList::iterator gridobjforce_e = msg->gridobjforce.end();
+  int ig;
+  for (ig = 0; gridobjforce_i != gridobjforce_e ;
+       gridobjforce_i++, ig++) {
+    if (!gridObjActive[ig]) continue;
+    gridObjForces[ig] = *gridobjforce_i;
+  }
+
+  // loop over home patches
+  ResizeArrayIter<PatchElem> ap(patchList);
+  for (ap = ap.begin(); ap != ap.end(); ap++) {
+
+    ForceList **gridForces = gridForcesPtrs[ap->p->getPatchID()];
+
+    for (ig = 0; ig < numGridObjects; ig++) {
+
+      if (!gridObjActive[ig]) continue;
+
+      DebugM(2, "gof  = " << gridObjForces[ig] << "\n" << endi);
+
+      ForceList *gridForcesGrid = gridForces[ig];
+
+      FullAtomList::iterator ai = ap->p->getAtomList().begin();
+      FullAtomList::iterator ae = ap->p->getAtomList().end();
+      Force *f = ap->r->f[Results::normal];
+      ForceList::iterator gfi = gridForcesGrid->begin();
+
+      for ( ; ai != ae; ai++, gfi++) {
+        if (! mol->is_atom_gridforced(ai->id, ig)) {
+          *gfi = Vector(0.0, 0.0, 0.0);
+          continue;
+        }
+	LocalID localID = atomMap->localID(ai->id);
+        // forces were stored; flipping sign to get gradients
+        Vector const gridforceatom(-1.0 * (*gfi) * gridObjForces[ig]);
+        DebugM(2, "id = " << ai->id
+               << ", pid = " << localID.pid
+               << ", index = " << localID.index
+               << ", force = " << gridforceatom << "\n" << endi);
+        f[localID.index] += gridforceatom;
+        extForce += gridforceatom;
+        Position x_orig = ai->position;
+        Transform transform = ai->transform;
+        Position x_virial = lattice.reverse_transform(x_orig, transform);
+        extVirial += outer(gridforceatom, x_virial);
+      }
+    }
+  }
+  // extForce and extVirial are being communicated by calling function
+}
 
 // This function is called by each HomePatch after force
 // evaluation. It stores the indices and forces of the requested

@@ -41,6 +41,10 @@ class GlobalMaster {
 		   BigRealList::iterator gm_e,
 		   ForceList::iterator gtf_i,
 		   ForceList::iterator gtf_e,
+                   IntList::iterator goi_i,
+                   IntList::iterator goi_e,
+                   BigRealList::iterator gov_i,
+                   BigRealList::iterator gov_e,
 		   AtomIDList::iterator last_atoms_forced_i,
 		   AtomIDList::iterator last_atoms_forced_e,
 		   ForceList::iterator last_forces_i,
@@ -59,6 +63,9 @@ class GlobalMaster {
   bool changedGroups(); // false if the groups haven't changed
   const ResizeArray<AtomIDList> &requestedGroups(); // the requested groups
   const ForceList &groupForces(); // the corresponding forces on groups
+  bool changedGridObjs(); // false if the groups haven't changed
+  const IntList &requestedGridObjs(); // the requested groups
+  const BigRealList &gridObjForces(); // the corresponding forces on groups
   bool requestedTotalForces() { return totalForceRequested; }
 
   /* sets changedAtoms and changedForces to false again */
@@ -92,6 +99,10 @@ class GlobalMaster {
   ResizeArray<AtomIDList> &modifyRequestedGroups();
   ForceList &modifyGroupForces();
 
+  /* Same here for grids */
+  IntList &modifyRequestedGridObjects();
+  BigRealList &modifyGridObjForces();
+
   /* These return pointers to the lists of atom ids and positions, as
      they were last passed to processData (see below) */
   AtomIDList::const_iterator getAtomIdBegin();
@@ -101,6 +112,10 @@ class GlobalMaster {
   PositionList::const_iterator getGroupPositionEnd();
   ForceList::const_iterator getGroupTotalForceBegin();
   ForceList::const_iterator getGroupTotalForceEnd();
+  IntList::const_iterator getGridObjIndexBegin();
+  IntList::const_iterator getGridObjIndexEnd();
+  BigRealList::const_iterator getGridObjValueBegin();
+  BigRealList::const_iterator getGridObjValueEnd();
   
   /* these give you all the global forces being applied by masters */
   /* again, here we only need one end iterator */
@@ -139,6 +154,10 @@ class GlobalMaster {
   BigRealList::iterator groupMassEnd;
   ForceList::iterator groupTotalForceBegin;
   ForceList::iterator groupTotalForceEnd;
+  IntList::iterator gridObjIndexBegin;
+  IntList::iterator gridObjIndexEnd;
+  BigRealList::iterator gridObjValueBegin;
+  BigRealList::iterator gridObjValueEnd;
 
   /* these store all the global forces being applied by masters */
   AtomIDList::iterator lastAtomsForcedBegin;
@@ -162,6 +181,11 @@ class GlobalMaster {
   bool reqGroupsChanged;
   ResizeArray<AtomIDList> reqGroups; // list of requested groups of atoms 
   ForceList grpForces; // the corresponding forces
+
+  bool reqGridObjsChanged;
+  IntList reqGridObjs; // list of requested grids
+  BigRealList gridobjForces; // the corresponding forces
+
 };
 
 #endif

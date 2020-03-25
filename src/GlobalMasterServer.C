@@ -15,6 +15,7 @@
 #include "Node.h"
 #include "SimParameters.h"
 #include "Molecule.h"
+#include "PatchMap.h"
 //#define DEBUGM
 #define MIN_DEBUG_LEVEL 1
 #include "Debug.h"
@@ -81,6 +82,19 @@ void GlobalMasterServer::recvData(ComputeGlobalDataMsg *msg) {
     receivedGroupTotalForces[i] += (*gf_i);
   }
 
+  // Get values of the GridForce objects
+  int ngov = msg->gridobjvalue.size();
+  IntList::iterator goi_i = msg->gridobjindex.begin();
+  BigRealList::iterator gov_i = msg->gridobjvalue.begin();
+  BigRealList::iterator gov_e = msg->gridobjvalue.end();
+  for ( i=0 ; gov_i != gov_e; gov_i++, goi_i++, i++ ) {
+    receivedGridObjIndices[i] = (*goi_i);
+    receivedGridObjValues[i] += (*gov_i);
+  }
+  if (ngov && ngov != receivedGridObjValues.size()) {
+    NAMD_bug("Received wrong number of grid objects.");
+  }
+
   if ( msg->lat.size() ) {
     if ( latticeCount ) {
       NAMD_bug("GlobalMasterServer::recvData received lattice twice.");
@@ -90,23 +104,57 @@ void GlobalMasterServer::recvData(ComputeGlobalDataMsg *msg) {
   }
 
   recvCount += msg->count;
+  recvPatchesCount += msg->patchcount;
+  int numPatches = PatchMap::Object()->numPatches();
 
   /* done with the message, delete it */
   delete msg;
 
   /* check whether we've gotten all the expected messages */
-  if(recvCount > numDataSenders + numForceSenders + 1) {
+
+  DebugM(3, "received " << recvCount << " atom messages and "
+         << recvPatchesCount << " patch messages (out of " << numPatches
+         << " patches) from the ComputeGlobals\n" << endi);
+
+  int numNeededPatches = totalGridObjsRequested ? numPatches : 0;
+  if (firstTime) numNeededPatches = 0;
+
+  if (recvCount > numDataSenders + numForceSenders + 1) {
     NAMD_bug("GlobalMasterServer::recvData recvCount too high.");
   }
-  if(recvCount == numDataSenders + numForceSenders + 1) {
+
+  if (recvPatchesCount > numPatches) {
+    NAMD_bug("GlobalMasterServer::recvData too many patches received.");
+  }
+
+  if ((recvCount == numDataSenders + numForceSenders + 1) &&
+      (recvPatchesCount == numNeededPatches)) {
+
     if ( ! latticeCount ) {
       NAMD_bug("GlobalMasterServer::recvData did not receive lattice.");
     }
 
+    DebugM(3, "Received all needed data\n" << endi);
+
+#ifdef DEBUGM
+    for (size_t ig = 0; ig < receivedGroupMasses.size(); ig++) {
+      // The groups' positions will be normalized later, in callClients()
+      DebugM(3, "Group mass " << ig << " = "
+             << receivedGroupMasses[ig] << "\n" << endi);
+    }
+    for (size_t ig = 0; ig < receivedGridObjValues.size(); ig++) {
+      DebugM(3, "Grid object " << receivedGridObjIndices[ig] << " = "
+             << receivedGridObjValues[ig] << "\n" << endi);
+    }
+#endif
+
     int oldTotalGroupsRequested = totalGroupsRequested;
 
-    DebugM(3,"received messages from each of the ComputeGlobals\n");
     int resendCoordinates = callClients();
+
+    if (resendCoordinates) {
+      DebugM(3, "resendCoordinates\n" << endi);
+    }
 
     /* now restart */
     step = -1;
@@ -116,8 +164,13 @@ void GlobalMasterServer::recvData(ComputeGlobalDataMsg *msg) {
     receivedGroupPositions.setall(Vector(0,0,0));
     receivedGroupMasses.resize(totalGroupsRequested);
     receivedGroupMasses.setall(0);
+    receivedGridObjIndices.resize(totalGridObjsRequested);
+    receivedGridObjIndices.setall(-1);
+    receivedGridObjValues.resize(totalGridObjsRequested);
+    receivedGridObjValues.setall(0);
     latticeCount = 0;
     recvCount = 0;
+    recvPatchesCount = 0;
     if ( resendCoordinates ) {
       recvCount += numForceSenders;
     } else {
@@ -223,6 +276,47 @@ void GlobalMasterServer::resetForceList(AtomIDList &atomsForced,
   DebugM(1,"Done restting forces\n");
 }
 
+void GlobalMasterServer::resetGridObjList(IntList &gridObjsRequested) {
+  gridObjsRequested.resize(0);
+
+  for (GlobalMaster **m_i = clientList.begin(); m_i != clientList.end();
+       m_i++) {
+    // add all of the grids requested by this master
+    GlobalMaster *master = *m_i;
+    for (size_t i = 0; i < master->requestedGridObjs().size(); i++) {
+      gridObjsRequested.add(master->requestedGridObjs()[i]);
+    }
+  }
+
+  // remove duplicates
+  sort(gridObjsRequested.begin(), gridObjsRequested.end());
+  IntList::iterator it = unique(gridObjsRequested.begin(), gridObjsRequested.end());
+  gridObjsRequested.resize( distance(gridObjsRequested.begin(), it) );
+  totalGridObjsRequested = gridObjsRequested.size();
+}
+
+void GlobalMasterServer::resetGridObjForceList(BigRealList &gridObjForces)
+{
+  gridObjForces.resize(totalGridObjsRequested);
+  gridObjForces.setall(0.0);
+
+  GlobalMaster **m_i = clientList.begin();
+  GlobalMaster **m_e = clientList.end();
+  bool have_forces = false;
+  while (m_i != m_e) {
+    size_t i;
+    GlobalMaster *master = *m_i;
+    for(i = 0; i < master->gridObjForces().size(); i++) {
+      have_forces = true;
+      gridObjForces[i] += master->gridObjForces()[i];
+    }
+    m_i++;
+  }
+  if (!have_forces) {
+    gridObjForces.resize(0);
+  }
+}
+
 struct atomID_less {
       bool operator ()(position_index const& a, position_index const& b) const {
         if (a.atomID < b.atomID) return true;
@@ -277,8 +371,10 @@ int GlobalMasterServer::callClients() {
       }
     }
 
+    resetGridObjList(msg->newgridobjid);
+
     DebugM(3,"Sending configure ("<<totalAtomsRequested<<" atoms, "
-	   <<totalGroupsRequested<<" groups)\n");
+	   <<totalGroupsRequested<<" groups, " << totalGridObjsRequested << " grids)\n");
     myComputeManager->sendComputeGlobalResults(msg);
 
     firstTime = 0;
@@ -300,6 +396,11 @@ int GlobalMasterServer::callClients() {
     DebugM(3,"Got " << receivedGroupMasses.size() << " group masses.\n");
     NAMD_bug("Got the wrong number of group masses");
   }
+  if(receivedGridObjValues.size() != totalGridObjsRequested) {
+    DebugM(3,"Requested " << totalGridObjsRequested << " grid objects.\n");
+    DebugM(3,"Got " << receivedGridObjValues.size() << " grid object values.\n");
+    NAMD_bug("Got the wrong number of grid object values");
+  }
 
   /* get the beginning and end of the lists */
   AtomIDList::iterator a_i = receivedAtomIDs.begin();
@@ -309,6 +410,10 @@ int GlobalMasterServer::callClients() {
   PositionList::iterator g_e = receivedGroupPositions.end();
   ForceList::iterator gtf_i = receivedGroupTotalForces.begin();
   ForceList::iterator gtf_e = receivedGroupTotalForces.end();
+  IntList::iterator goi_i = receivedGridObjIndices.begin();
+  IntList::iterator goi_e = receivedGridObjIndices.end();
+  BigRealList::iterator gov_i = receivedGridObjValues.begin();
+  BigRealList::iterator gov_e = receivedGridObjValues.end();
   AtomIDList::iterator forced_atoms_i = lastAtomsForced.begin();
   AtomIDList::iterator forced_atoms_e = lastAtomsForced.end();
   ForceList::iterator forces_i = lastForces.begin();
@@ -327,6 +432,7 @@ int GlobalMasterServer::callClients() {
   bool requested_atoms_changed=false;
   bool requested_forces_changed=false;
   bool requested_groups_changed=false;
+  bool requested_grids_changed=false;
   forceSendActive = false;
   
   vector <position_index> positions;
@@ -340,12 +446,13 @@ int GlobalMasterServer::callClients() {
 
   /* call each of the masters with the coordinates */
   while(m_i != m_e) {
-    int num_atoms_requested, num_groups_requested;
+    int num_atoms_requested, num_groups_requested, num_gridobjs_requested;
     
     /* get the masters information */
     GlobalMaster *master = *m_i;
     num_atoms_requested = master->requestedAtoms().size();
     num_groups_requested = master->requestedGroups().size();
+    num_gridobjs_requested = master->requestedGridObjs().size();
 
     AtomIDList   clientAtomIDs;
     PositionList clientAtomPositions;
@@ -386,10 +493,11 @@ int GlobalMasterServer::callClients() {
     /* update this master */
     master->step = step;
     master->processData(ma_i,ma_e,
-			mp_i,g_i,g_i+num_groups_requested,
-			gm_i,gm_i+num_groups_requested,
-			gtf_i,gtf_i+(numForceSenders?master->old_num_groups_requested:0),
-			forced_atoms_i,forced_atoms_e,forces_i,
+                        mp_i,g_i,g_i+num_groups_requested,
+                        gm_i,gm_i+num_groups_requested,
+                        gtf_i,gtf_i+(numForceSenders?master->old_num_groups_requested:0),
+                        goi_i, goi_e, gov_i, gov_e,
+                        forced_atoms_i,forced_atoms_e,forces_i,
       receivedForceIDs.begin(),receivedForceIDs.end(),receivedTotalForces.begin());
 
     a_i = receivedAtomIDs.begin();
@@ -405,6 +513,9 @@ int GlobalMasterServer::callClients() {
     }
     if(master->changedGroups()) {
       requested_groups_changed = true;
+    }
+    if(master->changedGridObjs()) {
+      requested_grids_changed = true;
     }
     master->clearChanged();
     if(master->requestedTotalForces()) forceSendActive = true;
@@ -424,7 +535,7 @@ int GlobalMasterServer::callClients() {
   ComputeGlobalResultsMsg *msg = new ComputeGlobalResultsMsg;
 
   /* build an atom list, if necessary */
-  if(requested_atoms_changed || requested_groups_changed) {
+  if(requested_atoms_changed || requested_groups_changed || requested_grids_changed) {
     resetAtomList(msg->newaid); // add all of the atom IDs
     totalAtomsRequested = msg->newaid.size();
     msg->reconfig = 1; // request a reconfig
@@ -443,10 +554,13 @@ int GlobalMasterServer::callClients() {
         ++numDataSenders;
       }
     }
+    resetGridObjList(msg->newgridobjid);
   }
+
   msg->totalforces = forceSendActive;
   numForceSenders = (forceSendActive ? numDataSenders : 0);
   resetForceList(msg->aid,msg->f,msg->gforce); // could this be more efficient?
+  resetGridObjForceList(msg->gridobjforce); // ain't touching the one above...
 
   /* get group acceleration by renormalizing group net force by group total mass */
   ForceList::iterator gf_i = msg->gforce.begin();
@@ -472,6 +586,7 @@ GlobalMasterServer::GlobalMasterServer(ComputeMgr *m,
   latticeCount = 0;
   lattice = Node::Object()->simParameters->lattice;
   recvCount = 0; /* we haven't gotten any messages yet */
+  recvPatchesCount = 0;
   firstTime = 1; /* XXX temporary */
   step = -1;
   totalAtomsRequested = 0;

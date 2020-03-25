@@ -33,13 +33,25 @@ public:
 
 class ComputeGlobalDataMsg : public CMessage_ComputeGlobalDataMsg {
 public:
-  // data members
   int step;
+
+  /// Numer of atoms processed for this message
   int count;
+
+  /// Number of patches processed for this message
+  int patchcount;
+
   AtomIDList aid;
   PositionList p;
   PositionList gcom;  // group center of mass
   BigRealList gmass;  // group total mass
+
+  /// Indices of the GridForce objects contained in this message
+  IntList gridobjindex;
+
+  /// Partial values of the GridForce objects from this message
+  BigRealList gridobjvalue;
+
   AtomIDList fid;
   ForceList tf;
   ForceList gtf;  // group total force
@@ -59,8 +71,9 @@ class ComputeGlobalResultsMsg : public CMessage_ComputeGlobalResultsMsg {
 public:
   // data members
   AtomIDList aid;
-  ForceList f;
-  ForceList gforce;  // force on group
+  ForceList f;  // forces on atoms
+  ForceList gforce;  // forces on group COMs
+  BigRealList gridobjforce;  // forces on grid objects
 
   int seq;
   int totalforces;  // send total forces?
@@ -77,6 +90,7 @@ public:
   
   AtomIDList newaid;
   AtomIDList newgdef;
+  IntList newgridobjid;
 
   // constructor and destructor
   ComputeGlobalResultsMsg(void);

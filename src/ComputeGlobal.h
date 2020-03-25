@@ -46,7 +46,7 @@ private:
   ComputeMgr *comm;
 
   void sendData();
-  void configure(AtomIDList &newaid, AtomIDList &newgdef);
+  void configure(AtomIDList &newaid, AtomIDList &newgdef, IntList &newgridobjid);
 
   AtomIDList aid;
   AtomIDList gdef;  // definitions of groups
@@ -63,6 +63,33 @@ private:
 
   Force **forcePtrs;
   FullAtom **atomPtrs;
+
+  /// Number of GridForceGrid object defined for this simulation
+  size_t numGridObjects;
+
+  /// Flags: 1 = processed by ComputeGlobal, 0 = processed by ComputeGridForce
+  /// The length of this list is numGridObjects
+  IntList gridObjActive;
+
+  /// Sum of the elements of gridObjActive
+  size_t numActiveGridObjects;
+
+  /// Atomic gradients (and then forces) of the global grid objects
+  ForceList ***gridForcesPtrs;
+
+  void configureGridObjects(IntList &newgridobjid);
+  void deleteGridObjects();
+  void computeGridObjects(ComputeGlobalDataMsg *msg);
+  /// Reimplementation of equivalent function from ComputeGridForce
+  template<class T> void computeGridForceGrid(FullAtomList::iterator aii,
+                                              FullAtomList::iterator aei,
+                                              ForceList::iterator fii,
+                                              Lattice const &lattice,
+                                              int gridIndex,
+                                              T *grid,
+                                              BigReal &gridObjValue);
+  void applyGridObjectForces(ComputeGlobalResultsMsg *msg,
+                             Force *extForce, Tensor *extVirial);
   
   int forceSendEnabled; // are total forces received?
   int forceSendActive; // are total forces received this step?

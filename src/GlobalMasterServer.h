@@ -41,10 +41,12 @@ class GlobalMasterServer {
   int numForceSenders; // the number of expected force messages each cycle
   int latticeCount; // is lattice received so far this cycle
   int recvCount; // the number of messages so far this cycle
+  int recvPatchesCount; // the number of patches so far this cycle
   int firstTime; // used to be compatible with the ComputeGlobals
   int totalAtomsRequested; // the total number of atoms requested
                            // (initially zero)
   int totalGroupsRequested; // the total number of groups requested
+  int totalGridObjsRequested; // the total number of grid objects requested
 
   /* the receivedAtomIDs and receivedAtomPositions lists give
      correspond to each other: element i of the receivedAtomIDs is the
@@ -59,6 +61,12 @@ class GlobalMasterServer {
   ForceList receivedGroupTotalForces;
   AtomIDList receivedForceIDs;
   ForceList receivedTotalForces;
+
+  /// Numeric IDs of received GridForce objects
+  IntList receivedGridObjIndices;
+
+  /// Values of received GridForce objects
+  BigRealList receivedGridObjValues;
 
   int step;  // current timestep received from patches
   Lattice lattice;  // current lattice received from patches
@@ -92,6 +100,9 @@ class GlobalMasterServer {
      to the list (1,2,3,-1,2,3,4,-1).  The number of groups sent is
      stored in the variable <numGroups>*/
   void resetGroupList(AtomIDList &groupsRequested, int *numGroups);
+
+  void resetGridObjList(IntList &gridObjsRequested);
+  void resetGridObjForceList(BigRealList &gridObjForces);
 
   /* stores the version of forces that was found by resetForceList */
   AtomIDList lastAtomsForced;

@@ -44,6 +44,7 @@ template <class T> void ComputeGridForce::do_calc(T *grid, int gridnum, FullAtom
     float V;
     
     Vector gfScale = grid->get_scale();
+    DebugM(3, "doCalc()\n" << endi);
 
     //  Loop through and check each atom
     for (int i = 0; i < numAtoms; i++) {
@@ -99,6 +100,7 @@ template <class T> void ComputeGridForce::do_calc(T *grid, int gridnum, FullAtom
 	    extVirial += outer(force,vpos);
 	}
     }
+    DebugM(3, "doCalc() done\n" << endi);
 }
 
 void ComputeGridForce::doForce(FullAtom* p, Results* r)
@@ -114,9 +116,17 @@ void ComputeGridForce::doForce(FullAtom* p, Results* r)
     int numAtoms = homePatch->getNumAtoms();
 
     if ( mol->numGridforceGrids < 1 ) NAMD_bug("No grids loaded in ComputeGridForce::doForce()");
+
+    DebugM(3, "doForce()\n" << endi);
     
     for (int gridnum = 0; gridnum < mol->numGridforceGrids; gridnum++) {
 	GridforceGrid *grid = mol->get_gridfrc_grid(gridnum);
+
+        const Vector gfScale = grid->get_scale();
+        if ((gfScale.x == 0.0) && (gfScale.y == 0.0) && (gfScale.z == 0.0)) {
+          DebugM(3, "Skipping grid index " << gridnum << "\n" << endi);
+          continue;
+        }
 	
 	if (homePatch->flags.step % GF_OVERLAPCHECK_FREQ == 0) {
 	    // only check on node 0 and every GF_OVERLAPCHECK_FREQ steps
@@ -133,9 +143,8 @@ void ComputeGridForce::doForce(FullAtom* p, Results* r)
 	 }
 	}
 	
-	Position center = grid->get_center();
-	
 	if (homePatch->flags.step % 100 == 1) {
+            Position center = grid->get_center();
 	    DebugM(3, "center = " << center << "\n" << endi);
 	    DebugM(3, "e = " << grid->get_e() << "\n" << endi);
 	}
@@ -152,5 +161,6 @@ void ComputeGridForce::doForce(FullAtom* p, Results* r)
     ADD_VECTOR_OBJECT(reduction,REDUCTION_EXT_FORCE_NORMAL,extForce);
     ADD_TENSOR_OBJECT(reduction,REDUCTION_VIRIAL_NORMAL,extVirial);
     reduction->submit();
+    DebugM(3, "doForce() done\n" << endi);
 }
 /*			END OF FUNCTION force				*/

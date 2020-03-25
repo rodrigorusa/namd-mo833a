@@ -14,20 +14,24 @@
 #include "Debug.h"
 
 void GlobalMaster::processData(AtomIDList::iterator a_i,
-			       AtomIDList::iterator a_e,
-			       PositionList::iterator p_i,
-			       PositionList::iterator g_i,
-			       PositionList::iterator g_e,
-			       BigRealList::iterator gm_i,
-			       BigRealList::iterator gm_e,
-			       ForceList::iterator gtf_i,
-			       ForceList::iterator gtf_e,
-			       AtomIDList::iterator last_atoms_forced_i,
-			       AtomIDList::iterator last_atoms_forced_e,
-			       ForceList::iterator last_forces_i,
-			       AtomIDList::iterator forceid_i,
-			       AtomIDList::iterator forceid_e,
-			       ForceList::iterator totalforce_i) {
+                               AtomIDList::iterator a_e,
+                               PositionList::iterator p_i,
+                               PositionList::iterator g_i,
+                               PositionList::iterator g_e,
+                               BigRealList::iterator gm_i,
+                               BigRealList::iterator gm_e,
+                               ForceList::iterator gtf_i,
+                               ForceList::iterator gtf_e,
+                               IntList::iterator goi_i,
+                               IntList::iterator goi_e,
+                               BigRealList::iterator gov_i,
+                               BigRealList::iterator gov_e,
+                               AtomIDList::iterator last_atoms_forced_i,
+                               AtomIDList::iterator last_atoms_forced_e,
+                               ForceList::iterator last_forces_i,
+                               AtomIDList::iterator forceid_i,
+                               AtomIDList::iterator forceid_e,
+                               ForceList::iterator totalforce_i) {
   atomIdBegin = a_i;
   atomIdEnd = a_e;
   atomPositionBegin = p_i;
@@ -37,6 +41,10 @@ void GlobalMaster::processData(AtomIDList::iterator a_i,
   groupMassEnd = gm_e;
   groupTotalForceBegin = gtf_i;
   groupTotalForceEnd = gtf_e;
+  gridObjIndexBegin = goi_i;
+  gridObjIndexEnd = goi_e;
+  gridObjValueBegin = gov_i;
+  gridObjValueEnd = gov_e;
   lastAtomsForcedBegin = last_atoms_forced_i;
   lastAtomsForcedEnd = last_atoms_forced_e;
   lastForcesBegin = last_forces_i;
@@ -48,12 +56,7 @@ void GlobalMaster::processData(AtomIDList::iterator a_i,
 
   /* check to make sure the force arrays still match */
   if(appForcesChanged) {
-    if(fAtoms.size() != appForces.size())
-      NAMD_die("# of atoms forced != # of forces given");
-  }
-  if(appForcesChanged) {
-    if(grpForces.size() != gm_e - gm_i)
-      NAMD_die("# of groups forced != # of groups requested");
+    check();
   }
 }
 
@@ -63,12 +66,15 @@ void GlobalMaster::check() const {
     NAMD_die("# of atoms forced != # of forces given");
   if(grpForces.size() != groupMassEnd - groupMassBegin)
     NAMD_die("# of groups forced != # of groups requested");
+  if(gridobjForces.size() != reqGridObjs.size())
+    NAMD_die("# of grid objects forced != # of grid objects requested");
 }
 
 void GlobalMaster::clearChanged() {
   reqAtomsChanged = false;
   appForcesChanged = false;
   reqGroupsChanged = false;
+  reqGridObjsChanged = false;
 }
 
 void GlobalMaster::calculate() {
@@ -86,6 +92,8 @@ GlobalMaster::GlobalMaster() {
   groupPositionEnd = 0;
   groupMassBegin = 0;
   groupMassEnd = 0;
+  gridObjValueBegin = 0;
+  gridObjValueEnd = 0;
   lastAtomsForcedBegin = 0;
   lastAtomsForcedEnd = 0;
   lastForcesBegin = 0;
@@ -108,12 +116,17 @@ bool GlobalMaster::changedGroups() {
   return reqGroupsChanged;
 }
 
+bool GlobalMaster::changedGridObjs() {
+  return reqGridObjsChanged;
+}
+
 const AtomIDList &GlobalMaster::requestedAtoms() {
   return reqAtoms;
 }
 
 AtomIDList &GlobalMaster::modifyRequestedAtoms() {
   reqAtomsChanged = true;
+  DebugM(3,"modifyRequestedAtoms()\n" << endi);
   return reqAtoms;
 }
 
@@ -129,8 +142,16 @@ const ForceList &GlobalMaster::groupForces() {
   return grpForces;
 }
 
+const BigRealList &GlobalMaster::gridObjForces() {
+  return gridobjForces;
+}
+
 const ResizeArray<AtomIDList> &GlobalMaster::requestedGroups() {
   return reqGroups;
+}
+
+const IntList &GlobalMaster::requestedGridObjs() {
+  return reqGridObjs;
 }
 
 AtomIDList &GlobalMaster::modifyForcedAtoms() {
@@ -147,6 +168,17 @@ ForceList &GlobalMaster::modifyGroupForces() {
   // XXX should we mark something else here?
   appForcesChanged = true;
   return grpForces;
+}
+
+IntList &GlobalMaster::modifyRequestedGridObjects() {
+  reqGridObjsChanged = true;
+  DebugM(3,"modifyRequestedGridObjects()\n" << endi);
+  return reqGridObjs;
+}
+
+BigRealList &GlobalMaster::modifyGridObjForces() {
+  appForcesChanged = true;
+  return gridobjForces;
 }
 
 ResizeArray<AtomIDList> &GlobalMaster::modifyRequestedGroups() {
@@ -181,6 +213,22 @@ ForceList::const_iterator GlobalMaster::getGroupTotalForceBegin() {
 
 ForceList::const_iterator GlobalMaster::getGroupTotalForceEnd() {
   return groupTotalForceEnd;
+}
+
+IntList::const_iterator GlobalMaster::getGridObjIndexBegin() {
+  return gridObjIndexBegin;
+}
+
+IntList::const_iterator GlobalMaster::getGridObjIndexEnd() {
+  return gridObjIndexEnd;
+}
+
+BigRealList::const_iterator GlobalMaster::getGridObjValueBegin() {
+  return gridObjValueBegin;
+}
+
+BigRealList::const_iterator GlobalMaster::getGridObjValueEnd() {
+  return gridObjValueEnd;
 }
 
 BigRealList::const_iterator GlobalMaster::getGroupMassBegin()

@@ -41,10 +41,13 @@ ComputeGlobalDataMsg::~ComputeGlobalDataMsg(void) {
 PACK_MSG(ComputeGlobalDataMsg,
   PACK(step);
   PACK(count);
+  PACK(patchcount);
   PACK_RESIZE(aid);
   PACK_RESIZE(p);
   PACK_RESIZE(gcom);
   PACK_RESIZE(gmass);
+  PACK_RESIZE(gridobjindex);
+  PACK_RESIZE(gridobjvalue);
   PACK_RESIZE(fid);
   PACK_RESIZE(tf);
   PACK_RESIZE(gtf);
@@ -66,6 +69,7 @@ PACK_MSG(ComputeGlobalResultsMsg,
   PACK_RESIZE(aid);
   PACK_RESIZE(f);
   PACK_RESIZE(gforce);
+  PACK_RESIZE(gridobjforce);
   PACK(seq);
   PACK(totalforces);
   PACK(reconfig);
@@ -73,5 +77,6 @@ PACK_MSG(ComputeGlobalResultsMsg,
   if ( packmsg_msg->reconfig ) {
     PACK_RESIZE(newaid);
     PACK_RESIZE(newgdef);
+    PACK_RESIZE(newgridobjid);
   }
 )
