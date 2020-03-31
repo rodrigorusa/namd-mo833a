@@ -650,7 +650,7 @@ The following keywords are available in the global context of the Colvars config
     global}{%
     Colvar module restart frequency}{%
     positive integer}{%
-    \cvnamdonly{NAMD parameter \texttt{restartFreq}}\cvlammpsonly{LAMMPS \texttt{restart} frequency when defined}\cvvmdonly{0}{%
+    \cvnamdonly{NAMD parameter \texttt{restartFreq}}\cvlammpsonly{LAMMPS \texttt{restart} frequency when defined}\cvvmdonly{0}}{%
     The state file and any other output files produced by Colvars are written every these many steps (the trajectory file is still written every \refkey{colvarsTrajFrequency}{Colvars-global|colvarsTrajFrequency} steps).
     \cvvmdonly{In VMD, the simulation step is not progressed and this parameter is effectively ignored.}
     It is generally a good idea to leave this parameter at its default value, unless needed for special cases or to disable automatic writing of output files altogether.
@@ -792,7 +792,7 @@ During a simulation with collective variables defined, the following three outpu
 
 \begin{itemize}
 
-\item A \emph{state file}, named \outputName\texttt{.colvars.state}; this file is in ASCII (plain text) format\cvnamdonly{, regardless of the value of \texttt{binaryOutput} in the NAMD configuration}.  This file is written at the end of the specified run\cvscriptonly{, but can also be written at any time with the command \texttt{cv save} (\ref{sec:cv_command_io})}.\\
+\item A \emph{state file}, named \outputName\texttt{.colvars.state}; this file is in ASCII (plain text) format\cvnamdonly{, regardless of the value of \texttt{binaryOutput} in the NAMD configuration}.  This file is written at the end of the specified run\cvscriptonly{, but can also be written at any time with the command \texttt{cv save} (\ref{sec:cv_command_loadsave})}.\\
   \emph{This is the only Colvars output file needed to continue a simulation.}
 
 \item If the parameter \refkey{colvarsRestartFrequency}{Colvars-global|colvarsRestartFrequency} is larger than zero, a \emph{restart file} is written every that many steps: this file is fully equivalent to the final state file.
@@ -4581,7 +4581,7 @@ This feature has been contributed to NAMD by the following authors:
    Laboratoire International Associ\'e 
    Centre National de la Recherche Scientifique et University of Illinois at Urbana--Champaign,   \\
    Unit\'e Mixte de Recherche No. 7565, Universit\'e de Lorraine,                                \\
-   B.P. 70239, 54506 Vand\oe uvre-lès-Nancy cedex, France
+   B.P. 70239, 54506 Vand\oe uvre-l\'es-Nancy cedex, France
 \end{quote}
 
 \copyright~2016, {\sc Centre National de la Recherche Scientifique}
