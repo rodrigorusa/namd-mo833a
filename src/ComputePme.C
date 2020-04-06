@@ -4536,8 +4536,13 @@ public:
   Lattice lattice;
   PmeReduction evir;
   int sequence;  // used for priorities
-  int imsg;  // used in sdag code
-  int imsgb;  // Node par uses distinct counter for back path
+#if CHARM_VERSION < 61100
+  typedef int AtomicInt;
+#else
+  typedef CmiMemoryAtomicInt AtomicInt;
+#endif
+  AtomicInt imsg;  // used in sdag code
+  AtomicInt imsgb;  // Node par uses distinct counter for back path
   int hasData;  // used in message elimination
   int offload;
   float *data;
@@ -4617,10 +4622,12 @@ private:
     void setup_ungrid_persistent() 
     {
        ungrid_handle = (PersistentHandle*) malloc( sizeof(PersistentHandle) * grid_msgs.size());
-       for ( imsg=0; imsg < grid_msgs.size(); ++imsg ) {
-           int peer = grid_msgs[imsg]->sourceNode;
-           //ungrid_handle[imsg] = CmiCreatePersistent(peer, 0); 
+       int limsg;
+       for ( limsg=0; limsg < grid_msgs.size(); ++limsg ) {
+           int peer = grid_msgs[limsg]->sourceNode;
+           //ungrid_handle[limsg] = CmiCreatePersistent(peer, 0);
        }
+       imsg = limsg;
     }
 #endif
 };
@@ -6222,8 +6229,8 @@ void PmeZPencil::send_all_ungrid() {
 }
 
 void PmeZPencil::send_subset_ungrid(int fromIdx, int toIdx){
-	for (int imsg=fromIdx; imsg <=toIdx; ++imsg ) {
-		PmeGridMsg *msg = grid_msgs[imsg];
+	for (int limsg=fromIdx; limsg <=toIdx; ++limsg ) {
+		PmeGridMsg *msg = grid_msgs[limsg];
 		send_ungrid(msg);
 	}
 }
