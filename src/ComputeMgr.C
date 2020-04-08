@@ -118,6 +118,7 @@ ComputeMgr::ComputeMgr()
     computeNonbondedMICObject = 0;
     computeNonbondedWorkArrays = new ComputeNonbondedWorkArrays;
     skipSplitting = 0;
+    masterServerObject = NULL;
 
     #if defined(NAMD_MIC)
       // Create the micPEData flag array (1 bit per PE) and initially set each PE as "not driving
@@ -135,6 +136,7 @@ ComputeMgr::ComputeMgr()
 ComputeMgr::~ComputeMgr(void)
 {
     delete computeNonbondedWorkArrays;
+    if (masterServerObject != NULL) delete masterServerObject;
 }
 
 void ComputeMgr::updateComputes(int ep, CkGroupID chareID)
