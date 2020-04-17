@@ -87,6 +87,7 @@ void NAMD_new_handler() {
 void topo_getargs(char**);
 void cuda_getargs(char**);
 // void cuda_initialize();
+void cuda_affinity_initialize();
 void mic_getargs(char**);
 // void mic_initialize();
 
@@ -112,6 +113,14 @@ void all_init(int argc, char **argv)
   argc = CmiGetArgc(argv);
 #endif
   
+#ifdef NAMD_CUDA
+  // launch CUDA runtime threads before affinity is set by _initCharm
+  // _initCharm contains a node barrier so there is no race here
+  if(CmiMyRank()==0){
+    cuda_affinity_initialize();
+  }
+#endif
+
   _initCharm(argc, argv);  // message main Chare
 
 //#if 0  // moved to WorkDistrib
@@ -218,8 +227,6 @@ void master_init(int argc, char **argv){
   CsdScheduler(-1);
 }
 
-void cuda_affinity_initialize();
-
 char *gNAMDBinaryName = NULL;
 // called by main on one or all procs
 void BackEnd::init(int argc, char **argv) {
@@ -242,11 +249,6 @@ void BackEnd::init(int argc, char **argv) {
       break;
     }
   }
-#endif
-
-#ifdef NAMD_CUDA
-  // launch CUDA runtime threads before affinity is set
-  cuda_affinity_initialize();
 #endif
 
   ConverseInit(argc, argv, slave_init, 1, 1);  // calls slave_init on others
