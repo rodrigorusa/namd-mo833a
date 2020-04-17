@@ -71,7 +71,11 @@ void NAMD_quit(const char *err_msg)
     sprintf(repstr,"REPLICA %d ", CmiMyPartition());
   }
   CkError("%sEXITING: %s\n", repstr, err_msg);
+#if CHARM_VERSION < 61000
+  CkExit();
+#else
   CkExit(0);
+#endif
 }
 
  
@@ -86,7 +90,11 @@ void NAMD_die(const char *err_msg)
     sprintf(repstr,"REPLICA %d ", CmiMyPartition());
   }
   CkError("%sFATAL ERROR: %s\n", repstr, err_msg);
+#if CHARM_VERSION < 61000
+  CkExit();
+#else
   CkExit(1);
+#endif
 }
 
 
@@ -103,7 +111,11 @@ void NAMD_err(const char *err_msg)
     sprintf(repstr,"REPLICA %d ", CmiMyPartition());
   }
   CkError("%sFATAL ERROR: %s: %s\n", repstr, err_msg, sys_err_msg);
+#if CHARM_VERSION < 61000
+  CkExit();
+#else
   CkExit(1);
+#endif
 }
 
 
@@ -120,7 +132,11 @@ void NAMD_bug(const char *err_msg)
     sprintf(repstr,"REPLICA %d ", CmiMyPartition());
   }
   CkError("%sFATAL ERROR: %s\n%s\n", repstr, err_msg, bug_msg);
+#if CHARM_VERSION < 61000
+  CkExit();
+#else
   CkExit(2);
+#endif
 }
 
 

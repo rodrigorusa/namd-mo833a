@@ -293,7 +293,11 @@ void BackEnd::exit(int status) {
   }
 #endif
 #endif
+#if CHARM_VERSION < 61000
+  CkExit();
+#else
   CkExit(status);
+#endif
 }
 
 // start scheduler
