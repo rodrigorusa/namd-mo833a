@@ -1598,6 +1598,30 @@ with respect to $\{\mathbf{x}_{i}(t)\}$.
     with a non-zero value are read.
   }
 }
+
+\item %
+  \labelkey{colvar|rmsd|atomPermutation}
+  \key
+    {atomPermutation}{%
+    \texttt{rmsd}}{%
+    Alternate ordering of atoms for RMSD computation}{%
+    List of atom numbers}{%
+    If defined, this parameter defines a re-ordering (permutation) of the 1-based atom numbers that
+    can be used to compute the RMSD, typically due to molecular symmetry.
+    This parameter can be specified multiple times, each one defining a new permutation:
+    the returned RMSD value is the minimum over the set of permutations.
+    For example, if the atoms making up the group are 6, 7, 8, 9, and atoms 7, 8, and 9
+    are invariant by circular permutation (as the hydrogens in a CH3 group), a
+    symmetry-adapted RMSD would be obtained by adding:\\
+    \texttt{atomPermutation 6 8 9 7}\\
+    \texttt{atomPermutation 6 9 7 8}\\
+    Note that \textit{this does not affect the least-squares roto-translational fit},
+    which is done using the topology ordering of atoms, and the reference
+    positions in the order provided.
+    Therefore, this feature is mostly useful when using custom fitting parameters within the
+    atom group, such as \refkey{fittingGroup}{atom-group|fittingGroup}, or when fitting
+    is disabled altogether.
+  }
 \end{cvcoptions}
 This component returns a positive real number (in \AA).
 
@@ -4008,7 +4032,21 @@ All biasing and analysis methods implemented recognize the following options:
     Write the current bias energy to the trajectory file}{%
     boolean}{%
     \texttt{off}}{%
-    If this option is chosen and  \texttt{colvarsTrajFrequency} is not zero, the current value of the biasing energy will be written to the trajectory file during the simulation.}
+    If this option is chosen and \texttt{colvarsTrajFrequency} is not zero, the current value of the biasing energy will be written to the trajectory file during the simulation.
+    \cvnamdonly{The total energy of all Colvars biases is also reported by NAMD, as part of the MISC title.}
+}
+
+\item %
+  \labelkey{colvarbias|outputFreq}
+  \keydef{outputFreq}{%
+    colvar bias}{%
+    Frequency (number of steps) at which output files are written}{%
+    positive integer}{%
+    \refkey{colvarsRestartFrequency}{Colvars-global|colvarsRestartFrequency}}{%
+    If this bias produces aggregated data that needs to be written to disk (for example, a PMF), this number specifies the number of steps after which these data are written to files.
+    A value of zero disables writing files for this bias during the simulation (except for \refkey{outputEnergy}{colvarbias|outputEnergy}, which is controlled by \refkey{colvarsTrajFrequency}{Colvars-global|colvarsTrajFrequency}).
+    All output files are also written at the end of a simulation run, regardless of the value of this number.
+    \cvvmdonly{In VMD, this option has no effect.}}
 
 \item %
   \labelkey{colvarbias|bypassExtendedLagrangian}
@@ -4240,6 +4278,7 @@ The following specific parameters can be set in the ABF configuration block:
 \item \dupkey{name}{\texttt{abf}}{sec:colvarbias}{biasing and analysis methods}
 \item \dupkey{colvars}{\texttt{abf}}{sec:colvarbias}{biasing and analysis methods}
 \item \dupkey{outputEnergy}{\texttt{abf}}{sec:colvarbias}{biasing and analysis methods}
+\item \dupkey{outputFreq}{\texttt{abf}}{colvarbias|outputFreq}{biasing and analysis methods}
 
 \item \keydef{fullSamples}{\texttt{abf}}{%
     Number of samples in a bin prior
@@ -4281,23 +4320,16 @@ The following specific parameters can be set in the ABF configuration block:
     applying internally the corresponding correction to ensure uniform sampling.
     It is not allowed for colvars with multiple components.}
 
-\item \keydef{outputFreq}{\texttt{abf}}{%
-    Frequency (in timesteps) at which ABF data files are refreshed}
-  {positive integer}
-  {Colvars module restart frequency}
-  {The files containing the free energy gradient estimate and sampling histogram
-    (and the PMF in one-dimensional calculations) are written on disk at the given
-    time interval.}
-
 \item \keydef{historyFreq}{\texttt{abf}}{%
     Frequency (in timesteps) at which ABF history files are
   accumulated}
   {positive integer}
   {0}
   {If this number is non-zero, the free energy gradient estimate and sampling histogram
-    (and the PMF in one-dimensional calculations) are appended to files on disk at
+    (and the PMF in one-dimensional calculations) are written to files on disk at
     the given time interval. History file names use the same prefix as output files, with
-    ``\texttt{.hist}'' appended.}
+    ``\texttt{.hist}'' appended (\outputName\texttt{.hist.pmf}).
+  \texttt{historyFreq} must be a multiple of \refkey{outputFreq}{colvarbias|outputFreq}.}
 
 \item \key{inputPrefix}{\texttt{abf}}{%
     Filename prefix for reading ABF data}
@@ -4362,7 +4394,7 @@ The following specific parameters can be set in the ABF configuration block:
 \item \keydef{sharedFreq}{\texttt{abf}}{%
     Frequency (in timesteps) at which force samples are synchronized among the replicas}
   {positive integer}
-  {\texttt{outputFreq}}
+  {\refkey{outputFreq}{colvarbias|outputFreq}}
   {
   In the current implementation of shared ABF, each replica maintains a separate
   buffer of total force samples that determine the biasing force.
@@ -4581,7 +4613,7 @@ This feature has been contributed to NAMD by the following authors:
    Laboratoire International Associ\'e 
    Centre National de la Recherche Scientifique et University of Illinois at Urbana--Champaign,   \\
    Unit\'e Mixte de Recherche No. 7565, Universit\'e de Lorraine,                                \\
-   B.P. 70239, 54506 Vand\oe uvre-l\'es-Nancy cedex, France
+   B.P. 70239, 54506 Vand\oe uvre-lès-Nancy cedex, France
 \end{quote}
 
 \copyright~2016, {\sc Centre National de la Recherche Scientifique}
@@ -4754,6 +4786,7 @@ Its mandatory keywords are \refkey{colvars}{colvarbias|colvars}, the variables i
 \item \dupkey{name}{\texttt{metadynamics}}{sec:colvarbias}{biasing and analysis methods}
 \item \dupkey{colvars}{\texttt{metadynamics}}{sec:colvarbias}{biasing and analysis methods}
 \item \dupkey{outputEnergy}{\texttt{metadynamics}}{sec:colvarbias}{biasing and analysis methods}
+\item \dupkey{outputFreq}{\texttt{metadynamics}}{colvarbias|outputFreq}{biasing and analysis methods}
 \item \dupkey{writeTIPMF}{\texttt{metadynamics}}{sec:colvarbias}{biasing and analysis methods}
 \item \dupkey{writeTISamples}{\texttt{metadynamics}}{sec:colvarbias}{biasing and analysis methods}
 
@@ -4821,8 +4854,7 @@ The following two options allow to disable or control this behavior and to track
     Periodically write the PMF for visualization}{%
     boolean}{%
     \texttt{on}}{%
-    When \texttt{useGrids} and this option are \texttt{on}, the PMF is
-    written every \texttt{colvarsRestartFrequency} steps.}
+    When \texttt{useGrids} and this option are \texttt{on}, the PMF is written every \refkey{outputFreq}{colvarbias|outputFreq} steps.}
 
 \item %
   \keydef
@@ -4833,6 +4865,24 @@ The following two options allow to disable or control this behavior and to track
     \texttt{off}}{%
     When \texttt{writeFreeEnergyFile} and this option are \texttt{on}, the step number is included in the file name, thus generating a series of PMF files.
     Activating this option can be useful to follow more closely the convergence of the simulation, by comparing PMFs separated by short times.}
+
+\item %
+  \labelkey{metadynamics|writeHillsTrajectory}
+  \keydef
+    {writeHillsTrajectory}{%
+    \texttt{metadynamics}}{%
+    Write a log of new hills}{%
+    boolean}{%
+    \texttt{off}}{%
+    If this option is \texttt{on}, a file containing the Gaussian hills written by the \texttt{metadynamics} bias, with the name:\\
+    ``\outputName\texttt{.colvars.$<$name$>$.hills.traj}'',\\
+    which can be useful to post-process the time series of the Gassian hills.
+    Each line is written every \texttt{newHillFrequency}, regardless of the value of \refkey{outputFreq}{colvarbias|outputFreq}.
+    When \texttt{multipleReplicas} is \texttt{on}, its name is changed to:\\
+    ``\outputName\texttt{.colvars.$<$name$>$.$<$replicaID$>$.hills.traj}''.\\
+    The columns of this file are the centers of the hills, $\xi_{i}(t')$, followed by the half-widths, $\sigma_{\xi_{i}}$, and the weight, $W$.
+    \textbf{Note:} prior to version 2020-02-24, the full-width $2\sigma$ of the Gaussian was reported in lieu of $\sigma$.
+    }
 
 \end{itemize}
 
@@ -4873,6 +4923,20 @@ Default values are chosen to minimize such cost with no loss of accuracy.
     and widths) saved in the state file override those in the
     configuration file.  Enabling this option forces the grids to match
     those in the current configuration file.}
+
+\item %
+  \keydef
+    {keepHills}{%
+    \texttt{metadynamics}}{%
+    Write each individual hill to the state
+    file}{%
+    boolean}{%
+    \texttt{off}}{%
+    When \texttt{useGrids} and this option are \texttt{on}, all hills
+    are saved to the state file in their analytic form, alongside their
+    grids.  This makes it possible to later use exact analytic Gaussians
+    for \texttt{rebinGrids}.  To only keep track of the history of the
+    added hills, \texttt{writeHillsTrajectory} is preferable.}
 
 \end{itemize}
 
@@ -5129,43 +5193,6 @@ The following are the multiple-walkers related options:
 \end{itemize}
 
 
-\cvsubsubsec{Compatibility and post-processing}{sec:colvarbias_meta_post}
-The following options may be useful only for applications that go beyond the calculation of a PMF by metadynamics:
-\begin{itemize}
-
-\item %
-  \keydef
-    {keepHills}{%
-    \texttt{metadynamics}}{%
-    Write each individual hill to the state
-    file}{%
-    boolean}{%
-    \texttt{off}}{%
-    When \texttt{useGrids} and this option are \texttt{on}, all hills
-    are saved to the state file in their analytic form, alongside their
-    grids.  This makes it possible to later use exact analytic Gaussians
-    for \texttt{rebinGrids}.  To only keep track of the history of the
-    added hills, \texttt{writeHillsTrajectory} is preferable.}
-
-\item %
-  \labelkey{metadynamics|writeHillsTrajectory}
-  \keydef
-    {writeHillsTrajectory}{%
-    \texttt{metadynamics}}{%
-    Write a log of new hills}{%
-    boolean}{%
-    \texttt{off}}{%
-    If this option is \texttt{on}, a logfile is written by the \texttt{metadynamics} bias, with the name:\\
-    ``\outputName\texttt{.colvars.$<$name$>$.hills.traj}'',\\ which can be useful to post-process the time series of the Gassian hills.
-    When \texttt{multipleReplicas} is \texttt{on}, its name is changed to:\\
-    ``\outputName\texttt{.colvars.$<$name$>$.$<$replicaID$>$.hills.traj}''.\\
-    The columns of this file are the centers of the hills, $\xi_{i}(t')$, followed by the half-widths, $\sigma_{\xi_{i}}$, and the weight, $W$.
-    \textbf{Note:} prior to version 2020-02-24, the full-width $2\sigma$ of the Gaussian was reported in lieu of $\sigma$.
-    }
-
-\end{itemize}
-
-
 
 \cvsubsec{Harmonic restraints}{sec:colvarbias_harmonic}
 
@@ -5178,11 +5205,17 @@ harmonic potentials are meant according to their textbook definition:
   \label{eq:colvarbias_harmonic}
   V(\xi) = \frac{1}{2} k \left(\frac{\xi - \xi_0}{w_{\xi}}\right)^2
 \end{equation}
-Note that this differs from harmonic bond and angle potentials in common
-force fields, where the factor of one half is typically omitted,
-resulting in a non-standard definition of the force constant.
+There are two noteworthy aspects of this expression:
+\begin{enumerate}
+\item Because the \emph{standard coefficient of $1/2$} of the harmonic potential is included, this expression differs from harmonic bond and angle potentials historically used in common force fields, where the factor was typically omitted resulting in a non-standard definition of the force constant.
+\item The variable $\xi$ is not only centered at $\xi_0$, but is also \emph{scaled by its characteristic length scale} $w_{\xi}$ (keyword \refkey{width}{colvar|width}).
+  The resulting dimensionless variable $z = (\xi - \xi_0)/w_{\xi}$ is typically easier to treat numerically: for example, when the forces typically experienced by $\xi$ are much smaller than $k/w_{\xi}$ and $k$ is chosen equal to $\kappa_{\mathrm{B}}T$ (thermal energy), the resulting probability distribution of $z$ is approximately a Gaussian with mean equal to 0 and standard deviation equal to 1.
 
-The formula above includes the characteristic length scale $w_{\xi}$ of the colvar $\xi$ (keyword \refkey{width}{colvar|width}) to allow the definition of a multi-dimensional restraint with a unified force constant:
+  This property can be used for setting the force constant in umbrella-sampling ensemble runs: if the restraint centers are chosen in increments of $w_{\xi}$, the resulting distributions of $\xi$ are most often optimally overlapped.
+  In regions where the underlying free-energy landscape induces highly skewed distributions of $\xi$, additional windows may be added as needed, with spacings finer than $w_{\xi}$.
+\end{enumerate}
+
+Beyond one dimension, the use of a scaled harmonic potential also allows a standard definition of a multi-dimensional restraint with a unified force constant:
 \begin{equation}
   \label{eq:colvarbias_harmonic_multi}
   V(\xi_{1}, \ldots, \xi_{M}) = \frac{1}{2} k \sum_{i=1}^{M} \left(\frac{\xi_{i} - \xi_0}{w_{\xi}}\right)^2
@@ -5190,9 +5223,7 @@ The formula above includes the characteristic length scale $w_{\xi}$ of the colv
 
 If one-dimensional or homogeneous multi-dimensional restraints are defined, and there are no other uses for the parameter $w_{\xi}$, \texttt{width} \emph{can be left at its default value of $1$}.
 
-\cvnamdonly{The restraint energy is reported by NAMD under the MISC title.}
-
-A harmonic restraint is set up by a \texttt{harmonic~\{...\}} block, which may contain the following keywords:
+A harmonic restraint is defined by a \texttt{harmonic~\{...\}} block, which may contain the following keywords:
 \begin{itemize}
 
 \item \dupkey{name}{\texttt{harmonic}}{sec:colvarbias}{biasing and analysis methods}
@@ -5701,15 +5732,7 @@ variables in the form of a N-dimensional histogram. A \texttt{histogram} block m
 \item \dupkey{colvars}{\texttt{histogram}}{sec:colvarbias}{biasing and analysis methods}
 %\item \dupkey{outputEnergy}{\texttt{histogram}}{sec:colvarbias}{biasing and analysis methods}
 
-\item %
-  \keydef{%
-    outputFreq}{%
-    \texttt{histogram}}{%
-    Frequency (in timesteps) at which the histogram files are refreshed}{%
-    positive integer}{%
-    \texttt{colvarsRestartFrequency}}{%
-    The histogram data are written to files at the given time interval.
-    A value of 0 disables the creation of these files (\textbf{note:} all data to continue a simulation are still included in the state file).}
+\item \dupkey{outputFreq}{\texttt{histogram}}{colvarbias|outputFreq}{biasing and analysis methods}
 
 \item %
   \keydef{%
@@ -5718,8 +5741,9 @@ variables in the form of a N-dimensional histogram. A \texttt{histogram} block m
     Write the histogram to a file}{%
     UNIX filename}{%
     \outputName\texttt{.$<$name$>$.dat}}{%
-    Name of the file containing histogram data (multicolumn format), which is written every \texttt{outputFreq} steps.
+    Name of the file containing histogram data (multicolumn format), which is written every \refkey{outputFreq}{colvarbias|outputFreq} steps.
     For the special case of 2 variables, Gnuplot may be used to visualize this file.
+    If \texttt{outputFile} is set to \texttt{none}, the file is not written.
   }
 
 \item %
@@ -5728,9 +5752,11 @@ variables in the form of a N-dimensional histogram. A \texttt{histogram} block m
     \texttt{histogram}}{%
     Write the histogram to a file}{%
     UNIX filename}{%
-    \outputName\texttt{.$<$name$>$.dat}}{%
-    Name of the file containing histogram data (OpenDX format), which is written every \texttt{outputFreq} steps.
+    \outputName\texttt{.$<$name$>$.dx}}{%
+    Name of the file containing histogram data (OpenDX format), which is written every \refkey{outputFreq}{colvarbias|outputFreq} steps.
     For the special case of 3 variables, VMD may be used to visualize this file.
+    This file is written by default if the dimension is 3 or more.
+    If \texttt{outputFileDX} is set to \texttt{none}, the file is not written.
 }
 
 
@@ -5961,269 +5987,9 @@ The following options allow to fine-tune this schedule:
 \cvsec{Scripting interface (Tcl): list of commands}{sec:cvscript_tcl}
 This section lists all the commands used in \MDENGINE{} to control the behavior of the Colvars module from within a run script.
 
-% \input{cvscript-tcl.tex}
-
-\cvsubsec{Commands to manage the Colvars module}{sec:cvscript_tcl_cv}
-\begin{itemize}
-\item \texttt{cv addenergy E}
-\\
-\texttt{Add an energy to the MD engine (no effect in VMD)}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{E : float - Amount of energy to add}
-\item \texttt{cv config conf}
-\\
-\texttt{Read configuration from the given string}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{conf : string - Configuration string}
-\item \texttt{cv configfile conf\_file}
-\\
-\texttt{Read configuration from a file}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{conf\_file : string - Path to configuration file}
-\item \texttt{cv delete}
-\\
-\texttt{Delete this Colvars module instance (VMD only)}
-\item \texttt{cv frame [frame]}
-\\
-\texttt{Get or set current frame number (VMD only)}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{frame : integer - Frame number (optional)}
-\item \texttt{cv getconfig}
-\\
-\texttt{Get the module's configuration string read so far}
-\item \texttt{cv getenergy}
-\\
-\texttt{Get the current Colvars energy}
-\item \texttt{cv help [command]}
-\\
-\texttt{Get the help string of the Colvars scripting interface}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{command : string - Get the help string of this specific command (optional)}
-\item \texttt{cv list [param]}
-\\
-\texttt{Return a list of all variables or biases}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{param : string - "colvars" or "biases"; default is "colvars" (optional)}
-\item \texttt{cv listcommands}
-\\
-\texttt{Get the list of script functions, prefixed with "cv\_", "colvar\_" or "bias\_"}
-\item \texttt{cv load prefix}
-\\
-\texttt{Load data from a state file into all matching colvars and biases}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{prefix : string - Path to existing state file or input prefix}
-\item \texttt{cv molid [molid]}
-\\
-\texttt{Get or set the molecule ID on which Colvars is defined (VMD only)}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{molid : integer - Molecule ID; -1 means undefined (optional)}
-\item \texttt{cv printframe}
-\\
-\texttt{Return the values that would be written to colvars.traj}
-\item \texttt{cv printframelabels}
-\\
-\texttt{Return the labels that would be written to colvars.traj}
-\item \texttt{cv reset}
-\\
-\texttt{Delete all internal configuration}
-\item \texttt{cv resetindexgroups}
-\\
-\texttt{Clear the index groups loaded so far, allowing to replace them}
-\item \texttt{cv save prefix}
-\\
-\texttt{Change the prefix of all output files and save them}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{prefix : string - Output prefix with trailing ".colvars.state" gets removed)}
-\item \texttt{cv units [units]}
-\\
-\texttt{Get or set the current Colvars unit system}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{units : string - The new unit system (optional)}
-\item \texttt{cv update}
-\\
-\texttt{Recalculate colvars and biases}
-\item \texttt{cv version}
-\\
-\texttt{Get the Colvars Module version number}
-\end{itemize}
-\cvsubsec{Commands to manage individual collective variables}{sec:cvscript_tcl_colvar}
-\begin{itemize}
-\item \texttt{cv colvar name addforce force}
-\\
-\texttt{Apply the given force onto this colvar and return the same}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{force : float or array - Applied force; must match colvar dimensionality}
-\item \texttt{cv colvar name cvcflags flags}
-\\
-\texttt{Enable or disable individual components by setting their active flags}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{flags : integer array - Zero/nonzero value disables/enables the CVC}
-\item \texttt{cv colvar name delete}
-\\
-\texttt{Delete this colvar, along with all biases that depend on it}
-\item \texttt{cv colvar name get feature}
-\\
-\texttt{Get the value of the given feature for this colvar}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{feature : string - Name of the feature}
-\item \texttt{cv colvar name getappliedforce}
-\\
-\texttt{Return the total of the forces applied to this colvar}
-\item \texttt{cv colvar name getatomgroups}
-\\
-\texttt{Return the atom indices used by this colvar as a list of lists}
-\item \texttt{cv colvar name getatomids}
-\\
-\texttt{Return the list of atom indices used by this colvar}
-\item \texttt{cv colvar name getconfig}
-\\
-\texttt{Return the configuration string of this colvar}
-\item \texttt{cv colvar name getgradients}
-\\
-\texttt{Return the atomic gradients of this colvar}
-\item \texttt{cv colvar name gettotalforce}
-\\
-\texttt{Return the sum of internal and external forces to this colvar}
-\item \texttt{cv colvar name help [command]}
-\\
-\texttt{Get a help summary or the help string of one colvar subcommand}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{command : string - Get the help string of this specific command (optional)}
-\item \texttt{cv colvar name modifycvcs confs}
-\\
-\texttt{Modify configuration of individual components by passing string arguments}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{confs : sequence of strings - New configurations; empty strings are skipped}
-\item \texttt{cv colvar name run\_ave}
-\\
-\texttt{Get the current running average of the value of this colvar}
-\item \texttt{cv colvar name set feature value}
-\\
-\texttt{Set the given feature of this colvar to a new value}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{feature : string - Name of the feature}
-\\
-\texttt{value : string - String representation of the new feature value}
-\item \texttt{cv colvar name state}
-\\
-\texttt{Print a string representation of the feature state of this colvar}
-\item \texttt{cv colvar name type}
-\\
-\texttt{Get the type description of this colvar}
-\item \texttt{cv colvar name update}
-\\
-\texttt{Recompute this colvar and return its up-to-date value}
-\item \texttt{cv colvar name value}
-\\
-\texttt{Get the current value of this colvar}
-\item \texttt{cv colvar name width}
-\\
-\texttt{Get the width of this colvar}
-\end{itemize}
-\cvsubsec{Commands to manage individual biases}{sec:cvscript_tcl_bias}
-\begin{itemize}
-\item \texttt{cv bias name bin}
-\\
-\texttt{Get the current grid bin index (1D ABF only for now)}
-\item \texttt{cv bias name bincount [index]}
-\\
-\texttt{Get the number of samples at the given grid bin (1D ABF only for now)}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{index : integer - Grid index; defaults to current bin (optional)}
-\item \texttt{cv bias name binnum}
-\\
-\texttt{Get the total number of grid points of this bias (1D ABF only for now)}
-\item \texttt{cv bias name delete}
-\\
-\texttt{Delete this bias}
-\item \texttt{cv bias name energy}
-\\
-\texttt{Get the current energy of this bias}
-\item \texttt{cv bias name get feature}
-\\
-\texttt{Get the value of the given feature for this bias}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{feature : string - Name of the feature}
-\item \texttt{cv bias name getconfig}
-\\
-\texttt{Return the configuration string of this bias}
-\item \texttt{cv bias name help [command]}
-\\
-\texttt{Get a help summary or the help string of one bias subcommand}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{command : string - Get the help string of this specific command (optional)}
-\item \texttt{cv bias name load prefix}
-\\
-\texttt{Load data into this bias}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{prefix : string - Read from a file with this name or prefix}
-\item \texttt{cv bias name save prefix}
-\\
-\texttt{Save data from this bias into a file with the given prefix}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{prefix : string - Prefix for the state file of this bias}
-\item \texttt{cv bias name set feature value}
-\\
-\texttt{Set the given feature of this bias to a new value}
-\\
-\texttt{\textbf{Parameters}}
-\\
-\texttt{feature : string - Name of the feature}
-\\
-\texttt{value : string - String representation of the new feature value}
-\item \texttt{cv bias name share}
-\\
-\texttt{Share bias information with other replicas (multiple-walker scheme)}
-\item \texttt{cv bias name state}
-\\
-\texttt{Print a string representation of the feature state of this bias}
-\item \texttt{cv bias name update}
-\\
-\texttt{Recompute this bias and return its up-to-date energy}
-\end{itemize}
-
+\cvrefmanonly{\input{cvscript-tcl.tex}}
+\cvnamdugonly{\input{ug_colvars_tclref_namd.tex}}
+\cvvmdugonly{\input{ug_colvars_tclref_vmd.tex}}
 }
 
 

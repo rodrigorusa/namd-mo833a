@@ -86,7 +86,7 @@ colvarproxy_namd::colvarproxy_namd()
   // take the output prefixes from the namd input
   output_prefix_str = std::string(simparams->outputFilename);
   restart_output_prefix_str = std::string(simparams->restartFilename);
-  restart_frequency_s = simparams->restartFrequency;
+  restart_frequency_engine = simparams->restartFrequency;
 
   // check if it is possible to save output configuration
   if ((!output_prefix_str.size()) && (!restart_output_prefix_str.size())) {
@@ -488,8 +488,7 @@ void colvarproxy_namd::calculate()
   // NAMD does not destruct GlobalMaster objects, so we must remember
   // to write all output files at the end of a run
   if (step == simparams->N) {
-    colvars->write_restart_file(cvm::output_prefix()+".colvars.state");
-    colvars->write_output_files();
+    post_run();
   }
 }
 
@@ -1269,7 +1268,7 @@ int colvarproxy_namd::replica_index() {
 }
 
 
-int colvarproxy_namd::replica_num() {
+int colvarproxy_namd::num_replicas() {
   return CmiNumPartitions();
 }
 

@@ -8,7 +8,6 @@
 // Colvars repository at GitHub.
 
 #include "colvarmodule.h"
-#include "colvarproxy.h"
 #include "colvar.h"
 #include "colvarbias_abf.h"
 
@@ -71,8 +70,19 @@ int colvarbias_abf::init(std::string const &conf)
   // full_samples - min_samples >= 1 is guaranteed
 
   get_keyval(conf, "inputPrefix",  input_prefix, std::vector<std::string>());
-  get_keyval(conf, "outputFreq", output_freq, cvm::restart_out_freq);
+
   get_keyval(conf, "historyFreq", history_freq, 0);
+  if (history_freq != 0) {
+    if (output_freq == 0) {
+      cvm::error("Error: historyFreq must be a multiple of outputFreq.\n",
+                 INPUT_ERROR);
+    } else {
+      if ((history_freq % output_freq) != 0) {
+        cvm::error("Error: historyFreq must be a multiple of outputFreq.\n",
+                   INPUT_ERROR);
+      }
+    }
+  }
   b_history_files = (history_freq > 0);
 
   // shared ABF
@@ -448,17 +458,6 @@ int colvarbias_abf::update()
     output_prefix = cvm::output_prefix() + "." + this->name;
   }
 
-  if (output_freq && (cvm::step_absolute() % output_freq) == 0) {
-    if (cvm::debug()) cvm::log("ABF bias trying to write gradients and samples to disk");
-    write_gradients_samples(output_prefix);
-  }
-
-  if (b_history_files && (cvm::step_absolute() % history_freq) == 0) {
-    // file already exists iff cvm::step_relative() > 0
-    // otherwise, backup and replace
-    write_gradients_samples(output_prefix + ".hist", (cvm::step_relative() > 0));
-  }
-
   if (shared_on && shared_last_step >= 0 && cvm::step_absolute() % shared_freq == 0) {
     // Share gradients and samples for shared ABF.
     replica_share();
@@ -574,79 +573,60 @@ int colvarbias_abf::replica_share() {
 }
 
 
-
-void colvarbias_abf::write_gradients_samples(const std::string &prefix, bool append)
-{
-  std::string  samples_out_name = prefix + ".count";
-  std::string  gradients_out_name = prefix + ".grad";
-  std::ios::openmode mode = (append ? std::ios::app : std::ios::out);
-
-  std::ostream *samples_os =
-    cvm::proxy->output_stream(samples_out_name, mode);
-  if (!samples_os) return;
-  samples->write_multicol(*samples_os);
-  cvm::proxy->close_output_stream(samples_out_name);
+template <class T> int colvarbias_abf::write_grid_to_file(T const *grid,
+                                                          std::string const &filename,
+                                                          bool close) {
+  std::ostream *os = cvm::proxy->output_stream(filename);
+  if (!os) {
+    return cvm::error("Error opening file " + filename + " for writing.\n", COLVARS_ERROR | FILE_ERROR);
+  }
+  grid->write_multicol(*os);
+  if (close) {
+    cvm::proxy->close_output_stream(filename);
+  } else {
+    // Insert empty line between frames in history files
+    *os << std::endl;
+    cvm::proxy->flush_output_stream(os);
+  }
 
   // In dimension higher than 2, dx is easier to handle and visualize
   if (num_variables() > 2) {
-    std::string  samples_dx_out_name = prefix + ".count.dx";
-    std::ostream *samples_dx_os = cvm::proxy->output_stream(samples_dx_out_name, mode);
-    if (!samples_os) return;
-    samples->write_opendx(*samples_dx_os);
-    *samples_dx_os << std::endl;
-    cvm::proxy->close_output_stream(samples_dx_out_name);
+    std::string  dx = filename + ".dx";
+    std::ostream *dx_os = cvm::proxy->output_stream(dx);
+    if (!dx_os)  {
+      return cvm::error("Error opening file " + dx + " for writing.\n", COLVARS_ERROR | FILE_ERROR);
+    }
+    grid->write_opendx(*dx_os);
+    if (close) {
+      cvm::proxy->close_output_stream(dx);
+    } else {
+      // Insert empty line between frames in history files
+      *dx_os << std::endl;
+      dx_os->flush();
+    }
   }
+  return COLVARS_OK;
+}
 
-  std::ostream *gradients_os =
-    cvm::proxy->output_stream(gradients_out_name, mode);
-  if (!gradients_os) return;
-  gradients->write_multicol(*gradients_os);
-  cvm::proxy->close_output_stream(gradients_out_name);
+
+void colvarbias_abf::write_gradients_samples(const std::string &prefix, bool close)
+{
+  write_grid_to_file<colvar_grid_count>(samples, prefix + ".count", close);
+  write_grid_to_file<colvar_grid_gradient>(gradients, prefix + ".grad", close);
 
   if (b_integrate) {
     // Do numerical integration (to high precision) and output a PMF
     cvm::real err;
     pmf->integrate(integrate_initial_iterations, integrate_initial_tol, err);
     pmf->set_zero_minimum();
-
-    std::string  pmf_out_name = prefix + ".pmf";
-    std::ostream *pmf_os = cvm::proxy->output_stream(pmf_out_name, mode);
-    if (!pmf_os) return;
-    pmf->write_multicol(*pmf_os);
-
-    // In dimension higher than 2, dx is easier to handle and visualize
-    if (num_variables() > 2) {
-      std::string  pmf_dx_out_name = prefix + ".pmf.dx";
-      std::ostream *pmf_dx_os = cvm::proxy->output_stream(pmf_dx_out_name, mode);
-      if (!pmf_dx_os) return;
-      pmf->write_opendx(*pmf_dx_os);
-      *pmf_dx_os << std::endl;
-      cvm::proxy->close_output_stream(pmf_dx_out_name);
-    }
-
-    *pmf_os << std::endl;
-    cvm::proxy->close_output_stream(pmf_out_name);
+    write_grid_to_file<colvar_grid_scalar>(pmf, prefix + ".pmf", close);
   }
 
   if (b_CZAR_estimator) {
     // Write eABF CZAR-related quantities
-
-    std::string  z_samples_out_name = prefix + ".zcount";
-
-    std::ostream *z_samples_os =
-      cvm::proxy->output_stream(z_samples_out_name, mode);
-    if (!z_samples_os) return;
-    z_samples->write_multicol(*z_samples_os);
-    cvm::proxy->close_output_stream(z_samples_out_name);
-
+    write_grid_to_file<colvar_grid_count>(z_samples, prefix + ".zcount", close);
     if (b_czar_window_file) {
-      std::string  z_gradients_out_name = prefix + ".zgrad";
-
-      std::ostream *z_gradients_os =
-        cvm::proxy->output_stream(z_gradients_out_name, mode);
-      if (!z_gradients_os) return;
-      z_gradients->write_multicol(*z_gradients_os);
-      cvm::proxy->close_output_stream(z_gradients_out_name);
+      write_grid_to_file<colvar_grid_gradient>(z_gradients, prefix + ".zgrad", close);
     }
 
     // Calculate CZAR estimator of gradients
@@ -657,14 +637,7 @@ void colvarbias_abf::write_gradients_samples(const std::string &prefix, bool app
           - cvm::temperature() * cvm::boltzmann() * z_samples->log_gradient_finite_diff(ix, n), n);
       }
     }
-
-    std::string  czar_gradients_out_name = prefix + ".czar.grad";
-
-    std::ostream *czar_gradients_os =
-      cvm::proxy->output_stream(czar_gradients_out_name, mode);
-    if (!czar_gradients_os) return;
-    czar_gradients->write_multicol(*czar_gradients_os);
-    cvm::proxy->close_output_stream(czar_gradients_out_name);
+    write_grid_to_file<colvar_grid_gradient>(czar_gradients, prefix + ".czar.grad", close);
 
     if (b_integrate) {
       // Do numerical integration (to high precision) and output a PMF
@@ -672,24 +645,7 @@ void colvarbias_abf::write_gradients_samples(const std::string &prefix, bool app
       czar_pmf->set_div();
       czar_pmf->integrate(integrate_initial_iterations, integrate_initial_tol, err);
       czar_pmf->set_zero_minimum();
-
-      std::string  czar_pmf_out_name = prefix + ".czar.pmf";
-      std::ostream *czar_pmf_os = cvm::proxy->output_stream(czar_pmf_out_name, mode);
-      if (!czar_pmf_os) return;
-      czar_pmf->write_multicol(*czar_pmf_os);
-
-      // In dimension higher than 2, dx is easier to handle and visualize
-      if (num_variables() > 2) {
-        std::string  czar_pmf_dx_out_name = prefix + ".czar.pmf.dx";
-        std::ostream *czar_pmf_dx_os = cvm::proxy->output_stream(czar_pmf_dx_out_name, mode);
-        if (!czar_pmf_dx_os) return;
-        czar_pmf->write_opendx(*czar_pmf_dx_os);
-        *czar_pmf_dx_os << std::endl;
-        cvm::proxy->close_output_stream(czar_pmf_dx_out_name);
-      }
-
-      *czar_pmf_os << std::endl;
-      cvm::proxy->close_output_stream(czar_pmf_out_name);
+      write_grid_to_file<colvar_grid_scalar>(czar_pmf, prefix + ".czar.pmf", close);
     }
   }
   return;
@@ -836,25 +792,49 @@ std::istream & colvarbias_abf::read_state_data(std::istream& is)
   return is;
 }
 
+
 int colvarbias_abf::write_output_files()
 {
+  if (cvm::debug()) {
+    cvm::log("ABF bias trying to write gradients and samples to disk");
+  }
+
   write_gradients_samples(output_prefix);
+  if (b_history_files) {
+    if ((cvm::step_absolute() % history_freq) == 0) {
+      write_gradients_samples(output_prefix + ".hist", false);
+    }
+  }
+
+  if (b_UI_estimator) {
+    eabf_UI.calc_pmf();
+    eabf_UI.write_files();
+  }
+
   return COLVARS_OK;
 }
 
+
 int colvarbias_abf::calc_energy(std::vector<colvarvalue> const *values)
 {
-  if (values) {
-    return cvm::error("colvarbias_abf::calc_energy() with an argument "
-                      "is currently not implemented.\n",
-                      COLVARS_NOT_IMPLEMENTED);
-  }
+  bias_energy = 0.0; // default value, overridden if a value can be calculated
 
-  if (num_variables() != 1) return 0.0;
+  if (num_variables() > 1 || values != NULL) {
+    if (pmf != NULL) {
+      std::vector<int> const curr_bin = values ?
+        pmf->get_colvars_index(*values) :
+        pmf->get_colvars_index();
+
+      if (pmf->index_ok(curr_bin)) {
+        bias_energy = pmf->value(curr_bin);
+      }
+    }
+    return COLVARS_OK;
+  }
 
   // Get the home bin.
   int home0 = gradients->current_bin_scalar(0);
-  if (home0 < 0) return 0.0;
+  if (home0 < 0) return COLVARS_OK;
   int gradient_len = (int)(gradients->number_of_points(0));
   int home = (home0 < gradient_len) ? home0 : (gradient_len-1);
 
@@ -886,5 +866,6 @@ int colvarbias_abf::calc_energy(std::vector<colvarvalue> const *values)
     sum += fact*gradients->value(ix)/count*gradients->widths[0]*frac;
 
   // The applied potential is the negative integral of force samples.
-  return -sum;
+  bias_energy = -sum;
+  return COLVARS_OK;
 }

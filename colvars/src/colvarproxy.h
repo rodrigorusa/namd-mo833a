@@ -568,21 +568,6 @@ public:
   // Returns error code
   virtual int set_frame(long int);
 
-  /// \brief Returns a reference to the given output channel;
-  /// if this is not open already, then open it
-  virtual std::ostream *output_stream(std::string const &output_name,
-                                      std::ios_base::openmode mode =
-                                      std::ios_base::out);
-
-  /// Returns a reference to output_name if it exists, NULL otherwise
-  virtual std::ostream *get_output_stream(std::string const &output_name);
-
-  /// \brief Flushes the given output channel
-  virtual int flush_output_stream(std::ostream *os);
-
-  /// \brief Closes the given output channel
-  virtual int close_output_stream(std::string const &output_name);
-
   /// \brief Rename the given file, before overwriting it
   virtual int backup_file(char const *filename);
 
@@ -611,30 +596,43 @@ public:
     return rename_file(filename.c_str(), newfilename.c_str());
   }
 
-  /// \brief Prefix of the input state file
+  /// Prefix of the input state file to be read next
   inline std::string & input_prefix()
   {
     return input_prefix_str;
   }
 
-  /// \brief Prefix to be used for output restart files
-  inline std::string & restart_output_prefix()
-  {
-    return restart_output_prefix_str;
-  }
-
-  /// \brief Prefix to be used for output files (final system
-  /// configuration)
+  /// Default prefix to be used for all output files (final configuration)
   inline std::string & output_prefix()
   {
     return output_prefix_str;
   }
 
+  /// Prefix of the restart (checkpoint) file to be written next
+  inline std::string & restart_output_prefix()
+  {
+    return restart_output_prefix_str;
+  }
+
+  /// Default restart frequency (as set by the simulation engine)
+  inline int default_restart_frequency() const
+  {
+    return restart_frequency_engine;
+  }
+
 protected:
 
-  /// \brief Prefix to be used for input files (restarts, not
-  /// configuration)
-  std::string input_prefix_str, output_prefix_str, restart_output_prefix_str;
+  /// Prefix of the input state file to be read next
+  std::string input_prefix_str;
+
+  /// Default prefix to be used for all output files (final configuration)
+  std::string output_prefix_str;
+
+  /// Prefix of the restart (checkpoint) file to be written next
+  std::string restart_output_prefix_str;
+
+  /// How often the simulation engine will write its own restart
+  int restart_frequency_engine;
 
   /// \brief Currently opened output files: by default, these are ofstream objects.
   /// Allows redefinition to implement different output mechanisms
@@ -684,6 +682,9 @@ public:
   /// \brief Reset proxy state, e.g. requested atoms
   virtual int reset();
 
+  /// Close any open files to prevent data loss
+  int close_files();
+
   /// (Re)initialize required member data after construction
   virtual int setup();
 
@@ -710,14 +711,14 @@ public:
   /// As the name says
   void clear_error_msgs();
 
-  /// Restarts will be written each time this number of steps has passed
-  virtual size_t restart_frequency();
-
   /// Whether a simulation is running (warn against irrecovarable errors)
   inline bool simulation_running() const
   {
     return b_simulation_running;
   }
+
+  /// Called at the end of a simulation segment (i.e. "run" command)
+  int post_run();
 
   /// Convert a version string "YYYY-MM-DD" into an integer
   int get_version_from_string(char const *version_string);
@@ -727,6 +728,24 @@ public:
   {
     return version_int;
   }
+
+  /// \brief Returns a reference to the given output channel;
+  /// if this is not open already, then open it
+  virtual std::ostream *output_stream(std::string const &output_name,
+                                      std::ios_base::openmode mode =
+                                      std::ios_base::out);
+
+  /// Returns a reference to output_name if it exists, NULL otherwise
+  virtual std::ostream *get_output_stream(std::string const &output_name);
+
+  /// \brief Flushes the given output channel
+  virtual int flush_output_stream(std::ostream *os);
+
+  /// \brief Flushes all output channels
+  virtual int flush_output_streams();
+
+  /// \brief Closes the given output channel
+  virtual int close_output_stream(std::string const &output_name);
 
 protected:
 
@@ -741,6 +760,9 @@ protected:
 
   /// Integer representing the version string (allows comparisons)
   int version_int;
+
+  /// Raise when the output stream functions are used on threads other than 0
+  void smp_stream_error();
 
 };
 
