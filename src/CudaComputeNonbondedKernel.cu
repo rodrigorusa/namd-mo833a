@@ -479,8 +479,9 @@ nonbondedForceKernel(
                 }
               }
             }
-          } // t
-        } else {
+            WARP_SYNC(WARP_FULL_MASK);
+         } // t
+       } else {
           // Just compute forces
           if (self) {
             excl >>= 1;
@@ -506,11 +507,9 @@ nonbondedForceKernel(
               } // (r2 < cutoff2)
             } // (excl & 1)
             excl >>= 1;
+            WARP_SYNC(WARP_FULL_MASK);
           } // t
-          WARP_SYNC(WARP_FULL_MASK);
         }
-
-
 
         // Write j-forces
         storeForces<doSlow>(jatomStart + wid, s_jforce[iwarp][wid], s_jforceSlow[iwarp][wid],
