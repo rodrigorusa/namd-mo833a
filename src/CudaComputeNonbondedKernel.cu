@@ -398,8 +398,6 @@ nonbondedForceKernel(
           }
         }
 
-        s_xyzq[iwarp][wid] = xyzq_j; 
-
         // DH - self requires that zeroShift is also set
         const bool self = zeroShift && (iatomStart == jatomStart);
         const int modval = (self) ? 2*WARPSIZE-1 : WARPSIZE-1;
@@ -584,8 +582,11 @@ nonbondedForceKernel(
       __shared__ typename WarpReduce::TempStorage tempStorage[NONBONDKERNEL_NUM_WARP];
       int warpId = threadIdx.x / WARPSIZE;
       volatile float iforcexSum = WarpReduce(tempStorage[warpId]).Sum(iforce.x);
+      WARP_SYNC(WARP_FULL_MASK);
       volatile float iforceySum = WarpReduce(tempStorage[warpId]).Sum(iforce.y);
+      WARP_SYNC(WARP_FULL_MASK);
       volatile float iforcezSum = WarpReduce(tempStorage[warpId]).Sum(iforce.z);
+      WARP_SYNC(WARP_FULL_MASK);
       if (wid == 0) {
         virialEnergy[itileList].forcex = iforcexSum;
         virialEnergy[itileList].forcey = iforceySum;
@@ -594,8 +595,11 @@ nonbondedForceKernel(
 
       if (doSlow) {
         iforcexSum = WarpReduce(tempStorage[warpId]).Sum(iforceSlow.x);
+        WARP_SYNC(WARP_FULL_MASK);
         iforceySum = WarpReduce(tempStorage[warpId]).Sum(iforceSlow.y);
+        WARP_SYNC(WARP_FULL_MASK);
         iforcezSum = WarpReduce(tempStorage[warpId]).Sum(iforceSlow.z);
+        WARP_SYNC(WARP_FULL_MASK);
         if (wid == 0) {
           virialEnergy[itileList].forceSlowx = iforcexSum;
           virialEnergy[itileList].forceSlowy = iforceySum;
@@ -624,7 +628,7 @@ nonbondedForceKernel(
 
     if (doStreaming) {
       // Make sure devForces and devForcesSlow have been written into device memory
-      // NO NEED TO SYNCHRONIZE THREADS, THIS IS WARP-LEVEL
+      WARP_SYNC(WARP_FULL_MASK);
       __threadfence();
 
       int patchDone[2] = {false, false};
@@ -675,6 +679,7 @@ nonbondedForceKernel(
 
       if (patchDone[0] || patchDone[1]) {
         // Make sure mapForces and mapForcesSlow are up-to-date
+        WARP_SYNC(WARP_FULL_MASK);
         __threadfence_system();
         // Add patch into "patchReadyQueue"
         if (wid == 0) {
@@ -689,8 +694,6 @@ nonbondedForceKernel(
             mapPatchReadyQueue[ind] = patchInd.y;
           }
         }
-        // Make sure "patchReadyQueue" is visible in page-locked host memory
-        __threadfence_system();
       }
     }
 
