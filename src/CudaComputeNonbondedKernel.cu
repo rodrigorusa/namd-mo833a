@@ -398,6 +398,8 @@ nonbondedForceKernel(
           }
         }
 
+        s_xyzq[iwarp][wid] = xyzq_j; 
+
         // DH - self requires that zeroShift is also set
         const bool self = zeroShift && (iatomStart == jatomStart);
         const int modval = (self) ? 2*WARPSIZE-1 : WARPSIZE-1;
