@@ -4536,7 +4536,7 @@ public:
   Lattice lattice;
   PmeReduction evir;
   int sequence;  // used for priorities
-#if CHARM_VERSION < 61100
+#ifndef CmiMemoryAtomicType
   typedef int AtomicInt;
 #else
   typedef CmiMemoryAtomicInt AtomicInt;
