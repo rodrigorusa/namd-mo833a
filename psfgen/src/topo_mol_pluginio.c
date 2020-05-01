@@ -1,6 +1,25 @@
+/***************************************************************************
+ *cr
+ *cr            (C) Copyright 1995-2019 The Board of Trustees of the
+ *cr                        University of Illinois
+ *cr                         All Rights Reserved
+ *cr
+ ***************************************************************************/
+
+/***************************************************************************
+ * RCS INFORMATION:
+ *
+ *      $RCSfile: topo_mol_pluginio.c,v $
+ *      $Author: jribeiro $        $Locker:  $             $State: Exp $
+ *      $Revision: 1.61 $      $Date: 2020/03/10 04:54:54 $
+ *
+ ***************************************************************************
+ * DESCRIPTION:
+ *  
+ ***************************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <ctype.h>
 #include "topo_mol_pluginio.h"
@@ -22,18 +41,17 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
                          const char *coorpluginname, const char *coorfilename, 
                          const char *segid, stringhash *h, int all_caps,
                          int coordinatesonly, int residuesonly,
-                         void *v, void (*print_msg)(void *, const char *)) {
-  print_msg(v, "ERROR: Plugin I/O not available in this build of psfgen.");
+                         void *vdata, void *v, void (*print_msg)(void *, void *, const char *)) {
+  print_msg(vdata, v, "ERROR: Plugin I/O not available in this build of psfgen.");
   return -1;
 }
 
 int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
                           const char *filename, struct image_spec *images,
-                          void *v, void (*print_msg)(void *, const char *)) {
-  print_msg(v, "ERROR: Plugin I/O not available in this build of psfgen.");
+                          void *vdata, void *v, void (*print_msg)(void *, void *, const char *)) {
+  print_msg(vdata, v, "ERROR: Plugin I/O not available in this build of psfgen.");
   return -1;
 }
-
 
 #else 
 
@@ -173,8 +191,8 @@ static topo_mol_residue_t *get_residue(topo_mol_segment_t *seg,
  */
 static int plugin_read_bonds(molfile_plugin_t *plg, void *rv, 
                              topo_mol *mol, int natoms, 
-                             topo_mol_atom_t **molatomlist,
-                             void *v, void (*print_msg)(void *, const char *)) {
+                             topo_mol_atom_t **molatomlist, void *vdata,
+                             void *v, void (*print_msg)(void *,void *, const char *)) {
   int i, nbonds, *from, *to, *bondtype, nbondtypes;
   float *bondorder;
   char **bondtypename;
@@ -191,11 +209,11 @@ static int plugin_read_bonds(molfile_plugin_t *plg, void *rv,
 #else
   if (plg->read_bonds(rv, &nbonds, &from, &to, &bondorder)) {
 #endif
-    print_msg(v, "ERROR: failed reading bond information.");
+    print_msg(vdata, v, "ERROR: failed reading bond information.");
     return -1;
   } else {
     sprintf(msg, "bonds: %d", nbonds);
-    print_msg(v, msg);
+    print_msg(vdata, v, msg);
 
     for (i=nbonds-1; i >= 0; i--) {
       topo_mol_atom_t *atom1, *atom2;
@@ -210,7 +228,7 @@ static int plugin_read_bonds(molfile_plugin_t *plg, void *rv,
    
       atom1 = molatomlist[ind1];
       atom2 = molatomlist[ind2];
-  
+
       tuple = memarena_alloc(mol->arena,sizeof(topo_mol_bond_t));
       tuple->next[0] = atom1->bonds;
       tuple->atom[0] = atom1;
@@ -220,6 +238,7 @@ static int plugin_read_bonds(molfile_plugin_t *plg, void *rv,
 
       atom1->bonds = tuple;
       atom2->bonds = tuple;
+
     } 
   }
 
@@ -228,8 +247,8 @@ static int plugin_read_bonds(molfile_plugin_t *plg, void *rv,
 
 static int plugin_read_angles(molfile_plugin_t *plg, void *rv, 
                               topo_mol *mol, int natoms, 
-                              topo_mol_atom_t **molatomlist,
-                              void *v, void (*print_msg)(void *, const char *)){
+                              topo_mol_atom_t **molatomlist, void *vdata,
+                              void *v, void (*print_msg)(void *, void *, const char *)){
   int numangles, *angles, *angletypes, numangletypes;
   int numdihedrals, *dihedrals, *dihedraltypes, numdihedraltypes;
   int numimpropers, *impropers, *impropertypes, numimpropertypes; 
@@ -246,12 +265,12 @@ static int plugin_read_angles(molfile_plugin_t *plg, void *rv,
                           &impropertypes, &numimpropertypes, 
                           &impropertypenames, &numcterms, &cterms, 
                           &ctermcols, &ctermrows)) {
-    print_msg(v, "ERROR: failed reading angle information.");
+    print_msg(vdata, v, "ERROR: failed reading angle information.");
     return -1;
   } else {
     sprintf(msg, "angles: %d dihedrals: %d impropers: %d cross-terms: %d",
             numangles, numdihedrals, numimpropers, numcterms);
-    print_msg(v, msg);
+    print_msg(vdata, v, msg);
 
     for (i=numangles-1; i >= 0; i--) {
       topo_mol_angle_t *tuple;
@@ -304,6 +323,8 @@ static int plugin_read_angles(molfile_plugin_t *plg, void *rv,
       atom4 = molatomlist[ind4];
 
       tuple = memarena_alloc(mol->dihedral_arena,sizeof(topo_mol_dihedral_t));
+      
+#if !defined(NEWPSFGEN)
       tuple->next[0] = atom1->dihedrals;
       tuple->atom[0] = atom1;
       tuple->next[1] = atom2->dihedrals;
@@ -318,6 +339,15 @@ static int plugin_read_angles(molfile_plugin_t *plg, void *rv,
       atom2->dihedrals = tuple;
       atom3->dihedrals = tuple;
       atom4->dihedrals = tuple;
+#else
+      tuple->next = atom1->dihedrals;
+      tuple->atom[0] = atom2;
+      tuple->atom[1] = atom3;
+      tuple->atom[2] = atom4;
+      tuple->del = 0;
+      atom1->dihedrals = tuple;
+#endif
+
     }
 
     for (i=numimpropers-1; i >= 0; i--) {
@@ -338,7 +368,7 @@ static int plugin_read_angles(molfile_plugin_t *plg, void *rv,
       atom2 = molatomlist[ind2];
       atom3 = molatomlist[ind3];
       atom4 = molatomlist[ind4];
-
+#if !defined(NEWPSFGEN)   
       tuple = memarena_alloc(mol->arena,sizeof(topo_mol_improper_t));
       tuple->next[0] = atom1->impropers;
       tuple->atom[0] = atom1;
@@ -354,6 +384,17 @@ static int plugin_read_angles(molfile_plugin_t *plg, void *rv,
       atom2->impropers = tuple;
       atom3->impropers = tuple;
       atom4->impropers = tuple;
+#else
+      tuple = memarena_alloc(mol->arena,sizeof(topo_mol_improper_t));
+      tuple->next = atom1->impropers;
+      tuple->atom[0] = atom2;
+      tuple->atom[1] = atom3;
+      tuple->atom[2] = atom4;
+      tuple->del = 0;
+
+      atom1->impropers = tuple; 
+
+#endif
     }
 
     for (i=numcterms-1; i >= 0; i--) {
@@ -383,6 +424,38 @@ static int plugin_read_angles(molfile_plugin_t *plg, void *rv,
 
 
 /*
+ * Routines and macros used for page-aligned page-multiple memory buffer
+ * allocations supporting out-of-core trajectory I/O, e.g. by the JS plugin
+ */
+
+/* Set the maximum direct I/O aligned block size we are willing to support */
+#define TS_MAX_BLOCKIO 4096
+
+/* allocate memory and return a pointer that is aligned on a given   */
+/* byte boundary, to be used for page- or sector-aligned I/O buffers */
+/* We use this since posix_memalign() is not widely available...     */
+#if 1
+/* sizeof(unsigned long) == sizeof(void*) */
+#define myintptrtype unsigned long
+#elif 1
+/* sizeof(size_t) == sizeof(void*) */
+#define myintptrtype size_t
+#else
+/* C99 */
+#define myintptrtype uintptr_t
+#endif
+
+static void *alloc_aligned_ptr(size_t sz, size_t blocksz, void **unalignedptr) {
+  // pad the allocation to an even multiple of the block size
+  size_t padsz = (sz + (blocksz - 1)) & (~(blocksz - 1));
+  void * ptr = malloc(padsz + blocksz + blocksz);
+  *unalignedptr = ptr;
+  return (void *) ((((myintptrtype) ptr) + (blocksz-1)) & (~(blocksz-1)));
+}
+
+
+
+/*
  * Externally callable routines for reading/writing via plugin APIs
  */
 
@@ -394,7 +467,7 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
                          const char *coorpluginname, const char *coorfilename, 
                          const char *segid, stringhash *h, int all_caps,
                          int coordinatesonly, int residuesonly,
-                         void *v, void (*print_msg)(void *, const char *)) {
+                         void *vdata, void *v, void (*print_msg)(void *, void *, const char *)) {
   char msg[2048];
   molfile_plugin_t *plg=NULL; /* plugin handle */
   void *rv=NULL;              /* opaque plugin read handle */
@@ -402,29 +475,32 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
   int optflags = MOLFILE_BADOPTIONS; /* plugin must reset this correctly */
   molfile_atom_t *atomarray=NULL;
   molfile_timestep_t ts;
+
+  float *atomcoords_ptr=NULL; // pointer used for page-aligned allocation mgmt
   float *atomcoords=NULL;
+
   int i, rc;
 
   if (!mol)
     return -1;
 
-  print_msg(v, "WARNING: Plugin-based I/O is still in development and may still have bugs");
+  print_msg(vdata, v, "WARNING: Plugin-based I/O is still in development and may still have bugs");
 
   if (coordinatesonly && !h) {
-    print_msg(v, "INTERNAL ERROR: bad hash table pointer for alias lookups");
+    print_msg(vdata, v, "INTERNAL ERROR: bad hash table pointer for alias lookups");
     return -1;
   }
 
   /* find plugin that matches the requested type */
   if ((plg = get_plugin(pluginname)) == NULL) {
-    print_msg(v, "ERROR: Failed to match requested plugin type");
+    print_msg(vdata, v, "ERROR: Failed to match requested plugin type");
     return -1; 
   }
 
   /* check for one or more usable input scenarios */
   if (plg->open_file_read == NULL ||
       plg->read_structure == NULL) { 
-    print_msg(v, "ERROR: selected plugin type cannot load structure information");
+    print_msg(vdata, v, "ERROR: selected plugin type cannot load structure information");
     return -1; 
   }
 
@@ -436,31 +512,31 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
 
   rc = plg->read_structure(rv, &optflags, atomarray);
   if (rc != MOLFILE_SUCCESS && rc != MOLFILE_NOSTRUCTUREDATA) {
-    print_msg(v, "ERROR: plugin failed reading structure data");
+    print_msg(vdata, v, "ERROR: plugin failed reading structure data");
     free(atomarray);
     return -1;
   }
 
   if (optflags == MOLFILE_BADOPTIONS) {
     free(atomarray);
-    print_msg(v, "ERROR: plugin didn't initialize optional data flags");
+    print_msg(vdata, v, "ERROR: plugin didn't initialize optional data flags");
     return -1;
   }
 
   if (!coordinatesonly && !residuesonly) {
-    print_msg(v, "Data fields found by plugin:");
+    print_msg(vdata, v, "Data fields found by plugin:");
   
     if (optflags & MOLFILE_INSERTION)
-      print_msg(v, "  Insertion code");
+      print_msg(vdata, v, "  Insertion code");
 
     if (optflags & MOLFILE_ATOMICNUMBER)
-      print_msg(v, "  Atomic number");
+      print_msg(vdata, v, "  Atomic number");
 
     if (optflags & MOLFILE_OCCUPANCY)
-      print_msg(v, "  Occupancy");
+      print_msg(vdata, v, "  Occupancy");
  
     if (optflags & MOLFILE_BFACTOR)
-      print_msg(v, "  B-factor");
+      print_msg(vdata, v, "  B-factor");
   }
 
 
@@ -481,13 +557,13 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
     int coornatoms=0;
 
     if ((coorplg = get_plugin(coorpluginname)) == NULL) {
-      print_msg(v, "ERROR: Failed to match requested coordinate plugin type");
+      print_msg(vdata, v, "ERROR: Failed to match requested coordinate plugin type");
       free(atomarray);
       return -1; 
     }
     if (coorplg->open_file_read == NULL ||
         coorplg->read_next_timestep == NULL) { 
-      print_msg(v, "ERROR: selected plugin type cannot load atom coordinates");
+      print_msg(vdata, v, "ERROR: selected plugin type cannot load atom coordinates");
       free(atomarray);
       return -1; 
     }
@@ -497,18 +573,25 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
       return -1;
     }
     if ( coornatoms != natoms ) {
-      print_msg(v, "ERROR: structure file and coordinate file atom counts do not match");
+      print_msg(vdata, v, "ERROR: structure file and coordinate file atom counts do not match");
       free(atomarray);
       return -1; 
     }
 
+#if defined(TS_MAX_BLOCKIO)
+    // If we supprot block-based direct I/O, we must use memory buffers
+    // that are padded to a full block size, and
+    atomcoords = (float *) alloc_aligned_ptr(natoms*(3*sizeof(float)), TS_MAX_BLOCKIO, (void**) &atomcoords_ptr);
+#else
     atomcoords = (float *) malloc(natoms*(3*sizeof(float)));
+    atomcoords_ptr = atomcoords; // for non-page-aligned I/O they're the same
+#endif
     memset(atomcoords, 0, natoms*(3*sizeof(float)));
     ts.coords = atomcoords;
   
     if (coorplg->read_next_timestep(coorrv, natoms, &ts)) {
-      print_msg(v, "ERROR: failed reading atom coordinates");
-      free(atomcoords);
+      print_msg(vdata, v, "ERROR: failed reading atom coordinates");
+      free(atomcoords_ptr);
       free(atomarray);
       coorplg->close_file_read(coorrv);
       return -1;
@@ -517,19 +600,26 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
     coorplg->close_file_read(coorrv);
 
   } else if ( plg->read_next_timestep ) {
+#if defined(TS_MAX_BLOCKIO)
+    // If we supprot block-based direct I/O, we must use memory buffers
+    // that are padded to a full block size, and
+    atomcoords = (float *) alloc_aligned_ptr(natoms*(3*sizeof(float)), TS_MAX_BLOCKIO, (void**) &atomcoords_ptr);
+#else
     atomcoords = (float *) malloc(natoms*(3*sizeof(float)));
+    atomcoords_ptr = atomcoords; // for non-page-aligned I/O they're the same
+#endif
     memset(atomcoords, 0, natoms*(3*sizeof(float)));
     ts.coords = atomcoords;
   
     if (plg->read_next_timestep(rv, natoms, &ts)) {
-      print_msg(v, "ERROR: failed reading atom coordinates");
-      free(atomcoords);
+      print_msg(vdata, v, "ERROR: failed reading atom coordinates");
+      free(atomcoords_ptr);
       free(atomarray);
       plg->close_file_read(rv);
       return -1;
     }
   } else if ( coordinatesonly ) {
-    print_msg(v, "ERROR: selected plugin type cannot load atom coordinates");
+    print_msg(vdata, v, "ERROR: selected plugin type cannot load atom coordinates");
     free(atomarray);
     plg->close_file_read(rv);
     return -1;
@@ -567,7 +657,7 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
       segname = atomarray[i].segid;
       seg = get_segment(mol, segname);
       if (!seg) {
-        print_msg(v,"ERROR: unable to get segment!");
+        print_msg(vdata, v,"ERROR: unable to get segment!");
         break;
       }
       res = get_residue(seg, resid);
@@ -576,7 +666,7 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
         int len = strlen(resid) + strlen(segname);
         buf = (char *)malloc((50 + len)*sizeof(char));
         sprintf(buf, "Unable to add (duplicate?) residue %s:%s", segname, resid);
-        print_msg(v,buf);
+        print_msg(vdata, v,buf);
         free(buf);
         break;
       }
@@ -586,7 +676,13 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
 #else
       strcpy(res->chain, "");
 #endif
+
+#if !defined(NEWPSFGEN)
+
       res->atoms = 0;
+
+#endif
+
       firstatom = i;
 #if 1
       while (i<natoms && (residn == atomarray[i].resid) &&
@@ -632,25 +728,58 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
            information without having find the atom.
         */
         molatomlist[i] = atomtmp;
+#if defined(NEWPSFGEN)
+        atomtmp->del = 0;
+        atomtmp->isdrudlonepair = 0;
+        atomtmp->lonepair = NULL;
+        atomtmp->alpha = 0;
+        atomtmp->thole = 0;
+        atomtmp->dcharge = 0;
+        atomtmp->dxyz = NULL;
+#endif
         i++;
       }
 
+#if defined(NEWPSFGEN)
+
+      res->atomArray = 
+      (topo_mol_atom_t**) malloc((i - firstatom +1)*sizeof(topo_mol_atom_t*));
+      memset(res->atomArray, 0, (i - firstatom +1)*sizeof(topo_mol_atom_t*));
+      res->atomSize = i - firstatom;
+      res->reordered = 0;
+      res->aniso = 0;
+      res->numaniso = 0;
+#endif
+
       for (j=i-1; j >= firstatom; j--) {
         /* Add new atoms to head of linked list in reverse order, so that
-           the linked list is in the order they appear in the psf file.
-        */
+         * the linked list is in the order they appear in the psf file.
+         */
         atomtmp = molatomlist[j];
+
+#if !defined(NEWPSFGEN)
+
         atomtmp->next = res->atoms;
         res->atoms = atomtmp;
+        
+#else
+	atomtmp->isdrudlonepair = 0;
+        res->atomArray[j - firstatom] = atomtmp;
+ 
+#endif
+
       }
     } 
 
-    if (atomcoords) free(atomcoords);
+    if (atomcoords_ptr) 
+      free(atomcoords_ptr);
+
+    atomcoords_ptr = NULL;
     atomcoords = NULL;
 
     /* Check to see if we broke out of the loop prematurely */
     if (i != natoms) {
-      print_msg(v, "ERROR: failed reading structure");
+      print_msg(vdata, v, "ERROR: failed reading structure");
       free(molatomlist);
       return -1;
     }
@@ -675,8 +804,8 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
      * read bonds
      */
     if (!coordinatesonly  && !residuesonly && plg->read_bonds != NULL)
-      if ( plugin_read_bonds(plg, rv, mol, natoms, molatomlist, v, print_msg) ) {
-        print_msg(v, "ERROR: failed reading bonds");
+      if ( plugin_read_bonds(plg, rv, mol, natoms, molatomlist,vdata , v, print_msg) ) {
+        print_msg(vdata, v, "ERROR: failed reading bonds");
         free(molatomlist);
         return -1;
       }
@@ -686,8 +815,8 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
      * Read angles/dihedrals/impropers/cross-terms
      */
     if (!coordinatesonly && !residuesonly && plg->read_angles != NULL)
-      if( plugin_read_angles(plg, rv, mol, natoms, molatomlist, v, print_msg) ) {
-        print_msg(v, "ERROR: failed reading angles");
+      if( plugin_read_angles(plg, rv, mol, natoms, molatomlist, vdata, v, print_msg) ) {
+        print_msg(vdata, v, "ERROR: failed reading angles");
         free(molatomlist);
         return -1;
       }
@@ -736,7 +865,7 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
       found = !topo_mol_set_xyz(mol, &target, atomcoords[i*3], atomcoords[i*3+1], atomcoords[i*3+2]);
 
       /* Try reversing order so 1HE2 in pdb matches HE21 in topology */
-      if ( !found && sscanf(atomarray[i].name, "%u%s", &utmp, stmp) == 2 ) {
+      if ( !found && sscanf(atomarray[i].name, "%u%s", &utmp, stmp) == 2) {
         char altname[8];
   
         snprintf(altname, 8, "%s%u", stmp, utmp);
@@ -751,7 +880,7 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
                 atomarray[i].resname,
                 atomarray[i].resid,
                 segid ?  segid : atomarray[i].segid);
-        print_msg(v,msg);
+        print_msg(vdata, v,msg);
       } 
 #if 0
       else {
@@ -784,54 +913,73 @@ int topo_mol_read_plugin(topo_mol *mol, const char *pluginname,
 /*
  * Write psfgen structure to output file using selected plugin
  */
+ 
 int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
                           const char *filename, struct image_spec *images,
-                          void *v, void (*print_msg)(void *, const char *)) {
+                          void *vdata, void *v, 
+                              void (*print_msg)(void *, void *, const char *)) {
   char buf[256];
   int iseg,nseg,ires,nres,resid;
   int ia,ib,ic;
-  int64_t ii,atomid;
+  long ii,atomid;
   int has_guessed_atoms = 0;
   double x,y,z,o,b;
   topo_mol_segment_t *seg=NULL;
   topo_mol_residue_t *res=NULL;
   topo_mol_atom_t *atom=NULL;
   topo_mol_bond_t *bond=NULL;
-  int64_t nbonds;
+  long nbonds;
   topo_mol_angle_t *angl=NULL;
-  int64_t nangls;
+  long nangls;
   topo_mol_dihedral_t *dihe=NULL;
-  int64_t ndihes;
+  long ndihes;
   topo_mol_improper_t *impr=NULL;
-  int64_t nimprs;
+  long nimprs;
   topo_mol_cmap_t *cmap=NULL;
-  int64_t ncmaps;
+  long ncmaps;
   topo_mol_exclusion_t *excl=NULL;
-  int64_t nexcls;
+  long nexcls;
 
   molfile_plugin_t *plg; /* plugin handle */
   void *wv;              /* opaque plugin write handle */
-  int64_t nmolatoms, nimages, natoms;
+  long nmolatoms, nimages, natoms;
   int optflags;
   molfile_atom_t *atomarray=NULL;
   molfile_timestep_t ts;
   float *atomcoords=NULL;
 
+#if defined(NEWPSFGEN)
+  
+  int j;
+  
+#endif
   if (!mol) 
     return -1;
 
-  print_msg(v, "WARNING: Plugin-based I/O is still in development and may still have bugs");
+#if defined(NEWPSFGEN)
+  /* stop the writing process if there are lonepairs or drude
+   * particles until the molfile plugin is updated
+   */
+  if (mol->drude || mol->lonepairs) {
+    print_msg(vdata, v, "ERROR: Molfile plugin file is not yet compatible with Drude" 
+      " force-field and lonepairs. Please use the commands writepsf/" 
+      "writepdb.");
+    return -1;
+  }
+#endif
+
+  print_msg(vdata, v, "WARNING: Plugin-based I/O is still in development and may still have bugs");
 
   /* find plugin that matches the requested type */
   if ((plg = get_plugin(pluginname)) == NULL) {
-    print_msg(v, "ERROR: Failed to match requested plugin type");
+    print_msg(vdata, v, "ERROR: Failed to match requested plugin type");
     return -1; 
   }
 
   /* check for one or more usable output scenarios */
   if (plg->write_structure == NULL && 
       plg->write_timestep == NULL) {
-    print_msg(v, "ERROR: selected plugin type cannot store structure information");
+    print_msg(vdata, v, "ERROR: selected plugin type cannot store structure information");
     return -1; 
   }
 
@@ -855,7 +1003,18 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
     nres = hasharray_count(seg->residue_hash);
     for ( ires=0; ires<nres; ++ires ) {
       res = &(seg->residue_array[ires]);
+      
+#if !defined(NEWPSFGEN)
+
       for ( atom = res->atoms; atom; atom = atom->next ) {
+
+#else
+
+      for ( j = 0; j < res->atomSize; j++ ) {
+        atom = res->atomArray[j];
+
+#endif
+
         atom->atomid = ++atomid;
         for ( bond = atom->bonds; bond;
                 bond = topo_mol_bond_next(bond,atom) ) {
@@ -869,18 +1028,40 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
             ++nangls;
           }  
         } 
+
+#if !defined(NEWPSFGEN) 
         for ( dihe = atom->dihedrals; dihe;
                 dihe = topo_mol_dihedral_next(dihe,atom) ) {
           if ( dihe->atom[0] == atom && ! dihe->del ) {
             ++ndihes;
           }  
         } 
+#else 
+        for ( dihe = atom->dihedrals; dihe;
+                dihe = dihe->next ) {
+          if (! dihe->del && !dihe->atom[0]->del && 
+            !dihe->atom[1]->del && !dihe->atom[2]->del) {
+            ++ndihes;
+          }  
+        }
+#endif 
+
+#if  !defined(NEWPSFGEN) 
         for ( impr = atom->impropers; impr;
                 impr = topo_mol_improper_next(impr,atom) ) {
           if ( impr->atom[0] == atom && ! impr->del ) {
             ++nimprs;
           }
         }
+#else
+        for ( impr = atom->impropers; impr;
+                impr = impr->next ) {
+          if (! impr->del && !impr->atom[0]->del && 
+          !impr->atom[1]->del && !impr->atom[2]->del) {
+            ++nimprs;
+          }
+        }
+#endif
         for ( cmap = atom->cmaps; cmap;
                 cmap = topo_mol_cmap_next(cmap,atom) ) {
           if ( cmap->atom[0] == atom && ! cmap->del ) {
@@ -906,23 +1087,23 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
   ncmaps *= nimages;
   nexcls *= nimages;
   if ( nimages != 1 ) {
-    sprintf(buf,"generating %ld images of %ld atoms",nimages,nmolatoms);
-    print_msg(v,buf);
+    sprintf(buf,"generating %d images of %d atoms",(int)nimages,(int)nmolatoms);
+    print_msg(vdata, v,buf);
   }
-  sprintf(buf,"total of %ld atoms",natoms);
-  print_msg(v,buf);
-  sprintf(buf,"total of %ld bonds",nbonds);
-  print_msg(v,buf);
-  sprintf(buf,"total of %ld angles",nangls);
-  print_msg(v,buf);
-  sprintf(buf,"total of %ld dihedrals",ndihes);
-  print_msg(v,buf);
-  sprintf(buf,"total of %ld impropers",nimprs);
-  print_msg(v,buf);
-  sprintf(buf,"total of %ld explicit exclusions",nexcls);
-  print_msg(v,buf);
+  sprintf(buf,"total of %d atoms",(int)natoms);
+  print_msg(vdata, v,buf);
+  sprintf(buf,"total of %d bonds",(int)nbonds);
+  print_msg(vdata, v,buf);
+  sprintf(buf,"total of %d angles",(int)nangls);
+  print_msg(vdata, v,buf);
+  sprintf(buf,"total of %d dihedrals",(int)ndihes);
+  print_msg(vdata, v,buf);
+  sprintf(buf,"total of %d impropers",(int)nimprs);
+  print_msg(vdata, v,buf);
+  sprintf(buf,"total of %d explicit exclusions",(int)nexcls);
+  print_msg(vdata, v,buf);
   if (nexcls) {
-    print_msg(v, "ERROR: non-zero number of explicit exclusions, which are not supported by plugin interface");
+    print_msg(vdata, v, "ERROR: non-zero number of explicit exclusions, which are not supported by plugin interface");
     return -1;
   }
 
@@ -930,11 +1111,11 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
   atomarray = (molfile_atom_t *) malloc(natoms*sizeof(molfile_atom_t));
   atomcoords = (float *) malloc(natoms * (3 * sizeof(float)));
   if (atomarray == NULL) {
-    print_msg(v, "ERROR: failed to allocate plugin atom attribute array");
+    print_msg(vdata, v, "ERROR: failed to allocate plugin atom attribute array");
     return -1;
   }
   if (atomcoords == NULL) {
-    print_msg(v, "ERROR: failed to allocate plugin atom coordinate array");
+    print_msg(vdata, v, "ERROR: failed to allocate plugin atom coordinate array");
     return -1;
   }
 
@@ -943,7 +1124,7 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
 
   /* open plugin for output */
   if ((wv = plg->open_file_write(filename, pluginname, natoms)) == NULL) {
-    print_msg(v, "ERROR: plugin failed to open file for output");
+    print_msg(vdata, v, "ERROR: plugin failed to open file for output");
     free(atomarray);
     free(atomcoords);
     return -1; 
@@ -1020,7 +1201,18 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
     nres = hasharray_count(seg->residue_hash);
     for ( ires=0; ires<nres; ++ires ) {
       res = &(seg->residue_array[ires]);
+
+#if !defined(NEWPSFGEN)
+
       for ( atom = res->atoms; atom; atom = atom->next ) {
+
+#else
+
+      for ( j = 0; j < res->atomSize; j++ ) {
+        atom = res->atomArray[j];
+
+#endif
+
         molfile_atom_t *atm = &atomarray[atomid];
 
         /* Paranoid: make sure x,y,z,o are set. */
@@ -1035,8 +1227,8 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
           has_guessed_atoms = 1;
           break;
         default:
-          print_msg(v,"ERROR: Internal error, atom has invalid state.");
-          print_msg(v,"ERROR: Treating as void.");
+          print_msg(vdata, v,"ERROR: Internal error, atom has invalid state.");
+          print_msg(vdata, v,"ERROR: Treating as void.");
           /* Yes, fall through */
         case TOPO_MOL_XYZ_VOID:
           x = y = z = 0.0;  o = -1.0;
@@ -1076,38 +1268,46 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
   }
 
   {
-    double sa, sb, sc, offx, offy, offz;
-    sa = 0.5 * (images->na - 1.);
-    sb = 0.5 * (images->nb - 1.);
-    sc = 0.5 * (images->nc - 1.);
-    for ( ia = 0; ia < images->na; ++ia ) {
-      for ( ib = 0; ib < images->nb; ++ib ) {
-        for ( ic = 0; ic < images->nc; ++ic ) {
-          if ( ia == 0 && ib == 0 && ic == 0 ) continue;
-          offx = (ia-sa) * images->ax + (ib-sb) * images->bx + (ic-sc) * images->cx;
-          offy = (ia-sa) * images->ay + (ib-sb) * images->by + (ic-sc) * images->cy;
-          offz = (ia-sa) * images->az + (ib-sb) * images->bz + (ic-sc) * images->cz;
-          memcpy(&atomarray[atomid], atomarray, nmolatoms*sizeof(molfile_atom_t));
-          for ( ii=0 ; ii < nmolatoms; ++ii, ++atomid ) {
-            atomcoords[atomid*3    ] = atomcoords[ii*3]     + offx;
-            atomcoords[atomid*3 + 1] = atomcoords[ii*3 + 1] + offy;
-            atomcoords[atomid*3 + 2] = atomcoords[ii*3 + 2] + offz;
+    
+    // Only apply any offset when there are multiple images
+    if (nimages != 1) {
+      double sa, sb, sc, offx, offy, offz;
+      sa = 0.5 * (images->na - 1.);
+      sb = 0.5 * (images->nb - 1.);
+      sc = 0.5 * (images->nc - 1.);
+      for ( ia = 0; ia < images->na; ++ia ) {
+        for ( ib = 0; ib < images->nb; ++ib ) {
+          for ( ic = 0; ic < images->nc; ++ic ) {
+            if ( ia == 0 && ib == 0 && ic == 0 ) continue;
+            offx = (ia-sa) * images->ax + (ib-sb) * images->bx + (ic-sc) * images->cx;
+            offy = (ia-sa) * images->ay + (ib-sb) * images->by + (ic-sc) * images->cy;
+            offz = (ia-sa) * images->az + (ib-sb) * images->bz + (ic-sc) * images->cz;
+            memcpy(&atomarray[atomid], atomarray, nmolatoms*sizeof(molfile_atom_t));
+            for ( ii=0 ; ii < nmolatoms; ++ii, ++atomid ) {
+              atomcoords[atomid*3    ] = atomcoords[ii*3   ]  + offx;
+              atomcoords[atomid*3 + 1] = atomcoords[ii*3 + 1] + offy;
+              atomcoords[atomid*3 + 2] = atomcoords[ii*3 + 2] + offz;
+            }
           }
         }
       }
+
+    
+    
+      offx = sa * images->ax + sb * images->bx + sc * images->cx;
+      offy = sa * images->ay + sb * images->by + sc * images->cy;
+      offz = sa * images->az + sb * images->bz + sc * images->cz;
+      for ( ii=0 ; ii < nmolatoms; ++ii) {
+        atomcoords[ii*3    ] -= offx;
+        atomcoords[ii*3 + 1] -= offy;
+        atomcoords[ii*3 + 2] -= offz;
+      }
     }
-    offx = sa * images->ax + sb * images->bx + sc * images->cx;
-    offy = sa * images->ay + sb * images->by + sc * images->cy;
-    offz = sa * images->az + sb * images->bz + sc * images->cz;
-    for ( ii=0 ; ii < nmolatoms; ++ii) {
-      atomcoords[ii*3]     -= offx;
-      atomcoords[ii*3 + 1] -= offy;
-      atomcoords[ii*3 + 2] -= offz;
-    }
+    
   }
 
   if (has_guessed_atoms) {
-    print_msg(v, 
+    print_msg(vdata, v, 
         "Info: Atoms with guessed coordinates will have occupancy of 0.0.");
   }
 
@@ -1128,7 +1328,18 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
       nres = hasharray_count(seg->residue_hash);
       for ( ires=0; ires<nres; ++ires ) {
         res = &(seg->residue_array[ires]);
+        
+#if !defined(NEWPSFGEN)
+
         for ( atom = res->atoms; atom; atom = atom->next ) {
+
+#else
+
+        for ( j = 0; j < res->atomSize; j++ ) {
+          atom = res->atomArray[j];
+
+#endif
+
           for ( bond = atom->bonds; bond;
                   bond = topo_mol_bond_next(bond,atom) ) {
             if ( bond->atom[0] == atom && ! bond->del ) {
@@ -1151,7 +1362,7 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
 #else
     if (plg->write_bonds(wv, nbonds, from, to, NULL)) {
 #endif
-      print_msg(v, "ERROR: plugin failed to write bonds");
+      print_msg(vdata, v, "ERROR: plugin failed to write bonds");
       free(from);
       free(to);
       free(atomarray);
@@ -1166,10 +1377,10 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
   /* build angle/dihedral/improper/cterm lists here */
   if ((nangls > 0 || ndihes > 0 || nimprs > 0 || ncmaps > 0) &&
       plg->write_angles != NULL) {
-    int64_t anglcnt=0;
-    int64_t dihecnt=0;
-    int64_t imprcnt=0;
-    int64_t cmapcnt=0;
+    long anglcnt=0;
+    long dihecnt=0;
+    long imprcnt=0;
+    long cmapcnt=0;
 
     int *angles = (int *) malloc(nangls * (3*sizeof(int)));
     int *dihedrals = (int *) malloc(ndihes * (4*sizeof(int)));
@@ -1185,7 +1396,18 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
       nres = hasharray_count(seg->residue_hash);
       for ( ires=0; ires<nres; ++ires ) {
         res = &(seg->residue_array[ires]);
+
+#if !defined(NEWPSFGEN)
+
         for ( atom = res->atoms; atom; atom = atom->next ) {
+
+#else
+
+        for ( j = 0; j < res->atomSize; j++ ) {
+          atom = res->atomArray[j];
+
+#endif
+
           for ( angl = atom->angles; angl;
                   angl = topo_mol_angle_next(angl,atom) ) {
             if ( angl->atom[0] == atom && ! angl->del ) {
@@ -1211,6 +1433,9 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
       nres = hasharray_count(seg->residue_hash);
       for ( ires=0; ires<nres; ++ires ) {
         res = &(seg->residue_array[ires]);
+  
+#if !defined(NEWPSFGEN)
+
         for ( atom = res->atoms; atom; atom = atom->next ) {
           for ( dihe = atom->dihedrals; dihe;
                   dihe = topo_mol_dihedral_next(dihe,atom) ) {
@@ -1221,10 +1446,27 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
               dihedrals[dihecnt++] = dihe->atom[3]->atomid;
             }
           }
+#else
+
+        for ( j = 0; j < res->atomSize; j++ ) {
+          atom = res->atomArray[j];
+          for ( dihe = atom->dihedrals; dihe;
+                  dihe = dihe->next ) {
+            if ( ! dihe->del && !dihe->atom[0]->del && 
+            !dihe->atom[1]->del && !dihe->atom[2]->del) {
+              dihedrals[dihecnt++] = atom->atomid;
+              dihedrals[dihecnt++] = dihe->atom[0]->atomid;
+              dihedrals[dihecnt++] = dihe->atom[1]->atomid;
+              dihedrals[dihecnt++] = dihe->atom[2]->atomid;
+            }
+          }
+#endif
+  
+          
         }
       }
     }
-
+    
     for ( ii = 0 ; dihecnt < 4*ndihes; ++ii, ++dihecnt ) {
       dihedrals[dihecnt] = dihedrals[ii] + nmolatoms;
     }
@@ -1238,6 +1480,11 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
       nres = hasharray_count(seg->residue_hash);
       for ( ires=0; ires<nres; ++ires ) {
         res = &(seg->residue_array[ires]);
+
+       
+
+#if !defined(NEWPSFGEN)
+
         for ( atom = res->atoms; atom; atom = atom->next ) {
           for ( impr = atom->impropers; impr;
                   impr = topo_mol_improper_next(impr,atom) ) {
@@ -1248,6 +1495,24 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
               impropers[imprcnt++] = impr->atom[3]->atomid;
             }
           }
+#else
+        for ( j = 0; j < res->atomSize; j++ ) {
+          atom = res->atomArray[j];
+
+          for ( impr = atom->impropers; impr;
+                impr = impr->next ) {
+
+            if ( !impr->del && !impr->atom[0]->del && 
+                !impr->atom[1]->del && 
+                !impr->atom[2]->del) {
+              impropers[imprcnt++] = atom->atomid;
+              impropers[imprcnt++] = impr->atom[0]->atomid;
+              impropers[imprcnt++] = impr->atom[1]->atomid;
+              impropers[imprcnt++] = impr->atom[2]->atomid;
+            }
+          }
+#endif
+
         }
       }
     }
@@ -1265,7 +1530,18 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
       nres = hasharray_count(seg->residue_hash);
       for ( ires=0; ires<nres; ++ires ) {
         res = &(seg->residue_array[ires]);
+
+#if !defined(NEWPSFGEN)
+
         for ( atom = res->atoms; atom; atom = atom->next ) {
+
+#else
+
+        for ( j = 0; j < res->atomSize; j++ ) {
+          atom = res->atomArray[j];
+
+#endif
+
           for ( cmap = atom->cmaps; cmap;
                 cmap = topo_mol_cmap_next(cmap,atom) ) {
             if ( cmap->atom[0] == atom && ! cmap->del ) {
@@ -1292,7 +1568,7 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
                           ndihes, dihedrals, NULL, 0, NULL,
                           nimprs, impropers, NULL, 0, NULL,
                           ncmaps, cmaps, 0, 0)) {
-      print_msg(v, "ERROR: plugin failed to write angles/dihedrals/impropers/cross-terms");
+      print_msg(vdata, v, "ERROR: plugin failed to write angles/dihedrals/impropers/cross-terms");
       if (angles != NULL)
         free(angles);
       if (dihedrals != NULL)
@@ -1321,7 +1597,7 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
     if (plg->write_structure(wv, optflags, atomarray)) {
       free(atomarray);
       free(atomcoords);
-      print_msg(v, "ERROR: plugin failed to write structure data");
+      print_msg(vdata, v, "ERROR: plugin failed to write structure data");
       return -1;
     }
   }
@@ -1339,7 +1615,7 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
     ts.velocities = NULL;
     if (plg->write_timestep(wv, &ts)) {
       free(atomcoords);
-      print_msg(v, "ERROR: plugin failed to write atom coordinates");
+      print_msg(vdata, v, "ERROR: plugin failed to write atom coordinates");
       return -1;
     }
   }
@@ -1348,7 +1624,7 @@ int topo_mol_write_plugin(topo_mol *mol, const char *pluginname,
   /* close the output file and release memory allocated by the plugin */
   plg->close_file_write(wv);
 
-  print_msg(v, "WARNING: Plugin-based I/O is still in development and may still have bugs");
+  print_msg(vdata, v, "WARNING: Plugin-based I/O is still in development and may still have bugs");
 
   return 0;
 }

@@ -1,9 +1,21 @@
+/***************************************************************************
+ *cr
+ *cr            (C) Copyright 1995-2019 The Board of Trustees of the
+ *cr                        University of Illinois
+ *cr                         All Rights Reserved
+ *cr
+ ***************************************************************************/
 
 /***************************************************************************
+ * RCS INFORMATION:
+ *
+ *      $RCSfile: pdb_file.h,v $
+ *      $Author: johns $        $Locker:  $             $State: Exp $
+ *      $Revision: 1.3 $      $Date: 2019/07/24 03:36:56 $
+ *
+ ***************************************************************************
  * DESCRIPTION:
- *
- * General routines to read .pdb files.
- *
+ *   General routines to read .pdb files.
  ***************************************************************************/
 
 #ifndef READ_PDB_H

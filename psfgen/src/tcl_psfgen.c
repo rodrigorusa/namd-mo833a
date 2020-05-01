@@ -1,3 +1,22 @@
+/***************************************************************************
+ *cr
+ *cr            (C) Copyright 1995-2019 The Board of Trustees of the
+ *cr                        University of Illinois
+ *cr                         All Rights Reserved
+ *cr
+ ***************************************************************************/
+
+/***************************************************************************
+ * RCS INFORMATION:
+ *
+ *      $RCSfile: tcl_psfgen.c,v $
+ *      $Author: jribeiro $        $Locker:  $             $State: Exp $
+ *      $Revision: 1.91 $      $Date: 2020/03/10 04:54:54 $
+ *
+ ***************************************************************************
+ * DESCRIPTION:
+ *  
+ ***************************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +32,10 @@
 #include "topo_mol_struct.h"
 #include "extract_alias.h"
 
+#if defined(NEWPSFGEN)
+#include "topo_mol.h"
+#endif
+
 #if defined(_MSC_VER)
 #define strcasecmp  stricmp
 #define strncasecmp strnicmp
@@ -27,8 +50,28 @@
 #   define CONST84
 #endif
 
-void newhandle_msg(void *v, const char *msg);
-void newhandle_msg_ex(void *v, const char *msg, int prepend, int newline);
+void newhandle_msg(void *vdata, void *v, const char *msg);
+
+#if defined(NEWPSFGEN)
+
+
+// Definition of the new function to print the output to a logfile 
+// to a text file
+
+void newhandle_msg_text(psfgen_data *psfcontext, Tcl_Interp *interp, const char *msg) {
+
+  if (psfcontext->PSFGENLOGFILE == NULL) {
+    char msgaux[128];
+    sprintf(msgaux,"ERROR: failed to find file psfgen logfile\n");
+    Tcl_SetResult(interp,msgaux, TCL_VOLATILE);
+    return;
+  }
+    
+  fprintf(psfcontext->PSFGENLOGFILE,"psfgen) %s\n",msg);
+  fflush(psfcontext->PSFGENLOGFILE);
+}
+
+#endif
 
 #ifndef NAMD_VERSION
 /* 
@@ -37,10 +80,22 @@ void newhandle_msg_ex(void *v, const char *msg, int prepend, int newline);
  * to the console.  If we run a script, we need to output the results
  * ourselves.
  */
-void newhandle_msg(void *v, const char *msg) {
+void newhandle_msg(void *vdata, void *v, const char *msg) {
   Tcl_Interp *interp = (Tcl_Interp *)v;
+ 
   const char *words[3] = {"puts", "-nonewline", "psfgen) "};
   char *script = NULL;
+  
+#if defined(NEWPSFGEN) 
+  ClientData *data = (ClientData *)vdata;
+  // Get the psfge_data structure from data
+  psfgen_data *psfcontext = *(psfgen_data **)data; 
+  /* If the log file was defined, redirect all messages there */
+  if (psfcontext->PSFGENLOGFILE) {
+    newhandle_msg_text(psfcontext, interp, msg);
+    return;
+  }
+#endif
 
   // prepend "psfgen) " to all output
   script = Tcl_Merge(3, words);
@@ -58,11 +113,22 @@ void newhandle_msg(void *v, const char *msg) {
  * Same as above but allow user control over prepending of "psfgen) "
  * and newlines.
  */
-void newhandle_msg_ex(void *v, const char *msg, int prepend, int newline) {
+void newhandle_msg_ex(void *vdata, void *v, const char *msg, int prepend, int newline) {
   Tcl_Interp *interp = (Tcl_Interp *)v;
   const char *words[3] = {"puts", "-nonewline", "psfgen) "};
   char *script = NULL;
 
+#if defined(NEWPSFGEN)
+  ClientData *data = (ClientData *)vdata;
+  // Get the psfge_data structure from data
+  psfgen_data *psfcontext = *(psfgen_data **)data;   
+  /* If the log file was defined, redirect all messages there */
+  if (psfcontext->PSFGENLOGFILE) {
+    newhandle_msg_text(psfcontext, interp, msg);
+    return;
+  }
+#endif
+  
   if (prepend) {
     // prepend "psfgen) " to all output
     script = Tcl_Merge(3, words);
@@ -132,11 +198,12 @@ static void count_delete_proc(ClientData data, Tcl_Interp *interp) {
   free(data);
 }
 
-psfgen_data* psfgen_data_create(Tcl_Interp *interp) {
+psfgen_data* psfgen_data_create(Tcl_Interp *interp, ClientData cdata) {
   char namebuf[128];
   int *countptr;
   int id;
   psfgen_data *data;
+
   countptr = Tcl_GetAssocData(interp, "Psfgen_count", 0);
   if (!countptr) {
     countptr = (int *)malloc(2*sizeof(int));
@@ -147,31 +214,38 @@ psfgen_data* psfgen_data_create(Tcl_Interp *interp) {
   } 
   id = *countptr;
   data = (psfgen_data *)malloc(sizeof(psfgen_data));
+
   data->defs = topo_defs_create();
-  topo_defs_error_handler(data->defs,interp,newhandle_msg);
+  topo_defs_error_handler(data->defs, cdata, interp, newhandle_msg);
   data->aliases = stringhash_create();
   data->mol = topo_mol_create(data->defs);
-  topo_mol_error_handler(data->mol,interp,newhandle_msg);
+  topo_mol_error_handler(data->mol, cdata, interp, newhandle_msg);
   data->id = id;
   data->in_use = 0;
   data->all_caps = 1;
   *countptr = id+1;
   sprintf(namebuf,"Psfgen_%d",id);
-  Tcl_SetAssocData(interp,namebuf,psfgen_deleteproc,(ClientData)data);
+
+
+  Tcl_SetAssocData(interp,namebuf,psfgen_deleteproc, (ClientData)data);
   return data;
 }
 
-void psfgen_data_reset(Tcl_Interp *interp, psfgen_data *data) {
+void psfgen_data_reset(Tcl_Interp *interp, psfgen_data *data, ClientData cdata) {
+  // Cast Clientdata from psfgen_data needed for setting the message handle
+  // functions
+
   topo_mol_destroy(data->mol);
   topo_defs_destroy(data->defs);
   stringhash_destroy(data->aliases);
   data->defs = topo_defs_create();
-  topo_defs_error_handler(data->defs,interp,newhandle_msg);
+  topo_defs_error_handler(data->defs, cdata, interp, newhandle_msg);
   data->aliases = stringhash_create();
   data->mol = topo_mol_create(data->defs);
-  topo_mol_error_handler(data->mol,interp,newhandle_msg);
+  topo_mol_error_handler(data->mol, cdata, interp, newhandle_msg);
   data->all_caps = 1;
 }
+
 
 int tcl_psfcontext(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]);
 int tcl_topology(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]);
@@ -198,6 +272,15 @@ int tcl_last(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]
 int tcl_patch(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]);
 int tcl_resetpsf(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]);
 int tcl_delatom(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]);
+
+#if defined(NEWPSFGEN)
+
+int tcl_psfgenlogfile(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]);
+int tcl_closepsfgenlogfile(ClientData data, Tcl_Interp *interp);
+int tcl_lonepairbonds(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]);
+int tcl_hmassrepart(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]);
+
+#endif
 
 #if defined(PSFGENTCLDLL_EXPORTS) && defined(_WIN32)
 #  undef TCL_STORAGE_CLASS
@@ -230,8 +313,11 @@ int Psfgen_Init(Tcl_Interp *interp) {
   data = (psfgen_data **)malloc(sizeof(psfgen_data *));
   Tcl_SetAssocData(interp, (char *)"Psfgen_pointer",
 		psfgen_data_delete_pointer,(ClientData)data);
-  *data = psfgen_data_create(interp);
+  *data = psfgen_data_create(interp, (ClientData)data);
   (*data)->in_use++;
+
+  (*data)->PSFGENLOGFILE = NULL;
+  (*data)->VPBONDS = 1;
 
   Tcl_CreateCommand(interp,"psfcontext",tcl_psfcontext,
 	(ClientData)data, (Tcl_CmdDeleteProc*)NULL);
@@ -285,8 +371,21 @@ int Psfgen_Init(Tcl_Interp *interp) {
 	(ClientData)data, (Tcl_CmdDeleteProc*)NULL);
   Tcl_CreateCommand(interp,"delatom", tcl_delatom,
 	(ClientData)data, (Tcl_CmdDeleteProc*)NULL);
- 
-  Tcl_PkgProvide(interp, "psfgen", "1.6.7");
+  Tcl_PkgProvide(interp, "psfgen", "2.0");
+  
+#if defined(NEWPSFGEN)
+      
+  Tcl_CreateCommand(interp,"psfgen_logfile", tcl_psfgenlogfile,
+  (ClientData)data, (Tcl_CmdDeleteProc*)NULL);
+  
+  Tcl_CreateCommand(interp,"vpbonds", tcl_lonepairbonds,
+  (ClientData)data, (Tcl_CmdDeleteProc*)NULL);
+  
+  Tcl_CreateCommand(interp,"hmassrepart", tcl_hmassrepart,
+  (ClientData)data, (Tcl_CmdDeleteProc*)NULL);
+  
+#endif
+  
 
 #ifdef NAMD_VERSION
   {
@@ -300,9 +399,14 @@ int Psfgen_Init(Tcl_Interp *interp) {
   return TCL_OK;
 }
 
+/* psfgen_static_init is called by NAMD during the start-up process in the
+ * ScriptTcl.C file
+ */
 int psfgen_static_init(Tcl_Interp *interp) {
   Tcl_StaticPackage(0,"psfgen",Psfgen_Init,0);
-  return Tcl_Eval(interp,"package ifneeded psfgen 1.6.7 {load {} psfgen}");
+
+  return Tcl_Eval(interp,"package ifneeded psfgen 2.0 {load {} psfgen}");
+
 }
 
 char *strtoupper(const char *str, int all_caps) {
@@ -371,42 +475,39 @@ int tcl_psfcontext(ClientData data, Tcl_Interp *interp,
 
   if ( argc == 2 && ! strcmp(argv[1],"stats") ) {
     char msg[128];
-    int nc, nd, *countptr;
-    nc = 0;  nd = 0;
+    int *countptr;
+
     countptr = Tcl_GetAssocData(interp, "Psfgen_count", 0);
-    if (countptr) {
-      nc = countptr[0];
-      nd = countptr[1];
-    }
+
     sprintf(msg,"%d created %d destroyed",countptr[0],countptr[1]);
     Tcl_SetResult(interp,msg,TCL_VOLATILE);
     return TCL_OK;
   }
 
   if ( argc == 2 && ! strcmp(argv[1],"allcaps") ) {
-    newhandle_msg(interp,"mapping names to all caps on input");
+    newhandle_msg(data, interp,"mapping names to all caps on input");
     (*cur)->all_caps = 1;
     return TCL_OK;
   }
 
   if ( argc == 2 && ! strcmp(argv[1],"mixedcase") ) {
-    newhandle_msg(interp,"preserving case of names on input");
+    newhandle_msg(data, interp,"preserving case of names on input");
     (*cur)->all_caps = 0;
     return TCL_OK;
   }
 
   if ( argc == 2 && ! strcmp(argv[1],"reset") ) {
-    newhandle_msg(interp,"clearing structure, topology, and aliases");
+    newhandle_msg(data, interp,"clearing structure, topology, and aliases");
     if ( ! (*cur)->all_caps ) {
-      newhandle_msg(interp,"mapping names to all caps on input");
+      newhandle_msg(data, interp,"mapping names to all caps on input");
     }
-    psfgen_data_reset(interp,*cur);
+    psfgen_data_reset(interp,*cur, (ClientData)cur);
     return TCL_OK;
   }
 
   if ( argc == 2 && ! strcmp(argv[1],"create") ) {
     char msg[128];
-    psfgen_data *newdata = psfgen_data_create(interp);
+    psfgen_data *newdata = psfgen_data_create(interp, data);
     sprintf(msg,"%d",newdata->id);
     Tcl_SetResult(interp,msg,TCL_VOLATILE);
     return TCL_OK;
@@ -486,8 +587,11 @@ int tcl_psfcontext(ClientData data, Tcl_Interp *interp,
   }
 
   if (strcmp(argv[1],"new") == 0) {
-    psfgen_data *newdata = psfgen_data_create(interp);
+    psfgen_data *newdata = psfgen_data_create(interp, data);
     (*cur)->in_use--;
+    // transfer the definition of PSFGENLOGFILE and VPBONDS
+    newdata->PSFGENLOGFILE = (*cur)->PSFGENLOGFILE;
+    newdata->VPBONDS = (*cur)->VPBONDS;
     *cur = newdata;
     (*cur)->in_use++;
   } else if (Tcl_GetInt(interp,argv[1],&newid) == TCL_OK) {
@@ -506,6 +610,9 @@ int tcl_psfcontext(ClientData data, Tcl_Interp *interp,
     sprintf(newkey,"Psfgen_%d",newid);
     if ( (newdata = Tcl_GetAssocData(interp,newkey,0)) ) {
       (*cur)->in_use--;
+      // transfer the definition of PSFGENLOGFILE and VPBONDS
+      newdata->PSFGENLOGFILE = (*cur)->PSFGENLOGFILE;
+      newdata->VPBONDS = (*cur)->VPBONDS;
       *cur = newdata;
       (*cur)->in_use++;
     } else {
@@ -538,7 +645,7 @@ int tcl_topology(ClientData data, Tcl_Interp *interp,
   FILE *defs_file;
   const char *filename;
   char msg[2048];
-  int itopo,ntopo;
+  int itopo, ntopo;
   psfgen_data *psf = *(psfgen_data **)data;
   PSFGEN_TEST_MOL(interp,psf);
 
@@ -550,8 +657,7 @@ int tcl_topology(ClientData data, Tcl_Interp *interp,
   if ( argc >= 2 && !strcasecmp(argv[1], "alias") ) {
     psfgen_data *psf = *(psfgen_data **)data;
     topo_defs *defs = psf->defs;
-    int pos,pos2;
-    const char *name;
+    int pos, pos2;
     if ( argc != 4 ) {
       Tcl_SetResult(interp,"usage: topology alias newname oldname",TCL_VOLATILE);
       psfgen_kill_mol(interp,psf);
@@ -568,7 +674,7 @@ int tcl_topology(ClientData data, Tcl_Interp *interp,
     if ( pos2 != HASHARRAY_FAIL ) {
       if ( pos2 == pos ) {
         sprintf(msg,"redundant alias of residue %s to %s in topology definitions",argv[2],argv[3]);
-        newhandle_msg(interp,msg);
+        newhandle_msg(data, interp,msg);
         return TCL_OK;
       }
       sprintf(msg,"ERROR: existing residue name %s in topology alias\n",argv[2]);
@@ -577,7 +683,7 @@ int tcl_topology(ClientData data, Tcl_Interp *interp,
       return TCL_ERROR;
     }
     sprintf(msg,"aliasing residue %s to %s in topology definitions",argv[2],argv[3]);
-    newhandle_msg(interp,msg);
+    newhandle_msg(data, interp,msg);
     hasharray_reinsert(defs->residue_hash, argv[2], pos);
     return TCL_OK;
   }
@@ -627,8 +733,8 @@ int tcl_topology(ClientData data, Tcl_Interp *interp,
     return TCL_ERROR;
   } else {
     sprintf(msg,"reading topology file %s\n",filename);
-    newhandle_msg(interp,msg);
-    charmm_parse_topo_defs(psf->defs,defs_file,psf->all_caps,interp,newhandle_msg);
+    newhandle_msg(data, interp,msg);
+    charmm_parse_topo_defs(psf->defs, defs_file, psf->all_caps, data, interp, newhandle_msg);
     topo_defs_add_topofile(psf->defs, filename);
     fclose(defs_file);
   }
@@ -678,8 +784,9 @@ int tcl_readpsf(ClientData data, Tcl_Interp *interp,
   velnamdbinfilename = 0;
   for ( i=3; i<argc; i+=2 ) if ( ! strcmp(argv[i-1],"velnamdbin") ) velnamdbinfilename = argv[i];
   /* Open psf as a binary file because the reading code uses ftell and
-     fseek which do not work properly if the file is opened as text
-     on Windows.  fgetpos/fsetpos misbehave in the exact same way.    */
+   * fseek which do not work properly if the file is opened as text
+   * on Windows.  fgetpos/fsetpos misbehave in the exact same way.    
+   */
   if ( ! ( psf_file = fopen(filename,"rb") ) ) {
     sprintf(msg,"ERROR: Unable to open psf file %s",filename);
     Tcl_SetResult(interp,msg,TCL_VOLATILE);
@@ -687,7 +794,7 @@ int tcl_readpsf(ClientData data, Tcl_Interp *interp,
     return TCL_ERROR;
   }
   sprintf(msg,"reading structure from psf file %s",filename);
-  newhandle_msg(interp,msg);
+  newhandle_msg(data, interp,msg);
   pdb_file = 0;
   if ( pdbfilename ) {
     if ( ! ( pdb_file = fopen(pdbfilename,"rb") ) ) {
@@ -698,7 +805,7 @@ int tcl_readpsf(ClientData data, Tcl_Interp *interp,
       return TCL_ERROR;
     }
     sprintf(msg,"reading coordinates, insertion codes, and element symbols from pdb file %s",pdbfilename);
-    newhandle_msg(interp,msg);
+    newhandle_msg(data, interp,msg);
   }
   namdbin_file = 0;
   if ( namdbinfilename ) {
@@ -711,7 +818,7 @@ int tcl_readpsf(ClientData data, Tcl_Interp *interp,
       return TCL_ERROR;
     }
     sprintf(msg,"reading coordinates from namdbin file %s",namdbinfilename);
-    newhandle_msg(interp,msg);
+    newhandle_msg(data, interp,msg);
   }
   velnamdbin_file = 0;
   if ( velnamdbinfilename ) {
@@ -725,9 +832,9 @@ int tcl_readpsf(ClientData data, Tcl_Interp *interp,
       return TCL_ERROR;
     }
     sprintf(msg,"reading velocities from velnamdbin file %s",velnamdbinfilename);
-    newhandle_msg(interp,msg);
+    newhandle_msg(data, interp,msg);
   }
-  retval = psf_file_extract(psf->mol, psf_file, pdb_file, namdbin_file, velnamdbin_file, interp, newhandle_msg);
+  retval = psf_file_extract(psf->mol, psf_file, pdb_file, namdbin_file, velnamdbin_file, data, interp, newhandle_msg);
   fclose(psf_file);
   if ( pdb_file ) fclose(pdb_file);
   if ( namdbin_file ) fclose(namdbin_file);
@@ -762,7 +869,7 @@ int tcl_readplugin(ClientData data, Tcl_Interp *interp,
   filename = argv[2];
 
   sprintf(msg,"Info: reading file %s using plugin %s", filename, pluginname);
-  newhandle_msg(interp,msg);
+  newhandle_msg(data, interp,msg);
 
   for (curarg=3; curarg<argc; curarg++) {
     if (!strcmp(argv[curarg], "segment")) {
@@ -770,14 +877,14 @@ int tcl_readplugin(ClientData data, Tcl_Interp *interp,
       if (curarg<argc) {
         segid = strtoupper(argv[curarg], psf->all_caps);
         sprintf(msg, "Info: read mode: coordinates for segment %s", segid);
-        newhandle_msg(interp,msg);
+        newhandle_msg(data, interp,msg);
       }
     } else if (!strcmp(argv[curarg], "coordinatesonly")) {
       coordinatesonly=1;
-      newhandle_msg(interp, "Info: read mode: coordinates only");
+      newhandle_msg(data, interp, "Info: read mode: coordinates only");
     } else if (!strcmp(argv[curarg], "residuesonly")) {
       residuesonly=1;
-      newhandle_msg(interp, "Info: read mode: residue sequence only");
+      newhandle_msg(data, interp, "Info: read mode: residue sequence only");
     } else { /* positional arguments for second coordinate file */
       if ( curarg == 3 ) coorpluginname = argv[3];
       if ( curarg == 4 ) coorfilename = argv[4];
@@ -787,14 +894,14 @@ int tcl_readplugin(ClientData data, Tcl_Interp *interp,
   if ( coorpluginname && coorpluginname ) {
     sprintf(msg,"Info: reading coordinates from file %s using plugin %s",
             coorfilename, coorpluginname);
-    newhandle_msg(interp,msg);
+    newhandle_msg(data, interp,msg);
   }
 
   if ( topo_mol_read_plugin(psf->mol, pluginname, filename,
                             coorpluginname, coorfilename,
                             segid, psf->aliases, psf->all_caps,
                             coordinatesonly, residuesonly,
-                            interp, newhandle_msg) ) { 
+                            data, interp, newhandle_msg) ) { 
     if (segid != NULL)
       free(segid);
     Tcl_AppendResult(interp,"ERROR: failed reading file", NULL);
@@ -815,6 +922,9 @@ int tcl_segment(ClientData data, Tcl_Interp *interp,
 					int argc, CONST84 char *argv[]) {
   char msg[2048];
   char *seg;
+#if defined(NEWPSFGEN)
+  int i;
+#endif
   psfgen_data *psf = *(psfgen_data **)data;
   PSFGEN_TEST_MOL(interp,psf);
 
@@ -899,7 +1009,9 @@ int tcl_segment(ClientData data, Tcl_Interp *interp,
         hasharray_index(mol->segment_hash, argv[2]) :
         HASHARRAY_FAIL);
     if (segindex != HASHARRAY_FAIL) {
+#if !defined(NEWPSFGEN)
       topo_mol_atom_t *atoms;
+#endif
       topo_mol_segment_t *seg = mol->segment_array[segindex];
       int resindex = hasharray_index(seg->residue_hash, argv[3]);
       if (resindex == HASHARRAY_FAIL) {
@@ -907,11 +1019,19 @@ int tcl_segment(ClientData data, Tcl_Interp *interp,
             argv[1], "'.", NULL);
         return TCL_ERROR;
       }
+      
+#if !defined(NEWPSFGEN)
       atoms = seg->residue_array[resindex].atoms;
       while (atoms) {
         Tcl_AppendElement(interp, atoms->name);
         atoms = atoms->next;
       }
+#else
+      for (i = 0; i < seg->residue_array[resindex].atomSize; i++) {
+        Tcl_AppendElement(interp, seg->residue_array[resindex].atomArray[i]->name);
+      }
+#endif
+
       return TCL_OK;
     }
     Tcl_AppendResult(interp, "Invalid segid: ", argv[2], NULL);
@@ -940,8 +1060,19 @@ int tcl_segment(ClientData data, Tcl_Interp *interp,
       /*
        * XXX Ouch, no hasharray for atom names
        */
+
+#if !defined(NEWPSFGEN)
+
       atoms = seg->residue_array[resindex].atoms;
       while (atoms) {
+#else
+
+      for (i = 0; i < seg->residue_array[resindex].atomSize; i++) {
+        atoms = seg->residue_array[resindex].atomArray[i];
+        
+#endif
+
+      
         if (!strcmp(atoms->name, argv[4])) {
           if (!strcasecmp(argv[1], "coordinates")) { 
 #if TCL_MINOR_VERSION >= 6
@@ -990,7 +1121,13 @@ int tcl_segment(ClientData data, Tcl_Interp *interp,
             return TCL_OK;
           }
         }
+
+#if !defined(NEWPSFGEN)
+
         atoms = atoms->next;
+        
+#endif
+
       }
       Tcl_AppendResult(interp, "Invalid atom name '", argv[4], 
           "' for segid '", argv[2], "', resid '", argv[3], "'.", NULL);
@@ -1022,7 +1159,7 @@ int tcl_segment(ClientData data, Tcl_Interp *interp,
   }
 
   sprintf(msg,"building segment %s",seg);
-  newhandle_msg(interp,msg);
+  newhandle_msg(data, interp,msg);
   if ( topo_mol_segment(psf->mol,seg) ) {
     free(seg);
     Tcl_AppendResult(interp,"ERROR: failed on segment",NULL);
@@ -1037,14 +1174,14 @@ int tcl_segment(ClientData data, Tcl_Interp *interp,
     return TCL_ERROR;
   }
 
-  newhandle_msg_ex(interp, "Info: generating structure...", 1, 0);
+  newhandle_msg_ex(data, interp, "Info: generating structure...", 0, 1);
   if ( topo_mol_end(psf->mol) ) {
-    newhandle_msg_ex(interp, "failed!", 0, 1);
+    newhandle_msg_ex(data, interp, "failed!", 1, 0);
     Tcl_AppendResult(interp,"ERROR: failed on end of segment",NULL);
     psfgen_kill_mol(interp,psf);
     return TCL_ERROR;
   }
-  newhandle_msg_ex(interp, "segment complete.", 0, 1);
+  newhandle_msg_ex(data, interp, "segment complete.", 0, 1);
   return TCL_OK;
 }
 
@@ -1142,7 +1279,7 @@ int tcl_multiply(ClientData data, Tcl_Interp *interp,
     return TCL_ERROR;
   }
   sprintf(msg,"generating %d copies of selected atoms",ncopies);
-  newhandle_msg(interp,msg);
+  newhandle_msg(data, interp,msg);
   for ( i=2; i<argc; ++i ) {
     char *ctmp;
     tmp[i-2] = strtoupper(argv[i], psf->all_caps);
@@ -1330,16 +1467,16 @@ int tcl_auto(ClientData data, Tcl_Interp *interp,
     }
   }
 
-  if ( angles ) newhandle_msg(interp,"enabling angle autogeneration");
-  else newhandle_msg(interp,"disabling angle autogeneration");
+  if ( angles ) newhandle_msg(data, interp,"enabling angle autogeneration");
+  else newhandle_msg(data, interp,"disabling angle autogeneration");
   if ( topo_mol_segment_auto_angles(psf->mol,angles) ) {
     Tcl_AppendResult(interp,"ERROR: failed setting angle autogen",NULL);
     psfgen_kill_mol(interp,psf);
     return TCL_ERROR;
   }
 
-  if ( dihedrals ) newhandle_msg(interp,"enabling dihedral autogeneration");
-  else newhandle_msg(interp,"disabling dihedral autogeneration");
+  if ( dihedrals ) newhandle_msg(data, interp,"enabling dihedral autogeneration");
+  else newhandle_msg(data, interp,"disabling dihedral autogeneration");
   if ( topo_mol_segment_auto_dihedrals(psf->mol,dihedrals) ) {
     Tcl_AppendResult(interp,"ERROR: failed setting dihedral autogen",NULL);
     psfgen_kill_mol(interp,psf);
@@ -1375,7 +1512,7 @@ int tcl_regenerate(ClientData data, Tcl_Interp *interp,
   }
 
   if ( angles ) {
-    newhandle_msg(interp,"regenerating all angles");
+    newhandle_msg(data, interp,"regenerating all angles");
     if ( topo_mol_regenerate_angles(psf->mol) ) {
       Tcl_AppendResult(interp,"ERROR: angle regeneration failed",NULL);
       psfgen_kill_mol(interp,psf);
@@ -1384,7 +1521,7 @@ int tcl_regenerate(ClientData data, Tcl_Interp *interp,
   }
 
   if ( dihedrals ) {
-    newhandle_msg(interp,"regenerating all dihedrals");
+    newhandle_msg(data, interp,"regenerating all dihedrals");
     if ( topo_mol_regenerate_dihedrals(psf->mol) ) {
       Tcl_AppendResult(interp,"ERROR: dihedral regeneration failed",NULL);
       psfgen_kill_mol(interp,psf);
@@ -1393,7 +1530,7 @@ int tcl_regenerate(ClientData data, Tcl_Interp *interp,
   }
 
   if ( resids ) {
-    newhandle_msg(interp,"regenerating all resids");
+    newhandle_msg(data, interp,"regenerating all resids");
     if ( topo_mol_regenerate_resids(psf->mol) ) {
       Tcl_AppendResult(interp,"ERROR: resid regeneration failed",NULL);
       psfgen_kill_mol(interp,psf);
@@ -1427,7 +1564,7 @@ int tcl_alias(ClientData data, Tcl_Interp *interp,
     altres=strtoupper(argv[2], psf->all_caps);
     realres=strtoupper(argv[3], psf->all_caps);
     sprintf(msg,"aliasing residue %s to %s",argv[2],argv[3]);
-    newhandle_msg(interp,msg);
+    newhandle_msg(data, interp,msg);
     rc = extract_alias_residue_define(psf->aliases,altres, realres);
     free(altres);
     free(realres);
@@ -1447,7 +1584,7 @@ int tcl_alias(ClientData data, Tcl_Interp *interp,
     altatom=strtoupper(argv[3], psf->all_caps);
     realatom=strtoupper(argv[4], psf->all_caps);
     sprintf(msg,"aliasing residue %s atom %s to %s",argv[2],argv[3],argv[4]);
-    newhandle_msg(interp,msg);
+    newhandle_msg(data, interp,msg);
     rc=extract_alias_atom_define(psf->aliases,resname,altatom,realatom);
     free(resname);
     free(altatom);
@@ -1488,8 +1625,9 @@ int tcl_pdb(ClientData data, Tcl_Interp *interp,
     return TCL_ERROR;
   } else {
     sprintf(msg,"reading residues from pdb file %s",filename);
-    newhandle_msg(interp,msg);
-    if ( pdb_file_extract_residues(psf->mol,res_file,psf->aliases,psf->all_caps,interp,newhandle_msg) ) {
+    newhandle_msg(data, interp,msg);
+    if ( pdb_file_extract_residues(psf->mol, res_file, psf->aliases, psf->all_caps,
+          data, interp, newhandle_msg) ) {
       Tcl_AppendResult(interp,"ERROR: failed on reading residues from pdb file",NULL);
       fclose(res_file);
       psfgen_kill_mol(interp,psf);
@@ -1537,12 +1675,12 @@ int tcl_coordpdb(ClientData data, Tcl_Interp *interp,
     if (argc == 3 || argc == 5) {
       /* Read only coordinates for given segid */
       sprintf(msg,"reading coordinates from pdb file %s for segment %s",filename,argv[2]);
-      newhandle_msg(interp,msg);
+      newhandle_msg(data, interp,msg);
       segid = strtoupper(argv[2], psf->all_caps);
     } else {
       /* Read all segid's in pdb file */
       sprintf(msg,"reading coordinates from pdb file %s",filename);
-      newhandle_msg(interp,msg);
+      newhandle_msg(data, interp,msg);
       segid = NULL;
     } 
     if ( argc > 3 ) {
@@ -1555,9 +1693,10 @@ int tcl_coordpdb(ClientData data, Tcl_Interp *interp,
         return TCL_ERROR;
       }
       sprintf(msg,"reading coordinates from namdbin file %s",namdbinfilename);
-      newhandle_msg(interp,msg);
+      newhandle_msg(data, interp,msg);
     }
-    rc=pdb_file_extract_coordinates(psf->mol,res_file,namdbin_file,segid,psf->aliases,psf->all_caps,interp,newhandle_msg);
+    rc=pdb_file_extract_coordinates(psf->mol, res_file, namdbin_file, 
+          segid, psf->aliases, psf->all_caps, data, interp, newhandle_msg);
     if (segid) free(segid);
     if (rc) {
       Tcl_AppendResult(interp,"ERROR: failed on reading coordinates from pdb file",NULL);
@@ -1637,15 +1776,16 @@ int tcl_writepsf(ClientData data, Tcl_Interp *interp,
   sprintf(msg,"Info: writing psf file %s%s%s",filename,
                 nocmap?" without cross-terms":"",
                 charmmfmt?" in CHARMM format":"");
-  newhandle_msg(interp,msg);
-  if ( topo_mol_write_psf(psf->mol,res_file,charmmfmt,nocmap,nopatches,interp,newhandle_msg) ) {
+  newhandle_msg(data, interp,msg);
+  if ( topo_mol_write_psf(psf->mol, res_file, charmmfmt, nocmap, nopatches, 
+                          data, interp, newhandle_msg) ) {
     Tcl_AppendResult(interp,"ERROR: failed on writing structure to psf file",NULL);
     fclose(res_file);
     psfgen_kill_mol(interp,psf);
     return TCL_ERROR;
   }
   fclose(res_file);
-  newhandle_msg(interp, "Info: psf file complete.");
+  newhandle_msg(data, interp, "Info: psf file complete.");
 
   return TCL_OK;
 }
@@ -1677,15 +1817,15 @@ int tcl_writepdb(ClientData data, Tcl_Interp *interp,
     return TCL_ERROR;
   }
   sprintf(msg,"Info: writing pdb file %s",filename);
-  newhandle_msg(interp,msg);
-  if ( topo_mol_write_pdb(psf->mol,res_file,interp,newhandle_msg) ) {
+  newhandle_msg(data, interp,msg);
+  if ( topo_mol_write_pdb(psf->mol, res_file, data, interp, newhandle_msg) ) {
     Tcl_AppendResult(interp,"ERROR: failed on writing coordinates to pdb file",NULL);
     fclose(res_file);
     psfgen_kill_mol(interp,psf);
     return TCL_ERROR;
   }
   fclose(res_file);
-  newhandle_msg(interp, "Info: pdb file complete.");
+  newhandle_msg(data, interp, "Info: pdb file complete.");
 
   return TCL_OK;
 }
@@ -1735,12 +1875,12 @@ int tcl_writenamdbin(ClientData data, Tcl_Interp *interp,
     }
   }
   sprintf(msg,"Info: writing namdbin file %s",filename);
-  newhandle_msg(interp,msg);
+  newhandle_msg(data, interp,msg);
   if ( vel_file ) {
     sprintf(msg,"Info: writing velnamdbin file %s",velfilename);
-    newhandle_msg(interp,msg);
+    newhandle_msg(data, interp,msg);
   }
-  if ( topo_mol_write_namdbin(psf->mol,res_file,vel_file,interp,newhandle_msg) ) {
+  if ( topo_mol_write_namdbin(psf->mol, res_file, vel_file, data, interp, newhandle_msg) ) {
     Tcl_AppendResult(interp,"ERROR: failed on writing coordinates to namdbin file",NULL);
     fclose(res_file);
     if ( vel_file ) fclose(vel_file);
@@ -1748,10 +1888,10 @@ int tcl_writenamdbin(ClientData data, Tcl_Interp *interp,
     return TCL_ERROR;
   }
   fclose(res_file);
-  newhandle_msg(interp, "Info: namdbin file complete.");
+  newhandle_msg(data, interp, "Info: namdbin file complete.");
   if ( vel_file ) {
     fclose(vel_file);
-    newhandle_msg(interp, "Info: velnamdbin file complete.");
+    newhandle_msg(data, interp, "Info: velnamdbin file complete.");
   }
 
   return TCL_OK;
@@ -1846,13 +1986,14 @@ int tcl_writeplugin(ClientData data, Tcl_Interp *interp,
   }
 
   sprintf(msg,"Info: writing file %s using plugin %s", filename, pluginname);
-  newhandle_msg(interp,msg);
-  if ( topo_mol_write_plugin(psf->mol, pluginname, filename, &images, interp, newhandle_msg) ) {
+  newhandle_msg(data, interp,msg);
+  if ( topo_mol_write_plugin(psf->mol, pluginname, filename, &images, data, 
+                                                    interp, newhandle_msg) ) {
     Tcl_AppendResult(interp,"ERROR: failed writing to file", NULL);
     psfgen_kill_mol(interp,psf);
     return TCL_ERROR;
   }
-  newhandle_msg(interp, "Info: file complete.");
+  newhandle_msg(data, interp, "Info: file complete.");
 
   return TCL_OK;
 }
@@ -1873,7 +2014,7 @@ int tcl_first(ClientData data, Tcl_Interp *interp,
   first = strtoupper(argv[1], psf->all_caps);
 
   sprintf(msg,"setting patch for first residue to %s",first);
-  newhandle_msg(interp,msg);
+  newhandle_msg(data, interp,msg);
   if ( topo_mol_segment_first(psf->mol,first) ) {
     free(first);
     Tcl_AppendResult(interp,"ERROR: failed to set patch for first residue",NULL);
@@ -1900,7 +2041,7 @@ int tcl_last(ClientData data, Tcl_Interp *interp,
   last=strtoupper(argv[1], psf->all_caps);
 
   sprintf(msg,"setting patch for last residue to %s",last);
-  newhandle_msg(interp,msg);
+  newhandle_msg(data, interp,msg);
   if ( topo_mol_segment_last(psf->mol,last) ) {
     free(last);
     Tcl_AppendResult(interp,"ERROR: failed to set patch for last residue",NULL);
@@ -2033,7 +2174,7 @@ int tcl_patch(ClientData data, Tcl_Interp *interp,
 
   pres=strtoupper(argv[1], psf->all_caps);
   sprintf(msg,"applying patch %s to %d residue(s)",pres,(argc-2));
-  newhandle_msg(interp,msg);
+  newhandle_msg(data, interp,msg);
   for ( i=2; i<argc; ++i ) {
     tmp[i-2]=strtoupper(argv[i], psf->all_caps);
     targets[i-2].segid = tmp[i-2];
@@ -2062,10 +2203,10 @@ int tcl_patch(ClientData data, Tcl_Interp *interp,
 int tcl_resetpsf(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]) {
   psfgen_data *psf = *(psfgen_data **)data;
 
-  newhandle_msg(interp,"clearing structure, preserving topology and aliases");
+  newhandle_msg(data, interp,"clearing structure, preserving topology and aliases");
   topo_mol_destroy(psf->mol);
   psf->mol = topo_mol_create(psf->defs);
-  topo_mol_error_handler(psf->mol,interp,newhandle_msg);
+  topo_mol_error_handler(psf->mol,data, interp,newhandle_msg);
 
   return TCL_OK;
 }
@@ -2091,5 +2232,283 @@ int tcl_delatom(ClientData data, Tcl_Interp *interp,
   return TCL_OK;
 }
 
-#endif
 
+#if defined(NEWPSFGEN)
+
+/** Close Psfgen logfile. */
+int closepsfgenlogfile (ClientData data, Tcl_Interp *interp) {
+  char msg[2048];
+  if (tcl_closepsfgenlogfile(data, interp) == TCL_ERROR) {
+    sprintf(msg,"Failed to close psfgen logfile.");
+    Tcl_SetResult(interp,msg, TCL_VOLATILE);
+  }
+  return TCL_OK;
+}
+/** Psfgen logfile operations. */
+int tcl_psfgenlogfile(ClientData data, Tcl_Interp *interp,
+					int argc, CONST84 char *argv[]) {
+  char msg[2048];
+  const char *filename;
+  psfgen_data *psf = *(psfgen_data **)data;
+  PSFGEN_TEST_MOL(interp,psf);
+  
+  if ( argc != 2 ) {
+    sprintf(msg,"arguments: psfgen_logfile logfilename - define logfilename file as logfile\narguments: psfgen_logfile close - close active logfile");
+    Tcl_SetResult(interp,msg, TCL_VOLATILE);
+    psfgen_kill_mol(interp,psf);
+    return TCL_ERROR;
+  } else {
+    
+    /* 
+     * close the file if the argument of the command was "close"
+     * Only close if there is a logfile already open PSFGENLOGFILE != NULL
+     * If there is a logfile already open, close the current and open a new one
+     * The last point is important when running several psfgen scripts and 
+     * if the script fails before closing, the logfile never gets closed
+     */
+    if (!strcmp(argv[1], "close") ) {
+      closepsfgenlogfile(data, interp);
+      return TCL_OK;
+    } else {
+      if (psf->PSFGENLOGFILE) {
+        sprintf(msg,"psfgen logfile already open. Trying to close current logfile.");
+        Tcl_SetResult(interp,msg, TCL_VOLATILE);
+        closepsfgenlogfile(data, interp);
+      }
+      filename = argv[1];
+    }
+  }
+  
+  /* Inform the user that a logfile is being set. */
+  sprintf(msg,"All messages will be directed to %s logfile.\n",filename);
+  newhandle_msg(data, interp,msg);
+  
+  if ( ! ( psf->PSFGENLOGFILE = fopen(filename,"w") ) ) {
+    sprintf(msg,"ERROR: Unable to open file %s to log psfgen operations\n",filename);
+    Tcl_SetResult(interp,msg,TCL_VOLATILE);
+    psfgen_kill_mol(interp,psf);
+    return TCL_ERROR;
+  }
+  return TCL_OK;
+}
+
+/** Close psfgen logfile */
+int tcl_closepsfgenlogfile(ClientData data, Tcl_Interp *interp) {
+  FILE *file;
+  char msg[2048];
+  
+  psfgen_data *psf = *(psfgen_data **)data;
+  
+  /* Check if there is an active logfile */
+  if (!psf->PSFGENLOGFILE) {
+    sprintf(msg,"ERROR: No psfgen logfile open.\n");
+    Tcl_SetResult(interp,msg,TCL_VOLATILE);
+    psfgen_kill_mol(interp,psf);
+    return TCL_ERROR;
+  }
+  
+  PSFGEN_TEST_MOL(interp,psf);
+  
+  /* Clean the PSFGENLOGFILE, so in case fclose fails the variable is already empty */
+  file = psf->PSFGENLOGFILE;
+  psf->PSFGENLOGFILE = NULL;
+  
+  if ( fclose(file) ) {
+    sprintf(msg,"ERROR: Error closing psfgen logfile\n");
+    Tcl_SetResult(interp,msg,TCL_VOLATILE);
+    psfgen_kill_mol(interp,psf);
+    return TCL_ERROR;
+  } else {
+    sprintf(msg,"Closing psfgen logfile\n");
+    Tcl_SetResult(interp,msg,TCL_VOLATILE);
+    newhandle_msg(data, interp,msg);
+    return TCL_OK;
+  }
+}
+
+
+int tcl_lonepairbonds(ClientData data, Tcl_Interp *interp, int argc, 
+  CONST84 char *argv[]) {
+    
+  char msg[2048];
+  int val;
+  psfgen_data *psf = *(psfgen_data **)data;
+  PSFGEN_TEST_MOL(interp,psf);
+  
+  if ( argc != 2 ) {
+    sprintf(msg,"ERROR: arguments: lonepairbonds 1/0 : 1 (true) or 0 (false) to print the bonds explicitly in the psf file.\n");
+    Tcl_SetResult(interp,msg, TCL_VOLATILE);
+    psfgen_kill_mol(interp,psf);
+    return TCL_ERROR;
+  } else {
+    if (Tcl_GetInt(interp,argv[1],&val) || !isdigit(*argv[1])) {
+      sprintf(msg,"Please choose 1 (true) or 0 (false) for printing the the bonds explicitly in the psf file.\n");
+      Tcl_SetResult(interp,msg, TCL_VOLATILE);
+      psfgen_kill_mol(interp,psf);
+      return TCL_ERROR;
+    }
+    
+    psf->VPBONDS = val;
+    if (psf->VPBONDS) {
+      newhandle_msg(data, interp,"Printing bonds between virtual particles and host.\n");
+    } else {
+      newhandle_msg(data, interp,"Don't print bonds between virtual particles and host.\n");
+    }
+  }
+  return TCL_OK; 
+}
+
+
+/*
+ * These are not perfect heuristics, but are identical to what is used in NAMD.
+ */
+#if 0
+/*check if the resiude is water sent By Brian*/
+int is_water(topo_mol_residue_t *res) {
+  int noh_bonds;
+  topo_mol_atom_t *atom, *atom2;
+  topo_mol_bond_t *bond;
+
+  atom = res->atomArray[0];
+  if (!is_oxygen(atom)) return 0;
+
+  noh_bonds = 0;
+  for (bond = atom->bonds; bond; bond = topo_mol_bond_next(bond, atom)) {
+    atom2 = (bond->atom[0] == atom ? bond->atom[1] : bond->atom[0]);
+    if (is_hydrogen(atom2)) ++noh_bonds;
+  }
+  if (noh_bonds == 2) return 1;
+  return 0;
+}
+
+#else 
+/*check if the resiude is water in the same way as in topo_mol.c*/
+int is_water(topo_mol_residue_t *res) {
+  topo_mol_atom_t *atom, *a1, *a2;
+  topo_mol_bond_t *bond;
+  
+  if (res->atomSize < 3) {
+    return 0;
+  }
+  
+  a1 = res->atomArray[0];
+  atom = res->atomArray[1];
+  a2 = res->atomArray[2];
+  bond = atom->bonds;
+  if ( is_hydrogen(atom) && ( ! topo_mol_bond_next(bond,atom) ) &&
+       ( ( is_hydrogen(a1) && is_oxygen(a2) ) ||
+         ( is_hydrogen(a2) && is_oxygen(a1) ) ) ) return 1;
+  
+  return 0;
+}
+#endif
+int tcl_hmassrepart(ClientData data, Tcl_Interp *interp, int argc, CONST84 char *argv[]) {
+  double mass = 3.024; // target mass for all hydrogens
+  int dowater = 0; // repartition water too?
+  int iseg, nseg, ires, nres, i, foundmass = 0;
+  char msg[2048];
+  psfgen_data *psf = *(psfgen_data **)data;
+  topo_mol_segment_t *seg;
+  topo_mol_residue_t *res;
+  topo_mol_atom_t *atom, *atom2;
+  topo_mol_bond_t *bond;
+  topo_mol *mol=NULL;
+
+  /*
+   * hmassrepart -mass [target hydrogen mass (default = 3.024)] 
+   *             -dowater [1/0 (default = 0)]
+   */
+  if (argc > 5) {
+    Tcl_SetResult(interp, "Too many arguments specified", TCL_VOLATILE);
+    psfgen_kill_mol(interp, psf);
+    return TCL_ERROR;
+  }
+
+  for (i = 0; i < argc; i++) {
+    if (!strcasecmp(argv[i], "dowater")) {
+      i++;
+      if (i == argc) continue; 
+      if (sscanf(argv[i], "%d", &dowater) != 1 || 
+          (dowater > 1 || dowater < 0) ) {
+        Tcl_SetResult(interp, "ERROR: dowater must be 1 "
+                      "(apply mass repartition to water molecules) or "
+                      "0 (DON'T apply mass repartition to water molecules)", 
+                      TCL_VOLATILE);
+        psfgen_kill_mol(interp, psf);
+        return TCL_ERROR;
+      }
+    }
+    if (!strcasecmp(argv[i], "mass")) {
+      i++;
+      if (i == argc) continue; 
+      if (sscanf(argv[i], "%lf", &mass) != 1) {
+        Tcl_SetResult(interp, "Hydrogen target mass must be a float number", 
+                      TCL_VOLATILE);
+        psfgen_kill_mol(interp, psf);
+        return TCL_ERROR;
+      }
+      foundmass = 1;
+    }
+  }
+
+  /* if the target mass was not set in the command, warn the user
+   * that the default value will be used.
+   */
+  if (!foundmass) {
+    sprintf(msg, "WARNING: Hydrogen target mass set to the "
+            "default value %1.3f amu",mass);
+    newhandle_msg(data, interp, msg);
+  } else {
+    sprintf(msg, "repartitioning heavy atom mass w/Hydrogen mass target %f", 
+          mass);
+    newhandle_msg(data, interp, msg);
+  }
+
+  sprintf(msg, "repartitioning will%s be performed for water molecules", 
+         (dowater ? "" : " not"));
+  newhandle_msg(data, interp, msg);
+
+  mol = psf->mol;
+  if (!mol) return TCL_ERROR;
+
+  nseg = hasharray_count(mol->segment_hash);
+
+  for (iseg=0; iseg< nseg; ++iseg) {
+    seg = mol->segment_array[iseg];
+    if (!seg) continue;
+    nres = hasharray_count(seg->residue_hash);
+    
+    for (ires=0; ires<nres; ++ires) {
+      res = &(seg->residue_array[ires]);
+      /* Skip water molecules unless specifically requested. */
+      if (!dowater && is_water(res)) continue;
+
+      for ( i = 0; i < res->atomSize; i++ ) {
+        atom = res->atomArray[i];
+        /* Look for heavy atoms to repartition mass from. */
+        if (is_hydrogen(atom) || atom->isdrudlonepair) continue;
+        /* Look for hydrogens bound to this heavy atom - adjust masses. */
+
+        for (bond = atom->bonds; bond; bond = topo_mol_bond_next(bond, atom)) {
+          atom2 = (bond->atom[0] == atom ? bond->atom[1] : bond->atom[0]);
+          
+          if (is_hydrogen(atom2)) {
+            atom->mass -= (mass - atom2->mass);
+            if (atom->mass < 1) {
+              sprintf(msg, "ERROR: mass of the atom %d became smaller than 1", 
+                      atom->atomid);
+              Tcl_SetResult(interp,msg, TCL_VOLATILE);
+              psfgen_kill_mol(interp, psf);
+              return TCL_ERROR;
+            }
+            atom2->mass = mass;
+          }
+        }
+      }
+    }
+  }
+  return TCL_OK;
+}
+
+#endif
+#endif

@@ -1,13 +1,23 @@
-/*
- * hash.c - A simple hash table
- * 
- * Uses null terminated strings as the keys for the table.
- * Stores an integer value with the string key.  It would be
- * easy to change to use void *'s instead of ints.  Maybe rewrite
- * as a C++ template??
+/***************************************************************************
+ *cr
+ *cr            (C) Copyright 1995-2019 The Board of Trustees of the
+ *cr                        University of Illinois
+ *cr                         All Rights Reserved
+ *cr
+ ***************************************************************************/
+
+/***************************************************************************
+ * RCS INFORMATION:
  *
- * Donated by John Stone
- */
+ *      $RCSfile: hash.c,v $
+ *      $Author: johns $        $Locker:  $             $State: Exp $
+ *      $Revision: 1.2 $      $Date: 2019/07/24 16:31:15 $
+ *
+ ***************************************************************************
+ * DESCRIPTION:
+ *   A simple hash table implementation for strings, contributed by John Stone,
+ *   derived from his ray tracer code.
+ ***************************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,9 +26,7 @@
 
 #define HASH_LIMIT 0.5
 
-/*
- *  Local types
- */
+/** hash table node data structure */
 typedef struct hash_node_t {
   int data;                           /* data in hash node */
   const char * key;                   /* key for hash lookup */
@@ -31,7 +39,7 @@ typedef struct hash_node_t {
  *  tptr: Pointer to a hash table
  *  key: The key to create a hash number for
  */
-static int hash(hash_t *tptr, const char *key) {
+static int hash(const hash_t *tptr, const char *key) {
   int i=0;
   int hashvalue;
  
@@ -44,6 +52,37 @@ static int hash(hash_t *tptr, const char *key) {
   }    
 
   return hashvalue;
+}
+
+/*
+ *  hash_init() - Initialize a new hash table.
+ *
+ *  tptr: Pointer to the hash table to initialize
+ *  buckets: The number of initial buckets to create
+ */
+VMDEXTERNSTATIC void hash_init(hash_t *tptr, int buckets) {
+
+  /* make sure we allocate something */
+  if (buckets==0)
+    buckets=16;
+
+  /* initialize the table */
+  tptr->entries=0;
+  tptr->size=2;
+  tptr->mask=1;
+  tptr->downshift=29;
+
+  /* ensure buckets is a power of 2 */
+  while (tptr->size<buckets) {
+    tptr->size<<=1;
+    tptr->mask=(tptr->mask<<1)+1;
+    tptr->downshift--;
+  } /* while */
+
+  /* allocate memory for table */
+  tptr->bucket=(hash_node_t **) calloc(tptr->size, sizeof(hash_node_t *));
+
+  return;
 }
 
 /*
@@ -79,44 +118,13 @@ static void rebuild_table(hash_t *tptr) {
 }
 
 /*
- *  hash_init() - Initialize a new hash table.
- *
- *  tptr: Pointer to the hash table to initialize
- *  buckets: The number of initial buckets to create
- */
-void hash_init(hash_t *tptr, int buckets) {
-
-  /* make sure we allocate something */
-  if (buckets==0)
-    buckets=16;
-
-  /* initialize the table */
-  tptr->entries=0;
-  tptr->size=2;
-  tptr->mask=1;
-  tptr->downshift=29;
-
-  /* ensure buckets is a power of 2 */
-  while (tptr->size<buckets) {
-    tptr->size<<=1;
-    tptr->mask=(tptr->mask<<1)+1;
-    tptr->downshift--;
-  } /* while */
-
-  /* allocate memory for table */
-  tptr->bucket=(hash_node_t **) calloc(tptr->size, sizeof(hash_node_t *));
-
-  return;
-}
-
-/*
  *  hash_lookup() - Lookup an entry in the hash table and return a pointer to
  *    it or HASH_FAIL if it wasn't found.
  *
  *  tptr: Pointer to the hash table
  *  key: The key to lookup
  */
-int hash_lookup(hash_t *tptr, const char *key) {
+VMDEXTERNSTATIC int hash_lookup(const hash_t *tptr, const char *key) {
   int h;
   hash_node_t *node;
 
@@ -140,11 +148,10 @@ int hash_lookup(hash_t *tptr, const char *key) {
  *  key: The key to insert into the hash table
  *  data: A pointer to the data to insert into the hash table
  */
-int hash_insert(hash_t *tptr, const char *key, int data) {
+VMDEXTERNSTATIC int hash_insert(hash_t *tptr, const char *key, int data) {
   int tmp;
   hash_node_t *node;
   int h;
-
 
   /* check to see if the entry exists */
   if ((tmp=hash_lookup(tptr, key)) != HASH_FAIL)
@@ -173,7 +180,7 @@ int hash_insert(hash_t *tptr, const char *key, int data) {
  *  tptr: A pointer to the hash table
  *  key: The key to remove from the hash table
  */
-int hash_delete(hash_t *tptr, const char *key) {
+VMDEXTERNSTATIC int hash_delete(hash_t *tptr, const char *key) {
   hash_node_t *node, *last;
   int data;
   int h;
@@ -209,12 +216,22 @@ int hash_delete(hash_t *tptr, const char *key) {
 }
 
 
+/*
+ * inthash_entries() - return the number of hash table entries.
+ *
+ */
+VMDEXTERNSTATIC int hash_entries(hash_t *tptr) {
+  return tptr->entries;
+}
+
+
+
 
 /*
  * hash_destroy() - Delete the entire table, and all remaining entries.
  * 
  */
-void hash_destroy(hash_t *tptr) {
+VMDEXTERNSTATIC void hash_destroy(hash_t *tptr) {
   hash_node_t *node, *last;
   int i;
 
@@ -260,7 +277,7 @@ static float alos(hash_t *tptr) {
  *
  *  tptr: A pointer to the hash table
  */
-char * hash_stats(hash_t *tptr) {
+VMDEXTERNSTATIC char * hash_stats(hash_t *tptr) {
   static char buf[1024];
 
   sprintf(buf, "%u slots, %u entries, and %1.2f ALOS",

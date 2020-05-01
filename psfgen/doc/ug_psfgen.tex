@@ -21,6 +21,85 @@ We are currently refining the interface of \PSFGEN\ and adding
 features to create a complete molecular building solution.
 We welcome your feedback on this new tool.
 
+\section{New commands and Functionalities}
+
+The version \PSFGENVER\ of \PSFGEN\ was extensively modified and improved to 
+meet the current standards in the size of the structures, and the modern 
+versions of additive CHARMM force field, and polarizable DRUDE 
+force field (\tt http://mackerell.umaryland.edu/charmm\_ff.shtml). 
+
+\vskip 0.2in
+New functionalities include:
+\begin{itemize}
+\item hydrogen mass repartition
+\item structure preparation for Drude force field
+\item structure preparation containing colinear lone pairs 
+(halogen atoms in the latest additive CHARMM force field version)
+\item psfgen log file to store all the information printed to the console
+\end{itemize}
+\vskip 0.2in
+
+To use the Drude force field, one only needs to load the Drude topology files 
+and prepare the structures as per usual. Most commands are 
+available for both lone pairs in the additive and polarizable force fields, 
+although some operations are not yet available for Drude particles. 
+Atom modification operations, e.g., psfset, and queries with the segment command 
+on the drude particles, are not implemented. We advise the user to use \VMD\ 
+to assign beta and occupancy values during the structure preparation. writemol 
+and readmol commands are not compatible with structure preparation for 
+Drude Force field.
+
+The new \PSFGEN\ log file allows the user to save all the information regularly
+printed out during a \PSFGEN\ execution script to a file. It is possible to
+open and close multiple log files in a \PSFGEN\ script, but only one file is 
+active at any given moment. An example of an application of multiple log files
+is to save the information of the loading process of the topology files to 
+one log file and the rest of information of structure preparation to another 
+file, as demonstrated below:
+
+\begin{verbatim}
+
+psfgen_logfile "load_topoplogy.log" 
+
+topology top_all22_prot.rtf	
+topology top_all36_carb.rtf	
+topology top_all36_lipid.rtf	
+topology top_all36_prot.rtf	
+topology top_all36_cgenff.rtf	
+topology toppar_water_ions.str
+
+psfgen_logfile close
+
+psfgen_logfile "structure_preparation.log" 
+
+segment BPTI {
+ pdb output/6PTI_protein.pdb
+}
+
+patch DISU BPTI:5 BPTI:55
+patch DISU BPTI:14 BPTI:38
+patch DISU BPTI:30 BPTI:51
+
+pdbalias atom ILE CD1 CD
+coordpdb output/6PTI_protein.pdb BPTI
+
+pdbalias residue HOH TIP3  
+segment SOLV {
+ auto none
+ pdb output/6PTI_water.pdb
+}
+
+pdbalias atom HOH O OH2
+coordpdb output/6PTI_water.pdb SOLV
+
+guesscoord
+
+writepsf output/bpti.psf
+writepdb output/bpti.pdb
+
+psfgen_logfile close
+
+\end{verbatim}
 \section{Ordinary Usage}
 
 \PSFGEN\ is currently distributed in two forms.  One form is as a standalone
@@ -123,7 +202,7 @@ To actually run this demo requires
 \item the program \verb#psfgen# from any \NAMD\ distribution,
 \item the CHARMM topology and parameter files \verb#top_all22_prot.inp# and
 \verb#par_all22_prot.inp# from 
-{\tt http://www.pharmacy.umaryland.edu/faculty/amackere/force\_fields.htm}, and
+{\tt http://mackerell.umaryland.edu/charmm\_ff.shtml}, and
 \item the BPTI PDB file \verb#6PTI.pdb# available from the Protein Data Bank at
 {\tt http://www.pdb.org/} by searching for \verb#6PTI# and downloading
 the complete structure file in PDB format.
@@ -393,6 +472,31 @@ proc addwater { psffile pdbfile watpsf watpdb } {
 	return [list [list $xmin $ymin $zmin] [list $xmax $ymax $zmax]]
 }
 \end{verbatim}
+
+\section{New Commands in the version \PSFGENVER}
+
+\begin{itemize}
+
+\item \COMMAND{\IKEY{psfgen\_logfile} \ARG{file name} \OKEY{close}}
+{Open or close a log file to store all information printed to the console.}
+{\ARGDEF{file name}{Valid file name in the current directory.}\\
+\KEYDEF{close}{Close the active log file. The file name should not be included in the closing command. Example above.}}
+{Any part of the script, context independent. May call multiple times.}
+
+\item \COMMAND{\IKEY{hmassrepart} \OARG{dowater \ARG{\em 1\/0}} 
+\OARG{mass \ARG{\em target hydrogen mass}}}
+{Partition the mass of heavy atoms into the bonded hydrogen atoms.}
+{\KEYDEF{dowater}{1 for true, 0 for false. Partition the water molecules.
+Default value 0.}\\
+\KEYDEF{mass}{Target for the hydrogen atoms' mass. Default value 3.024 amu.}}
+{After loading or preparing the structure.}
+
+\item \COMMAND{\IKEY{vpbonds} \OARG{\em 1 0}}
+{Print the bonds between the virtual particles (drude particles and lone pairs) and their hosts.}
+{1 for true, 0 for false. Default value 1.}
+{Before writing the psf file. May call multiple times. WARNING: To run simulations containing lone pairs or Drude particles on NAMD 2.13, set vpbonds to 0.}
+
+\end{itemize}
 
 \section{List of Commands}
 

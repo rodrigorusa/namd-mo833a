@@ -1,3 +1,22 @@
+/***************************************************************************
+ *cr
+ *cr            (C) Copyright 1995-2019 The Board of Trustees of the
+ *cr                        University of Illinois
+ *cr                         All Rights Reserved
+ *cr
+ ***************************************************************************/
+
+/***************************************************************************
+ * RCS INFORMATION:
+ *
+ *      $RCSfile: topo_mol.h,v $
+ *      $Author: jribeiro $        $Locker:  $             $State: Exp $
+ *      $Revision: 1.15 $      $Date: 2020/03/10 04:54:54 $
+ *
+ ***************************************************************************
+ * DESCRIPTION:
+ *  
+ ***************************************************************************/
 
 #ifndef TOPO_MOL_H
 #define TOPO_MOL_H
@@ -10,7 +29,7 @@ typedef struct topo_mol topo_mol;
 topo_mol * topo_mol_create(topo_defs *defs);
 void topo_mol_destroy(topo_mol *mol);
 
-void topo_mol_error_handler(topo_mol *mol, void *, void (*print_msg)(void *,const char *));
+void topo_mol_error_handler(topo_mol *mol, void*, void *, void (*print_msg)(void *, void *,const char *));
 
 int topo_mol_segment(topo_mol *mol, const char *segid);
 
@@ -82,6 +101,18 @@ int topo_mol_add_patch(topo_mol *mol, const char *pname, int deflt);
 int topo_mol_add_patchres(topo_mol *mol, const topo_mol_ident_t *targets);
 
 int topo_mol_validate_patchres(topo_mol *mol, const char *pname, const char *segid, const char *resid);
+
+#if defined(NEWPSFGEN)
+struct topo_mol_atom_t;
+int is_hydrogen(struct topo_mol_atom_t *atom);
+int is_oxygen(struct topo_mol_atom_t *atom);
+
+/* prototype of the function to assign coordinates of the drude particle
+ * to the host atom
+ */
+int topo_mol_set_drude_xyz(topo_mol *mol, const topo_mol_ident_t *target,
+                                        double x, double y, double z);
+#endif
 
 #endif
 

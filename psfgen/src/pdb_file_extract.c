@@ -1,3 +1,23 @@
+/***************************************************************************
+ *cr
+ *cr            (C) Copyright 1995-2019 The Board of Trustees of the
+ *cr                        University of Illinois
+ *cr                         All Rights Reserved
+ *cr
+ ***************************************************************************/
+
+/***************************************************************************
+ * RCS INFORMATION:
+ *
+ *      $RCSfile: pdb_file_extract.c,v $
+ *      $Author: jribeiro $        $Locker:  $             $State: Exp $
+ *      $Revision: 1.17 $      $Date: 2020/03/10 04:54:54 $
+ *
+ ***************************************************************************
+ * DESCRIPTION:
+ *  
+ ***************************************************************************/
+
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -7,6 +27,7 @@
 
 #if defined(_MSC_VER)
 #define snprintf _snprintf
+#define strncasecmp strnicmp
 #endif
 
 static void strtoupper(char *s) {
@@ -14,7 +35,7 @@ static void strtoupper(char *s) {
 }
 
 int pdb_file_extract_residues(topo_mol *mol, FILE *file, stringhash *h, int all_caps,
-                                void *v,void (*print_msg)(void *,const char *)) {
+                                void *vdata, void *v,void (*print_msg)(void *, void *,const char *)) {
 
   char record[PDB_RECORD_LENGTH+2];
   int indx;
@@ -41,40 +62,38 @@ int pdb_file_extract_residues(topo_mol *mol, FILE *file, stringhash *h, int all_
         realres = extract_alias_residue_check(h,resname);
         if ( topo_mol_residue(mol,resid,realres,chain) ) {
           sprintf(msg,"ERROR: failed on residue %s from pdb file",resname);
-          print_msg(v,msg);
+          print_msg(vdata, v,msg);
         }
       }
     }
   } while (indx != PDB_END && indx != PDB_EOF);
 
   sprintf(msg,"extracted %d residues from pdb file",rcount);
-  print_msg(v,msg);
+  print_msg(vdata, v,msg);
   return 0;
 }
 
 int pdb_file_extract_coordinates(topo_mol *mol, FILE *file, FILE *namdbinfile,
                                 const char *segid, stringhash *h, int all_caps,
-                                void *v,void (*print_msg)(void *,const char *)) {
-
+                                void *vdata, void *v,void (*print_msg)(void *, void *,const char *)) {
   char record[PDB_RECORD_LENGTH+2];
   int indx;
   topo_mol_ident_t target;
   char msg[128];
   unsigned int utmp;
   char stmp[128];
-
-  int numatoms, pdbnatoms;
+  int numatoms=0, pdbnatoms=0;
   double *atomcoords = 0;
 
   if ( namdbinfile ) {
-    char static_assert_int_is_32_bits[sizeof(int) == 4 ? 1 : -1];
+
     int filen;
     int wrongendian;
 
     fseek(namdbinfile,0,SEEK_END);
     numatoms = (ftell(namdbinfile)-4)/24;
     if (numatoms < 1) {
-      print_msg(v,"namdbin file is too short");
+      print_msg(vdata, v,"namdbin file is too short");
       return -1;
     }
     fseek(namdbinfile,0,SEEK_SET);
@@ -90,16 +109,16 @@ int pdb_file_extract_coordinates(topo_mol *mol, FILE *file, FILE *namdbinfile,
       memcpy((char *)&filen, lenbuf, 4);
     }
     if (filen != numatoms) {
-      print_msg(v,"inconsistent atom count in namdbin file");
+      print_msg(vdata, v,"inconsistent atom count in namdbin file");
       return -1;
     }
     if (wrongendian) {
-      print_msg(v,"namdbin file appears to be other-endian");
+      print_msg(vdata, v,"namdbin file appears to be other-endian");
     }
     atomcoords = (double *)malloc(numatoms * 3 * sizeof(double));
     if (fread(atomcoords, sizeof(double), 3 * numatoms, namdbinfile)
                                  != (size_t)(3 * numatoms)) {
-      print_msg(v,"error reading data from namdbin file");
+      print_msg(vdata, v,"error reading data from namdbin file");
       free(atomcoords);
       return -1;
     }
@@ -107,7 +126,7 @@ int pdb_file_extract_coordinates(topo_mol *mol, FILE *file, FILE *namdbinfile,
       int i;
       char tmp0, tmp1, tmp2, tmp3;
       char *cdata = (char *) atomcoords;
-      print_msg(v,"converting other-endian data from namdbin file");
+      print_msg(vdata, v,"converting other-endian data from namdbin file");
       for ( i=0; i<3*numatoms; ++i, cdata+=8 ) {
         tmp0 = cdata[0]; tmp1 = cdata[1];
         tmp2 = cdata[2]; tmp3 = cdata[3];
@@ -128,13 +147,17 @@ int pdb_file_extract_coordinates(topo_mol *mol, FILE *file, FILE *namdbinfile,
       double x,y,z;
       char name[8], altname[8], resname[8], chain[8];
       char segname[8], element[8], resid[8], insertion[8];
+#if !defined(NEWPSFGEN)
       int found;
+#else
+      int found=0, drude=0;
+#endif
       get_pdb_fields(record, name, resname, chain,
                    segname, element, resid, insertion, &xf, &yf, &zf, &o, &b);
       x = xf;  y=yf;  z=zf;
       if ( namdbinfile ) {
         if (pdbnatoms >= numatoms) {
-          print_msg(v,"too few atoms in namdbin file");
+          print_msg(vdata, v,"too few atoms in namdbin file");
           free(atomcoords);
           return -1;
         }
@@ -152,7 +175,19 @@ int pdb_file_extract_coordinates(topo_mol *mol, FILE *file, FILE *namdbinfile,
       if (!segid) {
         target.segid = segname;
       }
+
+
+
+#if !defined(NEWPSFGEN)
       found = ! topo_mol_set_xyz(mol,&target,x,y,z);
+#else 
+      drude = !strncasecmp("D",target.aname,1);
+      if ( drude) {
+        found = ! topo_mol_set_drude_xyz(mol,&target,x,y,z);
+      } else {
+        found = ! topo_mol_set_xyz(mol,&target,x,y,z);
+      }
+#endif
       /* Try reversing order so 1HE2 in pdb matches HE21 in topology */
       if ( ! found && sscanf(name,"%u%s",&utmp,stmp) == 2 ) {
         snprintf(altname,8,"%s%u",stmp,utmp);
@@ -167,16 +202,20 @@ int pdb_file_extract_coordinates(topo_mol *mol, FILE *file, FILE *namdbinfile,
       }
       if ( ! found ) {
         sprintf(msg,"Warning: failed to set coordinate for atom %s\t %s:%s\t  %s",name,resname,resid,segid ? segid : segname);
-        print_msg(v,msg);
+        print_msg(vdata, v,msg);
+#if !defined(NEWPSFGEN)
       } else {
+#else
+      } else if (!drude) {
+#endif
         /* only try element and chain if coordinates succeeds */
         if ( strlen(element) && topo_mol_set_element(mol,&target,element,0) ) {
           sprintf(msg,"Warning: failed to set element for atom %s\t %s:%s\t  %s",name,resname,resid,segid ? segid : segname);
-          print_msg(v,msg);
+          print_msg(vdata, v,msg);
         }
         if ( strlen(chain) && topo_mol_set_chain(mol,&target,chain,0) ) {
           sprintf(msg,"Warning: failed to set chain for atom %s\t %s:%s\t  %s",name,resname,resid,segid ? segid : segname);
-          print_msg(v,msg);
+          print_msg(vdata, v,msg);
         }
       }
     }
@@ -185,13 +224,12 @@ int pdb_file_extract_coordinates(topo_mol *mol, FILE *file, FILE *namdbinfile,
   if ( namdbinfile ) {
     free(atomcoords);
     if (numatoms > pdbnatoms) {
-      print_msg(v,"too many atoms in namdbin file");
+      print_msg(vdata, v,"too many atoms in namdbin file");
       return -1;
     }
   }
 
   return 0;
-
 }
 
 

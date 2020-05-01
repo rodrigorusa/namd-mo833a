@@ -1,7 +1,30 @@
+/***************************************************************************
+ *cr
+ *cr            (C) Copyright 1995-2019 The Board of Trustees of the
+ *cr                        University of Illinois
+ *cr                         All Rights Reserved
+ *cr
+ ***************************************************************************/
+
+/***************************************************************************
+ * RCS INFORMATION:
+ *
+ *      $RCSfile: tcl_main.c,v $
+ *      $Author: jribeiro $        $Locker:  $             $State: Exp $
+ *      $Revision: 1.10 $      $Date: 2020/03/10 04:54:54 $
+ *
+ ***************************************************************************
+ * DESCRIPTION:
+ *  
+ ***************************************************************************/
 
 #if defined(NAMD_TCL) || ! defined(NAMD_VERSION)
 
 #include <tcl.h>
+
+#if defined(NEWPSFGEN)
+#include "psfgen.h"
+#endif
 
 extern int Psfgen_Init(Tcl_Interp *);
 
@@ -17,11 +40,27 @@ int main(int argc, char *argv[]) {
  * to the console.  If we run a script, we need to output the results
  * ourselves.
  */
-void newhandle_msg(void *v, const char *msg) {
+#if defined(NEWPSFGEN) 
+void newhandle_msg_text(psfgen_data *psfcontext, Tcl_Interp *interp, const char *msg);
+#endif
+
+void newhandle_msg(void *vdata, void *v, const char *msg) {
   Tcl_Interp *interp = (Tcl_Interp *)v;
+
   const char *words[3] = {"puts", "-nonewline", "psfgen) "};
   char *script = NULL;
   
+#if defined(NEWPSFGEN)
+  ClientData *data = (ClientData *)vdata;  
+  // Get the psfge_data structure from data
+  psfgen_data *psfcontext = *(psfgen_data **)data;
+  /* If the log file was defined, redirect all messages there */
+  if (psfcontext->PSFGENLOGFILE != NULL) {
+    newhandle_msg_text(psfcontext, interp, msg);
+    return;
+  }
+  
+#endif
   // prepend "psfgen) " to all output 
   script = Tcl_Merge(3, words);
   Tcl_Eval(interp,script); 
@@ -38,10 +77,22 @@ void newhandle_msg(void *v, const char *msg) {
  * Same as above but allow user control over prepending of "psfgen) "
  * and newlines.
  */
-void newhandle_msg_ex(void *v, const char *msg, int prepend, int newline) {
+void newhandle_msg_ex(void *vdata, void *v, const char *msg, int prepend, int newline) {
   Tcl_Interp *interp = (Tcl_Interp *)v;
   const char *words[3] = {"puts", "-nonewline", "psfgen) "};
   char *script = NULL;
+  
+#if defined(NEWPSFGEN)
+  ClientData *data = (ClientData *)vdata; 
+  // Get the psfge_data structure from data
+  psfgen_data *psfcontext = *(psfgen_data **)data; 
+  /* If the log file was defined, redirect all messages there */
+  if (psfcontext->PSFGENLOGFILE != NULL) {
+    newhandle_msg_text(psfcontext, (void *)v, msg);
+    return;
+  }
+  
+#endif
   
   if (prepend) { 
     // prepend "psfgen) " to all output
