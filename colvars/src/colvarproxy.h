@@ -17,6 +17,7 @@
 #include "colvartypes.h"
 #include "colvarvalue.h"
 #include "colvarproxy_tcl.h"
+#include "colvarproxy_volmaps.h"
 
 /// \file colvarproxy.h
 /// \brief Colvars proxy classes
@@ -620,6 +621,12 @@ public:
     return restart_frequency_engine;
   }
 
+  /// Buffer from which the input state information may be read
+  inline char const * & input_buffer()
+  {
+    return input_buffer_;
+  }
+
 protected:
 
   /// Prefix of the input state file to be read next
@@ -640,6 +647,8 @@ protected:
   /// \brief Identifiers for output_stream objects: by default, these are the names of the files
   std::list<std::string>    output_stream_names;
 
+  /// Buffer from which the input state information may be read
+  char const *input_buffer_;
 };
 
 
@@ -652,6 +661,7 @@ class colvarproxy
   : public colvarproxy_system,
     public colvarproxy_atoms,
     public colvarproxy_atom_groups,
+    public colvarproxy_volmaps,
     public colvarproxy_smp,
     public colvarproxy_replicas,
     public colvarproxy_script,

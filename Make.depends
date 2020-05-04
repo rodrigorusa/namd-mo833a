@@ -2601,6 +2601,7 @@ obj/ComputeMgr.o: \
 	colvars/src/colvartypes.h \
 	colvars/src/colvarvalue.h \
 	colvars/src/colvarproxy_tcl.h \
+	colvars/src/colvarproxy_volmaps.h \
 	src/colvarproxy_namd.h \
 	src/colvarproxy_namd_version.h \
 	src/Random.h \
@@ -4859,6 +4860,7 @@ obj/colvarproxy_namd.o: \
 	colvars/src/colvartypes.h \
 	colvars/src/colvarvalue.h \
 	colvars/src/colvarproxy_tcl.h \
+	colvars/src/colvarproxy_volmaps.h \
 	colvars/src/colvarparse.h \
 	colvars/src/colvarparams.h \
 	colvars/src/colvardeps.h \
@@ -6635,6 +6637,7 @@ obj/ScriptTcl.o: \
 	colvars/src/colvardeps.h \
 	colvars/src/colvarproxy.h \
 	colvars/src/colvarproxy_tcl.h \
+	colvars/src/colvarproxy_volmaps.h \
 	colvars/src/colvarscript_commands.h \
 	colvars/src/colvarscript_commands_colvar.h \
 	colvars/src/colvarscript_commands_bias.h \
@@ -7452,7 +7455,9 @@ obj/topo_mol_output.o: \
 	sb/src/hasharray.h \
 	sb/src/memarena.h \
 	sb/src/topo_defs_struct.h \
-	sb/src/pdb_file.h
+	sb/src/pdb_file.h \
+	sb/src/psfgen.h \
+	sb/src/stringhash.h
 	$(CC) $(SBCFLAGS) $(COPTO)obj/topo_mol_output.o $(COPTC) sb/src/topo_mol_output.c
 obj/topo_mol_pluginio.o: \
 	obj/.exists \

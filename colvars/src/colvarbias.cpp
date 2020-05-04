@@ -8,6 +8,7 @@
 // Colvars repository at GitHub.
 
 #include <fstream>
+#include <cstring>
 
 #include "colvarmodule.h"
 #include "colvarproxy.h"
@@ -99,6 +100,8 @@ int colvarbias::init(std::string const &conf)
 
   output_prefix = cvm::output_prefix();
 
+  get_keyval_feature(this, conf, "stepZeroData", f_cvb_step_zero_data, is_enabled(f_cvb_step_zero_data));
+
   // Write energy to traj file?
   get_keyval(conf, "outputEnergy", b_output_energy, b_output_energy);
 
@@ -134,6 +137,8 @@ int colvarbias::init_dependencies() {
 
     init_feature(f_cvb_awake, "awake", f_type_static);
     require_feature_self(f_cvb_awake, f_cvb_active);
+
+    init_feature(f_cvb_step_zero_data, "step_zero_data", f_type_user);
 
     init_feature(f_cvb_apply_force, "apply_force", f_type_user);
     require_feature_children(f_cvb_apply_force, f_cv_gradient);
@@ -531,6 +536,18 @@ int colvarbias::write_state_prefix(std::string const &prefix)
 }
 
 
+int colvarbias::write_state_string(std::string &output)
+{
+  std::ostringstream os;
+  if (!write_state(os)) {
+    return cvm::error("Error: in writing state of bias \""+name+
+                      "\" to buffer.\n", FILE_ERROR);
+  }
+  output = os.str();
+  return COLVARS_OK;
+}
+
+
 int colvarbias::read_state_prefix(std::string const &prefix)
 {
   std::string filename((prefix+std::string(".colvars.state")).c_str());
@@ -542,8 +559,31 @@ int colvarbias::read_state_prefix(std::string const &prefix)
     is.open(filename.c_str());
   }
   return read_state(is).good() ? COLVARS_OK :
-    cvm::error("Error: in opening input file \""+
+    cvm::error("Error: in reading state for \""+name+"\" from input file \""+
                std::string(filename)+"\".\n", FILE_ERROR);
+}
+
+
+int colvarbias::read_state_string(char const *buffer)
+{
+  if (buffer != NULL) {
+    size_t const buffer_size = strlen(buffer);
+    if (cvm::debug()) {
+      cvm::log("colvarbias::read_state_string() with argument:\n");
+      cvm::log(buffer);
+    }
+
+    if (buffer_size > 0) {
+      std::istringstream is;
+      is.rdbuf()->pubsetbuf(const_cast<char *>(buffer), buffer_size);
+      return read_state(is).good() ? COLVARS_OK :
+        cvm::error("Error: in reading state for \""+name+"\" from buffer.\n",
+                   FILE_ERROR);
+    }
+    return COLVARS_OK;
+  }
+  return cvm::error("Error: NULL pointer for colvarbias::read_state_string()",
+                    BUG_ERROR);
 }
 
 
@@ -592,7 +632,12 @@ std::ostream & colvarbias::write_traj(std::ostream &os)
 colvarbias_ti::colvarbias_ti(char const *key)
   : colvarbias(key)
 {
+  colvarproxy *proxy = cvm::main()->proxy;
   provide(f_cvb_calc_ti_samples);
+  if (!proxy->total_forces_same_step()) {
+    // Samples at step zero can not be collected
+    feature_states[f_cvb_step_zero_data].available = false;
+  }
   ti_avg_forces = NULL;
   ti_count = NULL;
 }
@@ -729,7 +774,9 @@ int colvarbias_ti::update_system_forces(std::vector<colvarvalue> const
              (*subtract_forces)[i] : previous_colvar_forces[i]);
         }
       }
-      ti_avg_forces->acc_value(ti_bin, ti_system_forces);
+      if (cvm::step_relative() > 0 || is_enabled(f_cvb_step_zero_data)) {
+        ti_avg_forces->acc_value(ti_bin, ti_system_forces);
+      }
     }
   }
 
