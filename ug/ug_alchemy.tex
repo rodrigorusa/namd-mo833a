@@ -321,11 +321,16 @@ NAMD can be employed advantageously
 to perform the complete simulation in a single run.
 An example, making use of such a script, is supplied at the end
 of this section.
+However, \textbf{the setup of sequential alchemical trsnaformations can be
+simplified} by calling the script library \texttt{fep.tcl},
+found in the \texttt{lib/alch} directory of the NAMD distribution.
+This library provides two helper procedures, \texttt{runFEP} to run
+a series of evenly spaced windows, and \texttt{runFEPlist} to
+specify a list of $\lambda$ values to be sampled.
 
 The following keywords can be used to run alchemical free
-energy calculations, whether FEP or TI.  
-%Each keyword has two variants: one that is used in FEP calculations and a second that should be used when performing TI.  The FEP and TI variants are seperated by slashes like so: {\tt fepKeyword / tiKeyword}, listing first the FEP keyword and second the TI keyword. The FEP and TI specific keywords should be used exclusively with FEP or TI, respectively, and should not be intermixed during a simulation. 
-%The attention of the user is directed to a novel hierarchy of parameters controlling both FEP and TI implementations.  Back-compatibility with configuration files running on previous versions of NAMD is nevertheless ensured by means of aliased commands.
+energy calculations, whether FEP or TI.
+
 
 \begin{itemize}
 \item
@@ -369,7 +374,9 @@ Due to current limitations, this scheme is not available when {\tt alchType}
 \item
 \NAMDCONF{alchLambda}{ Current value of the coupling parameter } {positive
 decimal between 0.0 and 1.0} {The coupling parameter value determining the
-progress of the perturbation for FEP or TI.}
+progress of the perturbation for FEP or TI.
+This parameter is unnecessary when using the \texttt{runFEP} procedure of
+\texttt{fep.tcl}.}
 
 \item
 \NAMDCONF{alchLambda2}{Forward projected value of the coupling
@@ -378,20 +385,28 @@ lambda2} value corresponds to the coupling parameter to be used for
 sampling in the next window.  The free energy difference between {\tt
 alchLambda2} and {\tt alchLambda} is calculated.  Through simulations
 at progressive values of {\tt alchLambda} and {\tt alchLambda2} the
-total free energy difference may be determined. }
+total free energy difference may be determined.
+This parameter is unnecessary when using the \texttt{runFEP} procedure of
+\texttt{fep.tcl}.}
 
 %\item
 %\NAMDCONF{alchLambdaMinusDelta}{Backward projected value of the coupling parameter} {positive decimal between 0.0 and 1.0} {The {\tt alchLambdaMinusDelta} value corresponds to the coupling parameter to be used for sampling in the previous window, assuming that a double-wide sampling simulation is being performed, whereby both the forward and the backward transformations are computed explicitly.  The free energy difference between {\tt alchLambdaMinusDelta} and {\tt alchLambda} is calculated.  Through simulations at progressive values of {\tt alchLambda} and {\tt alchLambdaMinusDelta} the total free energy difference may be determined.}
 
 \item
 \NAMDCONF{alchLambdaIDWS}{Backward value of the coupling parameter for Interleaved Double-Wide Sampling}
-{decimal smaller than 1.0}
+{decimal between 0.0 and 1.0, negative to disable}
 {Setting this parameter between 0 and 1 activates Interleaved Double-Wide Sampling (IDWS), whereby the target lambda value alternates between {\tt alchLambda2} and {\tt alchLambdaIDWS}.
 The switch occurs every {\tt fullElectFrequency} steps if defined, or {\tt nonbondedFrequency} otherwise.
 Setting this parameter to a negative value (including between run statements) disables IDWS.
 When IDWS is active, the alchemy output file contains {\tt FepEnergy} line headers for the forward energy differences, and {\tt FepE\_Back} for backward energy differences.
-FEP free energy estimates are based on forward data only.
-This file may be postprocessed with deinterleave\_idws.py to produce separate files for the forward and backwards samples.}
+FEP free energy estimates given in output are based on forward data only.
+The fepout file can be postprocessed with the python script \texttt{deinterleave\_idws.py}, found in
+the \texttt{lib/alch} directory of the NAMD distribution.
+This tool produces separate fepout files for the forward and backwards samples, suitable for computing e.g.
+a Bennett's Acceptance Ratio (BAR) estimate of the free energy difference.
+When using the \texttt{runFEP} or \texttt{runFEPlist} procedure of \texttt{fep.tcl}, IDWS can be enabled
+simply by adding a \texttt{true} flag to the argument list.
+}
 
 \item
 \NAMDCONFWDEF{alchEquilSteps}{Number of equilibration steps in a window,
@@ -569,6 +584,10 @@ appropriately accounted for in the thermodynamic cycle~\cite{Chipot2007}. }
 
 \subsection{Examples of input files for running alchemical free energy calculations}
 
+\textbf{Note:} In this section the lambda values are specified manually.
+For sequential sampling of lambda values, it is simpler to call the 
+\texttt{runFEP} or \texttt{runFEPlist} procedure of \texttt{fep.tcl}.
+See the comments in that file for instructions.
 
 The first example illustrates the use of {\sc Tcl} scripting for running
 an alchemical transformation with the FEP feature of NAMD. In this
