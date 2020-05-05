@@ -4,7 +4,7 @@
 |                                                                    |
 +--------------------------------------------------------------------+
 
-                                                         March 9, 2020
+                                                           May 5, 2020
 
 The Theoretical and Computational Biophysics Group at the University of
 Illinois is proud to announce the public release of a new version of
@@ -27,6 +27,8 @@ NAMD 2.14b1 has many advantages over NAMD 2.13, including:
   - More flexible colvars scripting interface
 
   - Geometric path collective variables
+
+  - Volumetric map-based variables
 
 - Update to random acceleration MD (RAMD) 5.0.5
 
