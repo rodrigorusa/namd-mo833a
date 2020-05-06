@@ -575,6 +575,10 @@ int colvarbias_abf::replica_share() {
   last_samples->copy_grid(*samples);
   shared_last_step = cvm::step_absolute();
 
+  if (b_integrate) {
+    // Update divergence to account for newly shared gradients
+    pmf->set_div();
+  }
   return COLVARS_OK;
 }
 
@@ -806,6 +810,11 @@ int colvarbias_abf::write_output_files()
 {
   if (cvm::debug()) {
     cvm::log("ABF bias trying to write gradients and samples to disk");
+  }
+
+  if (shared_on && cvm::main()->proxy->replica_index() > 0) {
+    // No need to report the same data as replica 0, let it do the I/O job
+    return COLVARS_OK;
   }
 
   write_gradients_samples(output_prefix);
