@@ -105,6 +105,7 @@ void after_backend_init(int argc, char **argv){
 
   char *currentdir=confFile;
   char *tmp;
+  char tmpcurdir[3];
   for(tmp=confFile;*tmp;++tmp); // find final null
   for( ; tmp != confFile && *tmp != PATHSEP; --tmp); // find last '/'
 #if defined(WIN32) && !defined(__CYGWIN__)
@@ -149,7 +150,6 @@ void after_backend_init(int argc, char **argv){
             }
             NAMD_die(buf);
           }
-          char tmpcurdir[3];
           tmpcurdir[0] = '.';
           tmpcurdir[1] = PATHSEP;
           tmpcurdir[2] = 0;
