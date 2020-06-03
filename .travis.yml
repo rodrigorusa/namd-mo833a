@@ -1,0 +1,10 @@
+language: cpp
+
+before_script:
+  - sh travis/setup.sh
+
+script:
+  - ./config Linux-x86_64-g++ --charm-arch mpi-linux-x86_64
+  - cd Linux-x86_64-g++
+  - make
+  - mpirun -np 4 namd2 ../src/alanin
