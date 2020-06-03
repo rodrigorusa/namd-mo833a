@@ -11,6 +11,7 @@ addons:
     - openmpi-bin
     - libopenmpi-dev
     - libhdf5-openmpi-dev
+    - gfortran
 
 before_script:
   - sh travis/setup.sh
