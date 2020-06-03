@@ -4,6 +4,14 @@ branches:
   only:
   - rodrigo
 
+addons:
+  apt:
+    update: true
+    packages:
+    - openmpi-bin
+    - libopenmpi-dev
+    - libhdf5-openmpi-dev
+
 before_script:
   - sh travis/setup.sh
 
