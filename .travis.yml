@@ -1,5 +1,9 @@
 language: cpp
 
+branches:
+  only:
+  - rodrigo
+
 before_script:
   - sh travis/setup.sh
 
