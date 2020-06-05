@@ -36,6 +36,7 @@
 #include "BroadcastMgr.decl.h"
 #include "LdbCoordinator.decl.h"
 #include "Sync.decl.h"
+#include "Time.h"
 
 #ifdef MEM_OPT_VERSION
 #include "ParallelIOMgr.decl.h"
@@ -139,6 +140,7 @@ void master_init(int argc, char **argv);
 // called on slave procs
 void slave_init(int argc, char **argv)
 {
+  printf("[rusa] slave_init start %d\n", CmiMyRank());
 #if CMK_SMP
   //the original main thread could now be a comm thread
   //and a slave thread could now be the main thread,
@@ -158,6 +160,7 @@ void slave_init(int argc, char **argv)
 }
 
 void master_init(int argc, char **argv){
+  printf("[rusa] master_init start %d\n", CmiMyRank());
   cpuTime_start = CmiCpuTimer();
   wallTime_start = CmiWallTimer();
   if ( CmiMyPe() ) {
@@ -230,7 +233,7 @@ void master_init(int argc, char **argv){
 char *gNAMDBinaryName = NULL;
 // called by main on one or all procs
 void BackEnd::init(int argc, char **argv) {
-
+  printf("[rusa] BackEnd::init start\n");
   gNAMDBinaryName = argv[0]+strlen(argv[0])-1;
   while(gNAMDBinaryName != argv[0]){
     if(*gNAMDBinaryName=='/' || *gNAMDBinaryName=='\\'){
@@ -296,6 +299,18 @@ void BackEnd::exit(int status) {
 #if CHARM_VERSION < 61000
   CkExit();
 #else
+  // Get total time
+  double t_end = mysecond();
+  printf("[MO833] Total time,%f\n", t_end - T_START_MAIN);
+
+  T_FINALIZE = t_end - T_LAST_PARAMOUNT;
+
+  //printf("[MO833] Init time,%f\n", T_INIT);
+  //printf("[MO833] Paramount total time,%f\n", T_PARAMOUNT_TOTAL);
+  //printf("[MO833] Finalize time,%f\n", T_FINALIZE);
+
+  printf("[MO833] Beta,%f\n", (T_INIT + T_FINALIZE)/T_PARAMOUNT_TOTAL);
+
   CkExit(status);
 #endif
 }

@@ -146,6 +146,8 @@ void ComputePatchPair::doForce(CompAtom* p[2], CompAtomExt* pExt[2], Results* r[
 //---------------------------------------------------------------------
 void ComputePatchPair::doWork() {
 
+  //printf("[rusa] doWork\n");
+
 #ifndef NAMD_CUDA
   LdbCoordinator::Object()->startWork(ldObjHandle);
 #endif

@@ -46,6 +46,7 @@
 #include "ComputeMgr.h"
 #include "ComputeGlobal.h"
 #include "NamdEventsProfiling.h"
+#include "Time.h"
 
 #define MIN_DEBUG_LEVEL 4
 //#define DEBUGM
@@ -118,7 +119,11 @@ Sequencer::~Sequencer(void)
 // Invoked by thread
 void Sequencer::threadRun(Sequencer* arg)
 {
+    printf("[rusa] thread run %d\n", CkMyRank());
     LdbCoordinator::Object()->startWork(arg->patch->ldObjHandle);
+    
+    printf("[rusa] work started %d\n", CkMyRank());
+
     arg->algorithm();
 }
 
@@ -126,6 +131,7 @@ void Sequencer::threadRun(Sequencer* arg)
 void Sequencer::run(void)
 {
     // create a Thread and invoke it
+    printf("[rusa] sequencer run %d\n", CkMyRank());
     DebugM(4, "::run() - this = " << this << "\n" );
     thread = CthCreate((CthVoidFn)&(threadRun),(void*)(this),SEQ_STK_SZ);
     CthSetStrategyDefault(thread);
@@ -145,10 +151,12 @@ void Sequencer::suspend(void)
 // when to migrate atoms, when to add forces to velocity update.
 void Sequencer::algorithm(void)
 {
+  printf("[rusa] algorithm start %d\n", CkMyRank());
   int scriptTask;
   int scriptSeq = 0;
   // Blocking receive for the script barrier.
   while ( (scriptTask = broadcast->scriptBarrier.get(scriptSeq++)) != SCRIPT_END ) {
+    printf("[rusa] task %d, %d\n", scriptTask, CkMyRank());
     switch ( scriptTask ) {
       case SCRIPT_OUTPUT:
 	submitCollections(FILE_OUTPUT);
@@ -216,6 +224,7 @@ void Sequencer::algorithm(void)
 extern int eventEndOfTimeStep;
 
 void Sequencer::integrate(int scriptTask) {
+    printf("[rusa] integrate start patch %d, %d\n", patch->patchID, CkMyRank());
     char traceNote[24];
     char tracePrefix[20];
     sprintf(tracePrefix, "p:%d,s:",patch->patchID);
@@ -446,8 +455,36 @@ D_MSG("submitReductions()");
   bool controlProfiling = patch->getPatchID() == 0;
 #endif
  
+  printf("[rusa] numberOfSteps %d, %d\n", numberOfSteps, CkMyRank());
+
     for ( ++step; step <= numberOfSteps; ++step )
     {
+      //printf("[rusa] patch %d step %d rank: %d\n", patch->patchID, step, CkMyRank());
+      double t_begin;
+      //if(CkMyRank() == 0) {
+      if(patch->patchID == 0) {
+        t_begin = mysecond();
+        if(step == 1) {
+          T_INIT = t_begin - T_START_MAIN;
+        }
+      }
+      //}
+      //double t_begin = mysecond();
+
+      if(MAX_PI >= 0) {
+        if(MAX_PI == 0) {
+          printf("[rusa] iteration 0, break");
+          T_LAST_PARAMOUNT = t_begin;
+          //NAMD_PROFILE_STOP();
+          //terminate();
+          break;
+        } else {
+          if(MAX_PI == step-1) {
+            break;
+          }
+        }
+      }
+
 #if defined(NAMD_NVTX_ENABLED) || defined(NAMD_CMK_TRACE_ENABLED)
       eon = epid && (beginStep < step && step <= endStep);
 
@@ -698,7 +735,25 @@ D_MSG("submitReductions()");
           (CProxy_Node(CkpvAccess(BOCclass_group).node)).stopHPM();
 #endif
 
+      //if(CkMyRank() == 0) {
+      if(patch->patchID == 0) {
+        double t_end = mysecond();
+        T_PARAMOUNT_TOTAL += t_end - t_begin;
+        if(MAX_PI != -1) {
+          if(MAX_PI == step) {
+            T_LAST_PARAMOUNT = t_end;
+          }
+        } else {
+          if(step == numberOfSteps) {
+            T_LAST_PARAMOUNT = t_end;
+          }
+        }
+        printf("[MO833] Paramount Iteration,%d,%f,%f\n", step, t_end - t_begin, t_end - T_START_MAIN);
+      }
+      //}
     }
+
+  printf("[rusa] integrate patch %d done, %d\n", patch->patchID, CkMyRank());
 
   TIMER_DONE(t);
 #ifdef TIMER_COLLECTION
@@ -712,6 +767,7 @@ D_MSG("submitReductions()");
     // DJH: Copy updates of SOA back into AOS.
     //
     //patch->copy_updates_to_AOS();
+  printf("[rusa] integrate finish %d\n", patch->patchID);
 }
 
 // add moving drag to each atom's position

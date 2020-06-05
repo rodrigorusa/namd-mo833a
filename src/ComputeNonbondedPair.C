@@ -161,6 +161,8 @@ void ComputeNonbondedPair::doForce(CompAtom* p[2], CompAtomExt* pExt[2], Results
   // Inform load balancer. 
   // I assume no threads will suspend until endWork is called
 
+  //printf("[rusa] doForce\n");
+
   //single phase declarations
   int doEnergy = patch[0]->flags.doEnergy;
   int a = 0;  int b = 1;

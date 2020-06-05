@@ -29,7 +29,14 @@
 #include <sys/stat.h>
 #include "ConfigList.h"
 #include "ScriptTcl.h"
+#include "Time.h"
 
+double T_START_MAIN;
+double T_INIT = 0.0;
+double T_LAST_PARAMOUNT = 0.0;
+double T_FINALIZE = 0.0;
+double T_PARAMOUNT_TOTAL = 0.0;
+int MAX_PI = -1;
 
 void after_backend_init(int argc, char **argv);
 
@@ -40,6 +47,9 @@ char *gWorkDir = NULL;
 #endif
 
 int main(int argc, char **argv) {
+  printf("[rusa] main start %d\n", CkMyRank());
+  // Get start time
+  T_START_MAIN = mysecond();
 #ifdef NAMD_TCL
   if ( argc > 2 && ! strcmp(argv[1],"+tclsh") ) {
     // pass all remaining arguments to script
@@ -76,6 +86,13 @@ void after_backend_init(int argc, char **argv){
   if ( ! origcwd ) NAMD_err("getcwd");
 #ifdef NAMD_TCL
   for(int i = 1; i < argc; ++i) {
+    if(strcmp(argv[i],"-max-pi") == 0) {
+      if(i+1 < argc) {
+        MAX_PI = atoi(argv[i+1]);
+        ++i;
+        continue;
+      }
+    }
   if ( strstr(argv[i],"--") == argv[i] ) {
     char buf[1024];
     if ( i + 1 == argc ) {
@@ -168,6 +185,7 @@ void after_backend_init(int argc, char **argv){
   currentdir = NULL;
 
 #ifdef NAMD_TCL
+  printf("[rusa] load script\n");
   script->load(confFile);
 #else
   script->run(confFile);
@@ -175,6 +193,7 @@ void after_backend_init(int argc, char **argv){
 
 #ifdef NAMD_TCL
 }
+  printf("[rusa] run\n");
   script->run();
 #endif
 

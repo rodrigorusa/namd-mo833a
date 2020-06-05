@@ -429,6 +429,8 @@ void Node::startup() {
   int gotoRun = false;
   double newTime;
 
+  printf("[rusa] node startup %d\n", CkMyRank());
+
   if (!CkMyPe()) {
     if (!startupPhase) {
       iout << iINFO << "\n";
@@ -906,6 +908,7 @@ void Node::startup() {
     if (!gotoRun) {
       CkStartQD(CkCallback(CkIndex_Node::startup(), thisgroup));
     } else {
+      printf("[rusa] messageRun %d\n", CkMyRank());
       Node::messageRun();
     }
   }
@@ -1095,6 +1098,7 @@ void Node::messageRun() {
 //-----------------------------------------------------------------------
 void Node::run()
 {
+  printf("[rusa] start run %d\n", CkMyRank());
   // Start Controller (aka scalar Sequencer) on Pe(0)
 //  printf("\n\n I am in Node.C in run method about to call  state->runController\n\n");
   if ( ! CkMyPe() ) {
@@ -1105,11 +1109,16 @@ void Node::run()
   // Run Sequencer on each HomePatch - i.e. start simulation
   HomePatchList *hpl = PatchMap::Object()->homePatchList();
   ResizeArrayIter<HomePatchElem> ai(*hpl);
+  int i = 0;
   for (ai=ai.begin(); ai != ai.end(); ai++) {
     HomePatch *patch = (*ai).patch;
+    printf("[rusa] proc #%d in Node calling Sequencer %d\n", CkMyRank(), i);
+    i++;
 //CkPrintf("Proc#%d in Node calling Sequencer ",CkMyPe());
     patch->runSequencer();
   }
+
+  printf("[rusa] finish run %d\n", CkMyRank());
 
   if (!CkMyPe()) {
     double newTime = CmiWallTimer();
