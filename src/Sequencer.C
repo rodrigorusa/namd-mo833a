@@ -211,7 +211,7 @@ void Sequencer::algorithm(void)
   // of integrate() where we can avoid performing most tests.
   //
 	integrate(scriptTask);
-	break;
+  break;
       default:
         NAMD_bug("Unknown task in Sequencer::algorithm");
     }
@@ -224,7 +224,6 @@ void Sequencer::algorithm(void)
 extern int eventEndOfTimeStep;
 
 void Sequencer::integrate(int scriptTask) {
-    printf("[rusa] integrate start patch %d, %d\n", patch->patchID, CkMyRank());
     char traceNote[24];
     char tracePrefix[20];
     sprintf(tracePrefix, "p:%d,s:",patch->patchID);
@@ -454,35 +453,20 @@ D_MSG("submitReductions()");
   int endStep = simParams->endEventStep;
   bool controlProfiling = patch->getPatchID() == 0;
 #endif
- 
-  printf("[rusa] numberOfSteps %d, %d\n", numberOfSteps, CkMyRank());
+
+  // [MO833]
+  double t_begin, t_end;
+  if(patch->patchID == 0) {
+    t_begin = mysecond();
+    T_INIT = t_begin - T_START_MAIN;
+    T_LAST_PARAMOUNT = t_begin;
+  }
 
     for ( ++step; step <= numberOfSteps; ++step )
     {
-      //printf("[rusa] patch %d step %d rank: %d\n", patch->patchID, step, CkMyRank());
-      double t_begin;
-      //if(CkMyRank() == 0) {
+      // [MO833]
       if(patch->patchID == 0) {
         t_begin = mysecond();
-        if(step == 1) {
-          T_INIT = t_begin - T_START_MAIN;
-        }
-      }
-      //}
-      //double t_begin = mysecond();
-
-      if(MAX_PI >= 0) {
-        if(MAX_PI == 0) {
-          printf("[rusa] iteration 0, break");
-          T_LAST_PARAMOUNT = t_begin;
-          //NAMD_PROFILE_STOP();
-          //terminate();
-          break;
-        } else {
-          if(MAX_PI == step-1) {
-            break;
-          }
-        }
       }
 
 #if defined(NAMD_NVTX_ENABLED) || defined(NAMD_CMK_TRACE_ENABLED)
@@ -735,25 +719,18 @@ D_MSG("submitReductions()");
           (CProxy_Node(CkpvAccess(BOCclass_group).node)).stopHPM();
 #endif
 
+      // [MO833]
       //if(CkMyRank() == 0) {
       if(patch->patchID == 0) {
-        double t_end = mysecond();
+        t_end = mysecond();
         T_PARAMOUNT_TOTAL += t_end - t_begin;
-        if(MAX_PI != -1) {
-          if(MAX_PI == step) {
-            T_LAST_PARAMOUNT = t_end;
-          }
-        } else {
-          if(step == numberOfSteps) {
-            T_LAST_PARAMOUNT = t_end;
-          }
+        if(step == numberOfSteps) {
+          T_LAST_PARAMOUNT = t_end;
         }
         printf("[MO833] Paramount Iteration,%d,%f,%f\n", step, t_end - t_begin, t_end - T_START_MAIN);
       }
       //}
     }
-
-  printf("[rusa] integrate patch %d done, %d\n", patch->patchID, CkMyRank());
 
   TIMER_DONE(t);
 #ifdef TIMER_COLLECTION
@@ -767,7 +744,6 @@ D_MSG("submitReductions()");
     // DJH: Copy updates of SOA back into AOS.
     //
     //patch->copy_updates_to_AOS();
-  printf("[rusa] integrate finish %d\n", patch->patchID);
 }
 
 // add moving drag to each atom's position

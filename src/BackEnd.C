@@ -299,17 +299,14 @@ void BackEnd::exit(int status) {
 #if CHARM_VERSION < 61000
   CkExit();
 #else
-  // Get total time
+  // Get total time [MO833]
   double t_end = mysecond();
   printf("[MO833] Total time,%f\n", t_end - T_START_MAIN);
 
   T_FINALIZE = t_end - T_LAST_PARAMOUNT;
 
-  //printf("[MO833] Init time,%f\n", T_INIT);
-  //printf("[MO833] Paramount total time,%f\n", T_PARAMOUNT_TOTAL);
-  //printf("[MO833] Finalize time,%f\n", T_FINALIZE);
-
   printf("[MO833] Beta,%f\n", (T_INIT + T_FINALIZE)/T_PARAMOUNT_TOTAL);
+  printf("[MO833] PI avg,%f,%d\n", T_PARAMOUNT_TOTAL/MAX_PI, MAX_PI);
 
   CkExit(status);
 #endif

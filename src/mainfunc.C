@@ -31,6 +31,7 @@
 #include "ScriptTcl.h"
 #include "Time.h"
 
+// [MO833]
 double T_START_MAIN;
 double T_INIT = 0.0;
 double T_LAST_PARAMOUNT = 0.0;
@@ -48,7 +49,7 @@ char *gWorkDir = NULL;
 
 int main(int argc, char **argv) {
   printf("[rusa] main start %d\n", CkMyRank());
-  // Get start time
+  // Get start time [MO833]
   T_START_MAIN = mysecond();
 #ifdef NAMD_TCL
   if ( argc > 2 && ! strcmp(argv[1],"+tclsh") ) {

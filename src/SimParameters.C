@@ -29,6 +29,7 @@
 #include "Communicate.h"
 #include "MStream.h"
 #include "Output.h"
+#include "Time.h"
 #include <stdio.h>
 #include <time.h>
 #ifdef NAMD_FFTW
@@ -144,6 +145,13 @@ void SimParameters::initialize_config_data(ConfigList *config, char *&cwd)
    if (!opts.set(*config)) 
    {
       NAMD_die("ERROR(S) IN THE CONFIGURATION FILE");
+   }
+
+   // [MO833]
+   if(MAX_PI != -1) {
+      N = MAX_PI;
+   } else {
+      MAX_PI = N;
    }
 
    //// now do more logic stuff that can't be done by the ParseOptions object
@@ -4432,6 +4440,8 @@ void SimParameters::check_config(ParseOptions &opts, ConfigList *config, char *&
 void SimParameters::print_config(ParseOptions &opts, ConfigList *config, char *&cwd) {
 
    StringList *current; //  Pointer to config option list
+
+   //N = 10;
 
    //  Now that we have read everything, print it out so that
    //  the user knows what is going on
