@@ -47,6 +47,7 @@
 #include "ComputeGlobal.h"
 #include "NamdEventsProfiling.h"
 #include "Time.h"
+#include <time.h>
 
 #define MIN_DEBUG_LEVEL 4
 //#define DEBUGM
@@ -119,10 +120,10 @@ Sequencer::~Sequencer(void)
 // Invoked by thread
 void Sequencer::threadRun(Sequencer* arg)
 {
-    printf("[rusa] thread run %d\n", CkMyRank());
+    //printf("[rusa] thread run %d\n", CkMyPe());
     LdbCoordinator::Object()->startWork(arg->patch->ldObjHandle);
     
-    printf("[rusa] work started %d\n", CkMyRank());
+    //printf("[rusa] work started %d\n", CkMyPe());
 
     arg->algorithm();
 }
@@ -131,7 +132,7 @@ void Sequencer::threadRun(Sequencer* arg)
 void Sequencer::run(void)
 {
     // create a Thread and invoke it
-    printf("[rusa] sequencer run %d\n", CkMyRank());
+    //printf("[rusa] sequencer run %d\n", CkMyPe());
     DebugM(4, "::run() - this = " << this << "\n" );
     thread = CthCreate((CthVoidFn)&(threadRun),(void*)(this),SEQ_STK_SZ);
     CthSetStrategyDefault(thread);
@@ -151,12 +152,12 @@ void Sequencer::suspend(void)
 // when to migrate atoms, when to add forces to velocity update.
 void Sequencer::algorithm(void)
 {
-  printf("[rusa] algorithm start %d\n", CkMyRank());
+  //printf("[rusa] algorithm start %d\n", CkMyPe());
   int scriptTask;
   int scriptSeq = 0;
   // Blocking receive for the script barrier.
   while ( (scriptTask = broadcast->scriptBarrier.get(scriptSeq++)) != SCRIPT_END ) {
-    printf("[rusa] task %d, %d\n", scriptTask, CkMyRank());
+    //printf("[rusa] task %d, %d\n", scriptTask, CkMyPe());
     switch ( scriptTask ) {
       case SCRIPT_OUTPUT:
 	submitCollections(FILE_OUTPUT);
@@ -464,6 +465,7 @@ D_MSG("submitReductions()");
 
     for ( ++step; step <= numberOfSteps; ++step )
     {
+      //printf("[rusa] step=%d,patch=%d,rank=%d\n", step, patch->patchID, CkMyPe());
       // [MO833]
       if(patch->patchID == 0) {
         t_begin = mysecond();
@@ -672,10 +674,13 @@ D_MSG("submitReductions()");
 #endif
 
 #if CYCLE_BARRIER
+        //printf("barrier1\n");
         cycleBarrier(!((step+1) % stepsPerCycle), step);
 #elif PME_BARRIER
+        //printf("barrier2\n");
         cycleBarrier(doFullElectrostatics, step);
 #elif  STEP_BARRIER
+        //printf("barrier3\n");
         cycleBarrier(1, step);
 #endif
 
@@ -684,6 +689,7 @@ D_MSG("submitReductions()");
 		 int bstep = simParams->traceStartStep;
 		 int estep = bstep + simParams->numTraceSteps;
 		 if(step == bstep || step == estep){
+        //printf("barrier4\n");
 			 traceBarrier(step);
 		 }			 
 	 }
@@ -693,6 +699,7 @@ D_MSG("submitReductions()");
 		 int bstep = simParams->papiMeasureStartStep;
 		 int estep = bstep + simParams->numPapiMeasureSteps;
 		 if(step == bstep || step==estep) {
+       //printf("barrier5\n");
 			 papiMeasureBarrier(step);
 		 }
 	 }
@@ -708,14 +715,17 @@ D_MSG("submitReductions()");
 
 #if PME_BARRIER
 	// a step before PME
+        //printf("barrier6\n");
         cycleBarrier(dofull && !((step+1)%fullElectFrequency),step);
 #endif
 
 #if USE_HPM
         if(step == START_HPM_STEP)
+          //printf("start HPM\n");
           (CProxy_Node(CkpvAccess(BOCclass_group).node)).startHPM();
 
         if(step == STOP_HPM_STEP)
+          //printf("stop HPM\n");
           (CProxy_Node(CkpvAccess(BOCclass_group).node)).stopHPM();
 #endif
 
@@ -727,8 +737,9 @@ D_MSG("submitReductions()");
         if(step == numberOfSteps) {
           T_LAST_PARAMOUNT = t_end;
         }
-        printf("[MO833] Paramount Iteration,%d,%f,%f\n", step, t_end - t_begin, t_end - T_START_MAIN);
+        printf("[MO833] Paramount Iteration,%d,%d,%f,%f\n", CkMyPe(), step, t_end - t_begin, t_end - T_START_MAIN);
       }
+      //printf("[rusa] %f,step=%d,patch=%d,rank=%d\n", mysecond(), step, patch->patchID, CkMyPe());
       //}
     }
 
@@ -2922,18 +2933,21 @@ void Sequencer::cycleBarrier(int doBarrier, int step) {
 #if USE_BARRIER
 	if (doBarrier)
           // Blocking receive for the cycle barrier.
+    //printf("broadcast1\n");
 	  broadcast->cycleBarrier.get(step);
 #endif
 }
 
 void Sequencer::traceBarrier(int step){
         // Blocking receive for the trace barrier.
+  //printf("broadcast2\n");
 	broadcast->traceBarrier.get(step);
 }
 
 #ifdef MEASURE_NAMD_WITH_PAPI
 void Sequencer::papiMeasureBarrier(int step){
         // Blocking receive for the PAPI measure barrier.
+  //printf("broadcast3\n");
 	broadcast->papiMeasureBarrier.get(step);
 }
 #endif

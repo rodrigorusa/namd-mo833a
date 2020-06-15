@@ -12,7 +12,6 @@ cd charm-6.10.1
 env MPICXX=mpicxx ./build charm++ mpi-linux-x86_64 --with-production
 
 echo "Compiling FFTW..."
-#cd ../../../../..
 cd ..
 wget http://www.fftw.org/fftw-2.1.5.tar.gz
 tar xzf fftw-2.1.5.tar.gz
