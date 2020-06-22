@@ -5,6 +5,19 @@ import matplotlib.pyplot as plt
 
 results_dir = '../experimental_results'
 
+test_cases_name = {
+    'TC-1': 'ApoA1',
+    'TC-2': 'F1atPase',
+    'TC-3': 'STMV'
+}
+
+configs_name = {
+    'CFG-1': 'c5.large-2x',
+    'CFG-2': 'c5.large-4x',
+    'CFG-3': 'c5.large-8x',
+    'CFG-4': 'c5.large-16x'
+}
+
 def plot_paramount_time(test_case, path):
 
     fig = plt.figure(figsize=(35,15))
@@ -41,9 +54,9 @@ def plot_paramount_time(test_case, path):
         std = matrix_y.std(0)
 
         data_x = np.arange(1,len(mean)+1)
-        plt.errorbar(data_x, mean, yerr=std, label=cfg)
+        plt.errorbar(data_x, mean, yerr=std, label=configs_name[cfg])
 
-    plt.title('Execution time: ' + test_case, fontsize=16)
+    plt.title('Execution time: ' + test_cases_name[test_case], fontsize=16)
     plt.xlim(0,len(data_x))
     plt.xlabel('iteration #', fontsize=16)
     plt.xticks(np.arange(0, len(data_x)+1, 50.0))
@@ -114,9 +127,9 @@ def plot_relative_performance(test_case, path):
         std = matrix_y.std(0)
 
         data_x = np.arange(1,len(mean)+1)
-        plt.errorbar(data_x, mean, yerr=std, label=cfg)
+        plt.errorbar(data_x, mean, yerr=std, label=configs_name[cfg])
 
-    plt.title('Relative performance: ' + test_case, fontsize=16)
+    plt.title('Relative performance: ' + test_cases_name[test_case], fontsize=16)
     plt.xlim(0,len(data_x))
     plt.xlabel('iteration #', fontsize=16)
     plt.xticks(np.arange(0, len(data_x)+1, 50.0))

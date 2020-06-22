@@ -4,6 +4,19 @@ import pandas as pd
 
 results_dir = '../experimental_results'
 
+test_cases_name = {
+    'TC-1': 'ApoA1',
+    'TC-2': 'F1atPase',
+    'TC-3': 'STMV'
+}
+
+configs_name = {
+    'CFG-1': 'c5.large-2x',
+    'CFG-2': 'c5.large-4x',
+    'CFG-3': 'c5.large-8x',
+    'CFG-4': 'c5.large-16x'
+}
+
 def summary(path):
 
     # Filter
@@ -84,7 +97,7 @@ def main():
             if os.path.isfile(results_dir + '/' + test_case + '/' + cfg):
                 continue
             for date in os.listdir(results_dir + '/' + test_case + '/' + cfg):
-                row = [test_case, cfg, date]
+                row = [test_cases_name[test_case], configs_name[cfg], date]
                 path = '/'.join([results_dir, test_case, cfg, date])
                 data = summary(path)
                 if data is not None:
