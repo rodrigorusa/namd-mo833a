@@ -48,7 +48,6 @@ char *gWorkDir = NULL;
 #endif
 
 int main(int argc, char **argv) {
-  //printf("[rusa] main start %d\n", CkMyRank());
   // Get start time [MO833]
   T_START_MAIN = mysecond();
 #ifdef NAMD_TCL
@@ -186,7 +185,6 @@ void after_backend_init(int argc, char **argv){
   currentdir = NULL;
 
 #ifdef NAMD_TCL
-  //printf("[rusa] load script\n");
   script->load(confFile);
 #else
   script->run(confFile);
@@ -194,7 +192,6 @@ void after_backend_init(int argc, char **argv){
 
 #ifdef NAMD_TCL
 }
-  //printf("[rusa] run\n");
   script->run();
 #endif
 

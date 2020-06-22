@@ -2948,7 +2948,6 @@ void WorkDistrib::messageFinishMIC(Compute *compute) {
 }
 
 void WorkDistrib::enqueueWork(LocalWorkMsg *msg) {
-  //printf("[rusa] enqueueWork\n");
   msg->compute->doWork();  MACHINE_PROGRESS
   if ( msg->compute->localWorkMsg != msg )
     NAMD_bug("WorkDistrib LocalWorkMsg recycling failed!");

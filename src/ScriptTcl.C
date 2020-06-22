@@ -2302,7 +2302,6 @@ void ScriptTcl::tclmain(int argc, char **argv) {
 
 
 void ScriptTcl::load(char *scriptFile) {
-  //printf("[rusa] load start\n");
 #ifdef NAMD_TCL
   int code = Tcl_EvalFile(interp,scriptFile);
   const char *result = Tcl_GetStringResult(interp);
@@ -2319,7 +2318,6 @@ void ScriptTcl::load(char *scriptFile) {
 
 #ifdef NAMD_TCL
 void ScriptTcl::run() {
-  //printf("[rusa] run start\n");
 #else
 void ScriptTcl::run(char *scriptFile) {
 
