@@ -1,0 +1,2 @@
+[ip-172-31-84-172:12804] 15 more processes have sent help message help-mpi-btl-base.txt / btl:no-nics
+[ip-172-31-84-172:12804] Set MCA parameter "orte_base_help_aggregate" to 0 to see all help / error messages

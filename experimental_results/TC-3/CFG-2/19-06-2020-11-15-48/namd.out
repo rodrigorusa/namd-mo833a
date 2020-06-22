@@ -1,0 +1,840 @@
+--------------------------------------------------------------------------
+[[47861,1],0]: A high-performance Open MPI point-to-point messaging module
+was unable to find any relevant network interfaces:
+
+Module: OpenFabrics (openib)
+  Host: ip-172-31-84-156
+
+Another transport will be used instead, although this may result in
+lower performance.
+
+NOTE: You can disable this warning by setting the MCA parameter
+btl_base_warn_component_unused to 0.
+--------------------------------------------------------------------------
+Charm++> Running on MPI version: 3.1
+Charm++> level of thread support used: MPI_THREAD_SINGLE (desired: MPI_THREAD_SINGLE)
+Charm++> Running in non-SMP mode: 4 processes (PEs)
+Charm++> Using recursive bisection (scheme 3) for topology aware partitions
+Converse/Charm++ Commit ID: 69a1067b
+Warning> Randomization of virtual memory (ASLR) is turned on in the kernel, thread migration may not work! Run 'echo 0 > /proc/sys/kernel/randomize_va_space' as root to disable it, or try running with '+isomalloc_sync'.
+CharmLB> Load balancer assumes all CPUs are same.
+Charm++> Running on 4 hosts (1 sockets x 1 cores x 2 PUs = 2-way SMP)
+Charm++> cpu topology info is gathered in 0.001 seconds.
+Info: NAMD 2.14b1 for Linux-x86_64-MPI
+Info: 
+Info: Please visit http://www.ks.uiuc.edu/Research/namd/
+Info: for updates, documentation, and support information.
+Info: 
+Info: Please cite Phillips et al., J. Comp. Chem. 26:1781-1802 (2005)
+Info: in all publications reporting results obtained with NAMD.
+Info: 
+Info: Based on Charm++/Converse 61001 for mpi-linux-x86_64
+Info: Built Tue Jun 16 12:50:15 UTC 2020 by ubuntu on ip-172-31-89-142
+Info: 1 NAMD  2.14b1  Linux-x86_64-MPI  4    ip-172-31-84-156  ubuntu
+Info: Running on 4 processors, 4 nodes, 4 physical nodes.
+Info: CPU topology information available.
+Info: Charm++/Converse parallel runtime startup completed at 0.00259671 s
+Info: 342.852 MB of memory in use based on /proc/self/stat
+Info: Configuration file is ../tests/TC-3/TC-3.namd
+Info: Changed directory to ../tests/TC-3
+TCL: Suspending until startup complete.
+Info: SIMULATION PARAMETERS:
+Info: TIMESTEP               1
+Info: NUMBER OF STEPS        500
+Info: STEPS PER CYCLE        20
+Info: PERIODIC CELL BASIS 1  216.832 0 0
+Info: PERIODIC CELL BASIS 2  0 216.832 0
+Info: PERIODIC CELL BASIS 3  0 0 216.832
+Info: PERIODIC CELL CENTER   0 0 0
+Info: LOAD BALANCER  Centralized
+Info: LOAD BALANCING STRATEGY  New Load Balancers -- DEFAULT
+Info: LDB PERIOD             4000 steps
+Info: FIRST LDB TIMESTEP     100
+Info: LAST LDB TIMESTEP     -1
+Info: LDB BACKGROUND SCALING 1
+Info: HOM BACKGROUND SCALING 1
+Info: PME BACKGROUND SCALING 1
+Info: MIN ATOMS PER PATCH    40
+Info: INITIAL TEMPERATURE    298
+Info: CENTER OF MASS MOVING INITIALLY? NO
+Info: DIELECTRIC             1
+Info: EXCLUDE                SCALED ONE-FOUR
+Info: 1-4 ELECTROSTATICS SCALED BY 1
+Info: MODIFIED 1-4 VDW PARAMETERS WILL BE USED
+Info: NO DCD TRAJECTORY OUTPUT
+Info: NO EXTENDED SYSTEM TRAJECTORY OUTPUT
+Info: NO VELOCITY DCD OUTPUT
+Info: NO FORCE DCD OUTPUT
+Info: OUTPUT FILENAME        output0
+Info: BINARY OUTPUT FILES WILL BE USED
+Info: NO RESTART FILE
+Info: SWITCHING ACTIVE
+Info: SWITCHING ON           10
+Info: SWITCHING OFF          12
+Info: PAIRLIST DISTANCE      13.5
+Info: PAIRLIST SHRINK RATE   0.01
+Info: PAIRLIST GROW RATE     0.01
+Info: PAIRLIST TRIGGER       0.3
+Info: PAIRLISTS PER CYCLE    2
+Info: PAIRLISTS ENABLED
+Info: MARGIN                 0.48
+Info: HYDROGEN GROUP CUTOFF  2.5
+Info: PATCH DIMENSION        16.48
+Info: ENERGY OUTPUT STEPS    20
+Info: CROSSTERM ENERGY INCLUDED IN DIHEDRAL
+Info: TIMING OUTPUT STEPS    20
+Info: LANGEVIN DYNAMICS ACTIVE
+Info: LANGEVIN TEMPERATURE   298
+Info: LANGEVIN USING BBK INTEGRATOR
+Info: LANGEVIN DAMPING COEFFICIENT IS 5 INVERSE PS
+Info: LANGEVIN DYNAMICS NOT APPLIED TO HYDROGENS
+Info: LANGEVIN PISTON PRESSURE CONTROL ACTIVE
+Info:        TARGET PRESSURE IS 1.01325 BAR
+Info:     OSCILLATION PERIOD IS 100 FS
+Info:             DECAY TIME IS 50 FS
+Info:     PISTON TEMPERATURE IS 298 K
+Info:       PRESSURE CONTROL IS GROUP-BASED
+Info:    INITIAL STRAIN RATE IS 0 0 0
+Info:       CELL FLUCTUATION IS ISOTROPIC
+Info: PARTICLE MESH EWALD (PME) ACTIVE
+Info: PME TOLERANCE               1e-06
+Info: PME EWALD COEFFICIENT       0.257952
+Info: PME INTERPOLATION ORDER     4
+Info: PME GRID DIMENSIONS         216 216 216
+Info: PME MAXIMUM GRID SPACING    1.5
+Info: Attempting to read FFTW data from FFTW_NAMD_2.14b1_Linux-x86_64-MPI.txt
+Info: Optimizing 6 FFT steps.  1... 2... 3... 4... 5... 6...   Done.
+Info: Writing FFTW data to FFTW_NAMD_2.14b1_Linux-x86_64-MPI.txt
+Info: FULL ELECTROSTATIC EVALUATION FREQUENCY      4
+Info: USING VERLET I (r-RESPA) MTS SCHEME.
+Info: C1 SPLITTING OF LONG RANGE ELECTROSTATICS
+Info: PLACING ATOMS IN PATCHES BY HYDROGEN GROUPS
+Info: RANDOM NUMBER SEED     1592576166
+Info: USE HYDROGEN BONDS?    NO
+Info: COORDINATE PDB         stmv.pdb
+Info: STRUCTURE FILE         stmv.psf
+Info: PARAMETER file: CHARMM format! 
+Info: PARAMETERS             par_all27_prot_na.inp
+Info: USING ARITHMETIC MEAN TO COMBINE L-J SIGMA PARAMETERS
+Info: SUMMARY OF PARAMETERS:
+Info: 250 BONDS
+Info: 622 ANGLES
+Info: 1049 DIHEDRAL
+Info: 73 IMPROPER
+Info: 0 CROSSTERM
+Info: 130 VDW
+Info: 0 VDW_PAIRS
+Info: 0 NBTHOLE_PAIRS
+Info: TIME FOR READING PSF FILE: 7.73199
+Info: Reading pdb file stmv.pdb
+Info: TIME FOR READING PDB FILE: 1.19622
+Info: 
+Info: ****************************
+Info: STRUCTURE SUMMARY:
+Info: 1066628 ATOMS
+Info: 769956 BONDS
+Info: 605872 ANGLES
+Info: 450875 DIHEDRALS
+Info: 24578 IMPROPERS
+Info: 0 CROSSTERMS
+Info: 0 EXCLUSIONS
+Info: 3199884 DEGREES OF FREEDOM
+Info: 389067 HYDROGEN GROUPS
+Info: 4 ATOMS IN LARGEST HYDROGEN GROUP
+Info: 389067 MIGRATION GROUPS
+Info: 4 ATOMS IN LARGEST MIGRATION GROUP
+Info: TOTAL MASS = 6.69877e+06 amu
+Info: TOTAL CHARGE = 0.000168104 e
+Info: MASS DENSITY = 1.09115 g/cm^3
+Info: ATOM DENSITY = 0.104627 atoms/A^3
+Info: *****************************
+Info: 
+Info: Entering startup at 44.188 s, 622.574 MB of memory in use
+Info: Startup phase 0 took 0.000943795 s, 622.574 MB of memory in use
+Info: ADDED 1810196 IMPLICIT EXCLUSIONS
+Info: Startup phase 1 took 0.896264 s, 842.438 MB of memory in use
+Info: NONBONDED TABLE R-SQUARED SPACING: 0.0625
+Info: NONBONDED TABLE SIZE: 769 POINTS
+Info: INCONSISTENCY IN FAST TABLE ENERGY VS FORCE: 0.000325096 AT 11.9556
+Info: INCONSISTENCY IN SCOR TABLE ENERGY VS FORCE: 0.000324844 AT 11.9556
+Info: INCONSISTENCY IN VDWA TABLE ENERGY VS FORCE: 0.0040507 AT 0.251946
+Info: INCONSISTENCY IN VDWB TABLE ENERGY VS FORCE: 0.00150189 AT 0.251946
+Info: Startup phase 2 took 0.00101363 s, 842.438 MB of memory in use
+Info: Startup phase 3 took 0.000327725 s, 842.438 MB of memory in use
+Info: Startup phase 4 took 0.0042501 s, 842.438 MB of memory in use
+Info: Startup phase 5 took 0.000332537 s, 842.438 MB of memory in use
+Info: PATCH GRID IS 13 (PERIODIC) BY 13 (PERIODIC) BY 13 (PERIODIC)
+Info: PATCH GRID IS 1-AWAY BY 1-AWAY BY 1-AWAY
+Info: REMOVING COM VELOCITY -0.00476147 -0.00073824 -0.00128628
+Info: LARGEST PATCH (1044) HAS 541 ATOMS
+Info: TORUS A SIZE 4 USING 0 1 2 3
+Info: TORUS B SIZE 1 USING 0
+Info: TORUS C SIZE 1 USING 0
+Info: TORUS MINIMAL MESH SIZE IS 4 BY 1 BY 1
+Info: Placed 100% of base nodes on same physical node as patch
+Info: Startup phase 6 took 0.337562 s, 1008.12 MB of memory in use
+Info: PME using 4 and 4 processors for FFT and reciprocal sum.
+Info: PME GRID LOCATIONS: 0 1 2 3
+Info: PME TRANS LOCATIONS: 0 1 2 3
+Info: PME USING 4 GRID NODES AND 4 TRANS NODES
+Info: Optimizing 4 FFT steps.  1... 2... 3... 4...   Done.
+Info: Startup phase 7 took 0.0141067 s, 1027.52 MB of memory in use
+Info: Startup phase 8 took 0.000349567 s, 1027.52 MB of memory in use
+Info: Startup phase 9 took 0.0624566 s, 1027.52 MB of memory in use
+Info: Startup phase 10 took 0.000386682 s, 1027.52 MB of memory in use
+Info: Startup phase 11 took 0.0814678 s, 1033.56 MB of memory in use
+LDB: Central LB being created...
+Info: Startup phase 12 took 0.00306367 s, 1033.56 MB of memory in use
+Info: CREATING 43960 COMPUTE OBJECTS
+Info: Startup phase 13 took 0.0371052 s, 1033.56 MB of memory in use
+Info: useSync: 0 useProxySync: 0
+Info: Startup phase 14 took 0.00042605 s, 1033.56 MB of memory in use
+Info: Startup phase 15 took 0.000480735 s, 1033.56 MB of memory in use
+Info: Finished startup at 45.6286 s, 1033.56 MB of memory in use
+
+ETITLE:      TS           BOND          ANGLE          DIHED          IMPRP               ELECT            VDW       BOUNDARY           MISC        KINETIC               TOTAL           TEMP      POTENTIAL         TOTAL3        TEMPAVG            PRESSURE      GPRESSURE         VOLUME       PRESSAVG      GPRESSAVG
+
+ENERGY:       0    354072.1600    280839.0161     81957.9556      4995.4407       -4503168.0871    384266.4685         0.0000         0.0000    947188.5469       -2449848.4994       297.9151  -3397037.0462  -2441209.2744       297.9151           1824.9720       188.2911  10194598.5131      1824.9720       188.2911
+
+[MO833] Paramount Iteration,0,1,3.804244,50.412651
+[MO833] Paramount Iteration,0,2,1.420857,51.833531
+[MO833] Paramount Iteration,0,3,1.429127,53.262682
+[MO833] Paramount Iteration,0,4,1.720668,54.983372
+[MO833] Paramount Iteration,0,5,1.852097,56.835495
+[MO833] Paramount Iteration,0,6,1.419062,58.254580
+[MO833] Paramount Iteration,0,7,1.430234,59.684837
+[MO833] Paramount Iteration,0,8,1.910115,61.594972
+[MO833] Paramount Iteration,0,9,1.853338,63.448334
+[MO833] Paramount Iteration,0,10,1.685907,65.134262
+[MO833] Paramount Iteration,0,11,2.595885,67.730169
+[MO833] Paramount Iteration,0,12,1.658513,69.388704
+[MO833] Paramount Iteration,0,13,1.838858,71.227584
+[MO833] Paramount Iteration,0,14,1.415660,72.643266
+[MO833] Paramount Iteration,0,15,1.457204,74.100492
+[MO833] Paramount Iteration,0,16,1.701954,75.802467
+[MO833] Paramount Iteration,0,17,1.842536,77.645026
+[MO833] Paramount Iteration,0,18,1.421519,79.066568
+LDB: ============= START OF LOAD BALANCING ============== 81.5906
+LDB: ============== END OF LOAD BALANCING =============== 81.5908
+Info: useSync: 0 useProxySync: 0
+LDB: =============== DONE WITH MIGRATION ================ 81.5916
+[MO833] Paramount Iteration,0,19,2.659836,81.726429
+[MO833] Paramount Iteration,0,20,0.823513,82.549951
+TIMING: 20  CPU: 40.2645, 1.78625/step  Wall: 40.2645, 1.78625/step, 0.238167 hours remaining, 1585.300781 MB of memory in use.
+ENERGY:      20    354930.6817    280741.1620     81945.5332      4988.6024       -4506074.7682    384505.1065         0.0000         0.0000    949116.5390       -2449847.1433       298.5216  -3398963.6823  -2441211.7640       297.9608           1758.5759       155.5479  10194773.8382        -5.5660        -6.7352
+
+[MO833] Paramount Iteration,0,21,3.586101,86.136075
+[MO833] Paramount Iteration,0,22,1.418478,87.554576
+[MO833] Paramount Iteration,0,23,1.445215,88.999815
+[MO833] Paramount Iteration,0,24,1.709100,90.708937
+[MO833] Paramount Iteration,0,25,1.845844,92.554804
+[MO833] Paramount Iteration,0,26,1.420715,93.975539
+[MO833] Paramount Iteration,0,27,1.428088,95.403651
+[MO833] Paramount Iteration,0,28,1.686306,97.089979
+[MO833] Paramount Iteration,0,29,1.844178,98.934179
+[MO833] Paramount Iteration,0,30,1.603574,100.537774
+[MO833] Paramount Iteration,0,31,2.598557,103.136355
+[MO833] Paramount Iteration,0,32,1.687598,104.823975
+[MO833] Paramount Iteration,0,33,1.844853,106.668851
+[MO833] Paramount Iteration,0,34,1.419093,108.087968
+[MO833] Paramount Iteration,0,35,1.426484,109.514475
+[MO833] Paramount Iteration,0,36,1.711294,111.225791
+[MO833] Paramount Iteration,0,37,1.845349,113.071164
+[MO833] Paramount Iteration,0,38,1.422578,114.493767
+[MO833] Paramount Iteration,0,39,1.427426,115.921217
+[MO833] Paramount Iteration,0,40,2.011222,117.932462
+TIMING: 40  CPU: 75.6359, 1.76857/step  Wall: 75.6359, 1.76857/step, 0.225984 hours remaining, 1603.347656 MB of memory in use.
+ENERGY:      40    355177.4410    281046.5392     82104.4527      5049.3422       -4503574.7933    382596.8740         0.0000         0.0000    947688.1929       -2449911.9514       298.0723  -3397600.1443  -2441237.3964       298.0733           1673.8361        93.1793  10197368.6952        -4.7413        -6.3886
+
+[MO833] Paramount Iteration,0,41,3.585619,121.518105
+[MO833] Paramount Iteration,0,42,1.419080,122.937207
+[MO833] Paramount Iteration,0,43,1.431378,124.368608
+[MO833] Paramount Iteration,0,44,1.723943,126.092573
+[MO833] Paramount Iteration,0,45,2.088694,128.181292
+[MO833] Paramount Iteration,0,46,1.500297,129.681613
+[MO833] Paramount Iteration,0,47,1.425753,131.107390
+[MO833] Paramount Iteration,0,48,1.688080,132.795492
+[MO833] Paramount Iteration,0,49,1.847669,134.643183
+[MO833] Paramount Iteration,0,50,1.602532,136.245739
+[MO833] Paramount Iteration,0,51,2.592533,138.838299
+[MO833] Paramount Iteration,0,52,1.715078,140.553399
+[MO833] Paramount Iteration,0,53,1.844526,142.397947
+[MO833] Paramount Iteration,0,54,1.415434,143.813404
+[MO833] Paramount Iteration,0,55,1.426996,145.240422
+[MO833] Paramount Iteration,0,56,1.671774,146.912220
+[MO833] Paramount Iteration,0,57,1.844333,148.756576
+[MO833] Paramount Iteration,0,58,1.420524,150.177124
+[MO833] Paramount Iteration,0,59,1.424320,151.601468
+[MO833] Paramount Iteration,0,60,2.044430,153.645922
+TIMING: 60  CPU: 111.339, 1.78516/step  Wall: 111.339, 1.78516/step, 0.218186 hours remaining, 1610.007812 MB of memory in use.
+ENERGY:      60    355496.8451    280912.8044     82015.4658      5085.8432       -4504867.0200    383299.6924         0.0000         0.0000    948191.8046       -2449864.5646       298.2307  -3398056.3692  -2441227.9289       298.3279           1675.1478       104.2135  10194150.5656        -2.6720        -5.5431
+
+[MO833] Paramount Iteration,0,61,3.575553,157.221497
+[MO833] Paramount Iteration,0,62,1.417628,158.639148
+[MO833] Paramount Iteration,0,63,1.425828,160.064999
+[MO833] Paramount Iteration,0,64,1.710530,161.775552
+[MO833] Paramount Iteration,0,65,1.847554,163.623130
+[MO833] Paramount Iteration,0,66,1.419488,165.042641
+[MO833] Paramount Iteration,0,67,1.424547,166.467210
+[MO833] Paramount Iteration,0,68,1.686559,168.153792
+[MO833] Paramount Iteration,0,69,1.847246,170.001063
+[MO833] Paramount Iteration,0,70,1.600767,171.601852
+[MO833] Paramount Iteration,0,71,2.590599,174.192475
+[MO833] Paramount Iteration,0,72,1.668784,175.861281
+[MO833] Paramount Iteration,0,73,1.848687,177.709992
+[MO833] Paramount Iteration,0,74,1.419520,179.129534
+[MO833] Paramount Iteration,0,75,1.438059,180.567614
+[MO833] Paramount Iteration,0,76,1.678874,182.246511
+[MO833] Paramount Iteration,0,77,1.843184,184.089718
+[MO833] Paramount Iteration,0,78,1.420763,185.510503
+[MO833] Paramount Iteration,0,79,1.423958,186.934485
+[MO833] Paramount Iteration,0,80,2.033428,188.967935
+TIMING: 80  CPU: 146.888, 1.77744/step  Wall: 146.888, 1.77744/step, 0.207368 hours remaining, 1617.960938 MB of memory in use.
+ENERGY:      80    356032.1241    280500.4481     81995.7785      5123.4294       -4504012.0008    382907.7473         0.0000         0.0000    947758.1817       -2449694.2916       298.0943  -3397452.4734  -2441055.2368       298.3211           1636.9205        81.9584  10196214.6523        18.8460        19.1045
+
+[MO833] Paramount Iteration,0,81,3.816458,192.784416
+[MO833] Paramount Iteration,0,82,1.497989,194.282424
+[MO833] Paramount Iteration,0,83,1.429175,195.711621
+[MO833] Paramount Iteration,0,84,1.979270,197.690914
+[MO833] Paramount Iteration,0,85,1.843743,199.534678
+[MO833] Paramount Iteration,0,86,1.413926,200.948626
+[MO833] Paramount Iteration,0,87,1.422843,202.371494
+[MO833] Paramount Iteration,0,88,1.676101,204.047616
+[MO833] Paramount Iteration,0,89,1.851340,205.898978
+[MO833] Paramount Iteration,0,90,1.598746,207.497747
+[MO833] Paramount Iteration,0,91,2.586418,210.084190
+[MO833] Paramount Iteration,0,92,1.693349,211.777560
+[MO833] Paramount Iteration,0,93,1.844014,213.621599
+[MO833] Paramount Iteration,0,94,1.418352,215.039974
+[MO833] Paramount Iteration,0,95,1.422687,216.462685
+[MO833] Paramount Iteration,0,96,1.678007,218.140713
+[MO833] Paramount Iteration,0,97,1.842416,219.983153
+[MO833] Paramount Iteration,0,98,1.418875,221.402052
+LDB: ============= START OF LOAD BALANCING ============== 223.922
+LDB: Largest compute 3241 load 0.087814 is 0.1% of average load 139.382213
+LDB: Average compute 0.011753 is 0.0% of average load 139.382213
+LDB: Partitioning computes with target load 13.938221
+LDB: Increased migratable compute count from 41743 to 41743
+LDB: Largest unpartitionable compute is 0.017723
+LDB: ============== END OF LOAD BALANCING =============== 223.937
+Info: useSync: 0 useProxySync: 0
+LDB: =============== DONE WITH MIGRATION ================ 223.944
+[MO833] Paramount Iteration,0,99,2.676977,224.079053
+[MO833] Paramount Iteration,0,100,0.769014,224.848075
+Info: Initial time: 4 CPUs 1.77963 s/step 20.5975 days/ns 1622.09 MB memory
+TIMING: 100  CPU: 182.525, 1.78187/step  Wall: 182.525, 1.78187/step, 0.197985 hours remaining, 1622.089844 MB of memory in use.
+ENERGY:     100    356319.2234    280629.1608     82053.1056      5078.1893       -4505541.4611    383678.4352         0.0000         0.0000    947908.4931       -2449874.8536       298.1416  -3397783.3467  -2441208.1720       298.3375           1645.2845       111.4291  10195437.5657        17.6774        18.6096
+
+[MO833] Paramount Iteration,0,101,3.568817,228.416916
+[MO833] Paramount Iteration,0,102,1.414436,229.831375
+[MO833] Paramount Iteration,0,103,1.421824,231.253221
+[MO833] Paramount Iteration,0,104,1.699491,232.952736
+[MO833] Paramount Iteration,0,105,1.842922,234.795681
+[MO833] Paramount Iteration,0,106,1.424667,236.220373
+[MO833] Paramount Iteration,0,107,1.421913,237.642311
+[MO833] Paramount Iteration,0,108,1.660493,239.302826
+[MO833] Paramount Iteration,0,109,1.843902,241.146752
+[MO833] Paramount Iteration,0,110,1.595620,242.742394
+[MO833] Paramount Iteration,0,111,2.617373,245.359791
+[MO833] Paramount Iteration,0,112,1.670938,247.030750
+[MO833] Paramount Iteration,0,113,1.844293,248.875067
+[MO833] Paramount Iteration,0,114,1.418195,250.293284
+[MO833] Paramount Iteration,0,115,1.420289,251.713597
+[MO833] Paramount Iteration,0,116,1.683215,253.396834
+[MO833] Paramount Iteration,0,117,1.851842,255.248700
+[MO833] Paramount Iteration,0,118,1.665597,256.914320
+LDB: ============= START OF LOAD BALANCING ============== 259.52
+LDB: ============== END OF LOAD BALANCING =============== 259.52
+Info: useSync: 0 useProxySync: 0
+LDB: =============== DONE WITH MIGRATION ================ 259.521
+[MO833] Paramount Iteration,0,119,2.741159,259.655504
+[MO833] Paramount Iteration,0,120,0.808925,260.464438
+TIMING: 120  CPU: 218.143, 1.78087/step  Wall: 218.143, 1.78087/step, 0.18798 hours remaining, 1625.476562 MB of memory in use.
+ENERGY:     120    355933.3846    279887.2118     82135.2881      5152.6953       -4505486.8791    384358.5289         0.0000         0.0000    948134.4330       -2449885.3373       298.2127  -3398019.7703  -2441230.2092       298.3322           1623.7835       102.1763  10194653.5073        -6.8859        -6.7574
+
+[MO833] Paramount Iteration,0,121,3.569365,264.033828
+[MO833] Paramount Iteration,0,122,1.418976,265.452828
+[MO833] Paramount Iteration,0,123,1.422765,266.875617
+[MO833] Paramount Iteration,0,124,1.687360,268.562999
+[MO833] Paramount Iteration,0,125,1.845538,270.408561
+[MO833] Paramount Iteration,0,126,1.415766,271.824349
+[MO833] Paramount Iteration,0,127,1.423200,273.247573
+[MO833] Paramount Iteration,0,128,1.690311,274.937905
+[MO833] Paramount Iteration,0,129,1.843659,276.781587
+[MO833] Paramount Iteration,0,130,1.597932,278.379551
+[MO833] Paramount Iteration,0,131,2.584487,280.964062
+[MO833] Paramount Iteration,0,132,1.662843,282.626927
+[MO833] Paramount Iteration,0,133,1.841975,284.468926
+[MO833] Paramount Iteration,0,134,1.430298,285.899247
+[MO833] Paramount Iteration,0,135,1.687899,287.587169
+[MO833] Paramount Iteration,0,136,1.700379,289.287572
+[MO833] Paramount Iteration,0,137,1.845792,291.133388
+[MO833] Paramount Iteration,0,138,1.417751,292.551163
+[MO833] Paramount Iteration,0,139,1.422558,293.973743
+[MO833] Paramount Iteration,0,140,2.037102,296.010868
+TIMING: 140  CPU: 253.699, 1.77782/step  Wall: 253.699, 1.77782/step, 0.177782 hours remaining, 1625.476562 MB of memory in use.
+ENERGY:     140    356063.5631    279494.6911     81986.7271      5070.1832       -4506348.0614    384166.2791         0.0000         0.0000    949715.0850       -2449851.5327       298.7098  -3399566.6177  -2441150.3403       298.3554           1610.3783       104.6073  10193748.2409         9.8382         7.8061
+
+[MO833] Paramount Iteration,0,141,3.582993,299.593889
+[MO833] Paramount Iteration,0,142,1.419677,301.013589
+[MO833] Paramount Iteration,0,143,1.422107,302.435720
+[MO833] Paramount Iteration,0,144,1.686476,304.122218
+[MO833] Paramount Iteration,0,145,1.846308,305.968550
+[MO833] Paramount Iteration,0,146,1.419565,307.388139
+[MO833] Paramount Iteration,0,147,1.427434,308.815596
+[MO833] Paramount Iteration,0,148,1.706136,310.521755
+[MO833] Paramount Iteration,0,149,1.842176,312.363956
+[MO833] Paramount Iteration,0,150,1.595183,313.959163
+[MO833] Paramount Iteration,0,151,2.582404,316.541592
+[MO833] Paramount Iteration,0,152,1.665444,318.207060
+[MO833] Paramount Iteration,0,153,1.853411,320.060495
+[MO833] Paramount Iteration,0,154,1.664690,321.725208
+[MO833] Paramount Iteration,0,155,1.428358,323.153589
+[MO833] Paramount Iteration,0,156,1.754060,324.907674
+[MO833] Paramount Iteration,0,157,1.842769,326.750467
+[MO833] Paramount Iteration,0,158,1.414392,328.164882
+[MO833] Paramount Iteration,0,159,1.420259,329.585165
+[MO833] Paramount Iteration,0,160,1.992307,331.577494
+TIMING: 160  CPU: 289.269, 1.77851/step  Wall: 289.269, 1.77851/step, 0.16797 hours remaining, 1626.078125 MB of memory in use.
+ENERGY:     160    355736.8347    279687.6741     81968.5321      5042.1525       -4506569.6618    384432.7971         0.0000         0.0000    949082.4019       -2450619.2694       298.5108  -3399701.6713  -2441847.7646       298.3055           1625.9037       128.6156  10193937.5630         7.5316         3.5692
+
+[MO833] Paramount Iteration,0,161,3.564756,335.142271
+[MO833] Paramount Iteration,0,162,1.416326,336.558630
+[MO833] Paramount Iteration,0,163,1.429052,337.987705
+[MO833] Paramount Iteration,0,164,1.705085,339.692814
+[MO833] Paramount Iteration,0,165,1.843304,341.536141
+[MO833] Paramount Iteration,0,166,1.413948,342.950112
+[MO833] Paramount Iteration,0,167,1.420161,344.370298
+[MO833] Paramount Iteration,0,168,1.673225,346.043546
+[MO833] Paramount Iteration,0,169,1.843094,347.886663
+[MO833] Paramount Iteration,0,170,1.596287,349.482972
+[MO833] Paramount Iteration,0,171,2.577621,352.060618
+[MO833] Paramount Iteration,0,172,1.673868,353.734508
+[MO833] Paramount Iteration,0,173,1.848237,355.582768
+[MO833] Paramount Iteration,0,174,1.419093,357.001886
+[MO833] Paramount Iteration,0,175,1.423597,358.425508
+[MO833] Paramount Iteration,0,176,1.707472,360.133002
+[MO833] Paramount Iteration,0,177,1.847385,361.980411
+[MO833] Paramount Iteration,0,178,1.415592,363.396027
+[MO833] Paramount Iteration,0,179,1.422484,364.818534
+[MO833] Paramount Iteration,0,180,1.970311,366.788867
+TIMING: 180  CPU: 324.475, 1.76027/step  Wall: 324.475, 1.76027/step, 0.156469 hours remaining, 1628.667969 MB of memory in use.
+ENERGY:     180    356204.7229    279639.8626     81931.8799      5034.5685       -4507185.3019    384803.2633         0.0000         0.0000    949046.9890       -2450524.0157       298.4997  -3399571.0048  -2441753.9996       298.2886           1583.5012        95.6349  10193472.5484       -21.4077       -22.3574
+
+[MO833] Paramount Iteration,0,181,3.566367,370.355258
+[MO833] Paramount Iteration,0,182,1.413453,371.768734
+[MO833] Paramount Iteration,0,183,1.419099,373.187856
+[MO833] Paramount Iteration,0,184,1.677098,374.864975
+[MO833] Paramount Iteration,0,185,1.841300,376.706298
+[MO833] Paramount Iteration,0,186,1.414140,378.120462
+[MO833] Paramount Iteration,0,187,1.421141,379.541625
+[MO833] Paramount Iteration,0,188,1.682208,381.223856
+[MO833] Paramount Iteration,0,189,1.843879,383.067759
+[MO833] Paramount Iteration,0,190,1.604637,384.672421
+[MO833] Paramount Iteration,0,191,2.811494,387.483940
+[MO833] Paramount Iteration,0,192,1.777855,389.261819
+[MO833] Paramount Iteration,0,193,1.844225,391.106068
+[MO833] Paramount Iteration,0,194,1.414909,392.521000
+[MO833] Paramount Iteration,0,195,1.420829,393.941852
+[MO833] Paramount Iteration,0,196,1.685144,395.627019
+[MO833] Paramount Iteration,0,197,1.842418,397.469459
+[MO833] Paramount Iteration,0,198,1.415072,398.884554
+LDB: ============= START OF LOAD BALANCING ============== 401.426
+LDB: Largest compute 2736 load 0.087441 is 0.1% of average load 138.830835
+LDB: Average compute 0.011711 is 0.0% of average load 138.830835
+LDB: TIME 401.441 LOAD: AVG 138.831 MAX 141.877  PROXIES: TOTAL 757 MAXPE 192 MAXPATCH 3 None MEM: 1633.63 MB
+LDB: TIME 401.456 LOAD: AVG 138.831 MAX 141.23  PROXIES: TOTAL 757 MAXPE 192 MAXPATCH 3 TorusLB MEM: 1633.63 MB
+LDB: ============== END OF LOAD BALANCING =============== 401.496
+Info: useSync: 0 useProxySync: 0
+LDB: =============== DONE WITH MIGRATION ================ 401.512
+[MO833] Paramount Iteration,0,199,2.762290,401.646868
+[MO833] Paramount Iteration,0,200,1.512681,403.159559
+Info: Initial time: 4 CPUs 1.7755 s/step 20.5497 days/ns 1633.63 MB memory
+TIMING: 200  CPU: 360.162, 1.78439/step  Wall: 360.162, 1.78439/step, 0.148699 hours remaining, 1633.628906 MB of memory in use.
+ETITLE:      TS           BOND          ANGLE          DIHED          IMPRP               ELECT            VDW       BOUNDARY           MISC        KINETIC               TOTAL           TEMP      POTENTIAL         TOTAL3        TEMPAVG            PRESSURE      GPRESSURE         VOLUME       PRESSAVG      GPRESSAVG
+
+ENERGY:     200    356409.2135    280093.6928     82040.7661      5064.0244       -4506975.7317    384356.0196         0.0000         0.0000    948101.9924       -2450910.0230       298.2025  -3399012.0154  -2442198.6955       298.4305           1524.5504        60.2917  10194617.2907         1.8635         3.0436
+
+[MO833] Paramount Iteration,0,201,3.160880,406.320464
+[MO833] Paramount Iteration,0,202,1.422978,407.743466
+[MO833] Paramount Iteration,0,203,1.427537,409.171034
+[MO833] Paramount Iteration,0,204,1.778293,410.949350
+[MO833] Paramount Iteration,0,205,1.771106,412.720480
+[MO833] Paramount Iteration,0,206,1.423629,414.144133
+[MO833] Paramount Iteration,0,207,1.436421,415.580579
+[MO833] Paramount Iteration,0,208,2.052350,417.632953
+[MO833] Paramount Iteration,0,209,1.769622,419.402602
+[MO833] Paramount Iteration,0,210,1.819710,421.222332
+[MO833] Paramount Iteration,0,211,2.383168,423.605524
+[MO833] Paramount Iteration,0,212,1.786376,425.391925
+[MO833] Paramount Iteration,0,213,1.769766,427.161713
+[MO833] Paramount Iteration,0,214,1.424057,428.585793
+[MO833] Paramount Iteration,0,215,1.428475,430.014292
+[MO833] Paramount Iteration,0,216,1.754857,431.769172
+[MO833] Paramount Iteration,0,217,1.770855,433.540050
+[MO833] Paramount Iteration,0,218,1.425618,434.965692
+[MO833] Paramount Iteration,0,219,1.429336,436.395053
+[MO833] Paramount Iteration,0,220,2.446023,438.841099
+TIMING: 220  CPU: 395.841, 1.78394/step  Wall: 395.841, 1.78394/step, 0.138751 hours remaining, 1641.500000 MB of memory in use.
+ENERGY:     220    356776.4001    280623.4302     82013.9467      5083.2298       -4504776.9002    382536.3334         0.0000         0.0000    946808.9716       -2450934.5884       297.7958  -3397743.5600  -2442247.6591       298.0256           1444.8001        16.5823  10199760.8117        -2.8072        -2.4831
+
+[MO833] Paramount Iteration,0,221,3.156710,441.997833
+[MO833] Paramount Iteration,0,222,1.420204,443.418060
+[MO833] Paramount Iteration,0,223,1.428111,444.846196
+[MO833] Paramount Iteration,0,224,1.742663,446.588882
+[MO833] Paramount Iteration,0,225,1.775427,448.364333
+[MO833] Paramount Iteration,0,226,1.672926,450.037283
+[MO833] Paramount Iteration,0,227,1.432644,451.469949
+[MO833] Paramount Iteration,0,228,1.842061,453.312030
+[MO833] Paramount Iteration,0,229,1.769775,455.081830
+[MO833] Paramount Iteration,0,230,1.819282,456.901134
+[MO833] Paramount Iteration,0,231,2.377858,459.279016
+[MO833] Paramount Iteration,0,232,1.778520,461.057559
+[MO833] Paramount Iteration,0,233,1.769915,462.827499
+[MO833] Paramount Iteration,0,234,1.418511,464.246033
+[MO833] Paramount Iteration,0,235,1.428422,465.674478
+[MO833] Paramount Iteration,0,236,1.752868,467.427369
+[MO833] Paramount Iteration,0,237,1.769848,469.197241
+[MO833] Paramount Iteration,0,238,1.422098,470.619363
+[MO833] Paramount Iteration,0,239,1.426395,472.045783
+[MO833] Paramount Iteration,0,240,2.453960,474.499765
+TIMING: 240  CPU: 431.503, 1.7831/step  Wall: 431.503, 1.7831/step, 0.128779 hours remaining, 1641.500000 MB of memory in use.
+ENERGY:     240    357212.5885    280859.2076     82000.3873      5083.3459       -4507707.0618    384708.1673         0.0000         0.0000    947286.8819       -2450556.4833       297.9461  -3397843.3651  -2441884.9387       298.0783           1458.0270        70.2759  10196790.8863         5.7053         5.0241
+
+[MO833] Paramount Iteration,0,241,3.160633,477.660421
+[MO833] Paramount Iteration,0,242,1.421065,479.081510
+[MO833] Paramount Iteration,0,243,1.429003,480.510538
+[MO833] Paramount Iteration,0,244,1.777690,482.288252
+[MO833] Paramount Iteration,0,245,1.768441,484.056716
+[MO833] Paramount Iteration,0,246,1.422618,485.479357
+[MO833] Paramount Iteration,0,247,1.427134,486.906514
+[MO833] Paramount Iteration,0,248,1.784634,488.691171
+[MO833] Paramount Iteration,0,249,1.769994,490.461188
+[MO833] Paramount Iteration,0,250,1.818342,492.279552
+[MO833] Paramount Iteration,0,251,2.378807,494.658383
+[MO833] Paramount Iteration,0,252,1.758661,496.417068
+[MO833] Paramount Iteration,0,253,1.769490,498.186582
+[MO833] Paramount Iteration,0,254,1.422293,499.608900
+[MO833] Paramount Iteration,0,255,1.428633,501.037556
+[MO833] Paramount Iteration,0,256,1.757621,502.795201
+[MO833] Paramount Iteration,0,257,1.768549,504.563774
+[MO833] Paramount Iteration,0,258,1.422755,505.986553
+[MO833] Paramount Iteration,0,259,1.427717,507.414296
+[MO833] Paramount Iteration,0,260,2.459335,509.873654
+TIMING: 260  CPU: 466.871, 1.7684/step  Wall: 466.871, 1.7684/step, 0.117893 hours remaining, 1641.500000 MB of memory in use.
+ENERGY:     260    357176.2351    280322.4213     81863.7570      5051.2893       -4507777.8004    384703.6440         0.0000         0.0000    948045.3847       -2450615.0689       298.1846  -3398660.4536  -2441953.6480       297.9967           1476.8638        99.5024  10196093.7774         7.1202         5.7990
+
+[MO833] Paramount Iteration,0,261,3.159935,513.033614
+[MO833] Paramount Iteration,0,262,1.672483,514.706122
+[MO833] Paramount Iteration,0,263,1.434873,516.141018
+[MO833] Paramount Iteration,0,264,1.857262,517.998302
+[MO833] Paramount Iteration,0,265,1.770279,519.768605
+[MO833] Paramount Iteration,0,266,1.421177,521.189806
+[MO833] Paramount Iteration,0,267,1.428946,522.618776
+[MO833] Paramount Iteration,0,268,1.736088,524.354888
+[MO833] Paramount Iteration,0,269,1.772181,526.127093
+[MO833] Paramount Iteration,0,270,1.820239,527.947356
+[MO833] Paramount Iteration,0,271,2.379920,530.327300
+[MO833] Paramount Iteration,0,272,1.784370,532.111692
+[MO833] Paramount Iteration,0,273,1.767922,533.879638
+[MO833] Paramount Iteration,0,274,1.424626,535.304287
+[MO833] Paramount Iteration,0,275,1.433797,536.738111
+[MO833] Paramount Iteration,0,276,1.762400,538.500535
+[MO833] Paramount Iteration,0,277,1.774115,540.274673
+[MO833] Paramount Iteration,0,278,1.692585,541.967280
+[MO833] Paramount Iteration,0,279,1.428183,543.395488
+[MO833] Paramount Iteration,0,280,2.436987,545.832492
+TIMING: 280  CPU: 502.826, 1.79776/step  Wall: 502.826, 1.79776/step, 0.109863 hours remaining, 1641.500000 MB of memory in use.
+ENERGY:     280    356947.5263    280233.1010     81907.3531      5028.8696       -4509356.9252    385171.4878         0.0000         0.0000    949030.0183       -2451038.5690       298.4943  -3400068.5873  -2442310.4734       298.3748           1510.7903       110.6163  10193415.3429       -15.7334       -15.5472
+
+[MO833] Paramount Iteration,0,281,3.150512,548.983028
+[MO833] Paramount Iteration,0,282,1.422647,550.405698
+[MO833] Paramount Iteration,0,283,1.428310,551.834031
+[MO833] Paramount Iteration,0,284,1.775799,553.609855
+[MO833] Paramount Iteration,0,285,1.770199,555.380078
+[MO833] Paramount Iteration,0,286,1.423922,556.804023
+[MO833] Paramount Iteration,0,287,1.430508,558.234555
+[MO833] Paramount Iteration,0,288,1.764312,559.998892
+[MO833] Paramount Iteration,0,289,1.773316,561.772231
+[MO833] Paramount Iteration,0,290,1.821729,563.593984
+[MO833] Paramount Iteration,0,291,2.379081,565.973088
+[MO833] Paramount Iteration,0,292,1.764785,567.737898
+[MO833] Paramount Iteration,0,293,1.772963,569.510884
+[MO833] Paramount Iteration,0,294,1.426050,570.936959
+[MO833] Paramount Iteration,0,295,1.431503,572.368487
+[MO833] Paramount Iteration,0,296,1.762821,574.131332
+[MO833] Paramount Iteration,0,297,1.769137,575.900493
+[MO833] Paramount Iteration,0,298,1.422157,577.322673
+LDB: ============= START OF LOAD BALANCING ============== 579.86
+LDB: Largest compute 3609 load 0.108592 is 0.1% of average load 173.943768
+LDB: Average compute 0.014646 is 0.0% of average load 173.943768
+LDB: TIME 579.875 LOAD: AVG 173.944 MAX 178.348  PROXIES: TOTAL 757 MAXPE 192 MAXPATCH 3 None MEM: 1641.5 MB
+LDB: TIME 579.879 LOAD: AVG 173.944 MAX 178.348  PROXIES: TOTAL 757 MAXPE 192 MAXPATCH 3 RefineTorusLB MEM: 1641.5 MB
+LDB: TIME 580.147 LOAD: AVG 173.944 MAX 175.692  PROXIES: TOTAL 757 MAXPE 192 MAXPATCH 3 RefineTorusLB MEM: 1641.5 MB
+LDB: ============== END OF LOAD BALANCING =============== 580.157
+Info: useSync: 0 useProxySync: 0
+LDB: =============== DONE WITH MIGRATION ================ 580.167
+[MO833] Paramount Iteration,0,299,2.979030,580.301726
+[MO833] Paramount Iteration,0,300,1.385640,581.687376
+Info: Initial time: 4 CPUs 1.78288 s/step 20.6352 days/ns 1641.5 MB memory
+TIMING: 300  CPU: 538.757, 1.79656/step  Wall: 538.757, 1.79656/step, 0.0998087 hours remaining, 1641.500000 MB of memory in use.
+ENERGY:     300    357343.6826    280878.0856     81961.9132      5053.7267       -4509907.2271    385583.5563         0.0000         0.0000    947981.7557       -2451104.5070       298.1646  -3399086.2627  -2442425.3202       298.2182           1509.1358       118.8254  10191264.1135        13.5517        15.1766
+
+[MO833] Paramount Iteration,0,301,3.202209,584.889612
+[MO833] Paramount Iteration,0,302,1.395421,586.285056
+[MO833] Paramount Iteration,0,303,1.403062,587.688141
+[MO833] Paramount Iteration,0,304,1.733024,589.421186
+[MO833] Paramount Iteration,0,305,1.744059,591.165267
+[MO833] Paramount Iteration,0,306,1.399024,592.564313
+[MO833] Paramount Iteration,0,307,1.410066,593.974401
+[MO833] Paramount Iteration,0,308,1.707666,595.682089
+[MO833] Paramount Iteration,0,309,1.747001,597.429114
+[MO833] Paramount Iteration,0,310,1.773985,599.203121
+[MO833] Paramount Iteration,0,311,2.367354,601.570498
+[MO833] Paramount Iteration,0,312,1.758046,603.328566
+[MO833] Paramount Iteration,0,313,1.746071,605.074663
+[MO833] Paramount Iteration,0,314,1.395011,606.469696
+[MO833] Paramount Iteration,0,315,1.399966,607.869686
+[MO833] Paramount Iteration,0,316,1.702224,609.571932
+[MO833] Paramount Iteration,0,317,1.743795,611.315750
+[MO833] Paramount Iteration,0,318,1.397747,612.713520
+[MO833] Paramount Iteration,0,319,1.447894,614.161436
+[MO833] Paramount Iteration,0,320,2.414607,616.576066
+TIMING: 320  CPU: 573.572, 1.74074/step  Wall: 573.572, 1.74074/step, 0.0870368 hours remaining, 1643.792969 MB of memory in use.
+ENERGY:     320    357043.0359    280887.7396     81879.9241      5037.6782       -4507892.3848    384115.7658         0.0000         0.0000    948010.8143       -2450917.4268       298.1738  -3398928.2411  -2442235.1557       298.3053           1375.9513        43.9398  10196140.3540       -13.3675       -11.8416
+
+[MO833] Paramount Iteration,0,321,3.127824,619.703915
+[MO833] Paramount Iteration,0,322,1.398566,621.102505
+[MO833] Paramount Iteration,0,323,1.402276,622.504805
+[MO833] Paramount Iteration,0,324,1.727395,624.232223
+[MO833] Paramount Iteration,0,325,1.743836,625.976082
+[MO833] Paramount Iteration,0,326,1.396106,627.372211
+[MO833] Paramount Iteration,0,327,1.415736,628.787971
+[MO833] Paramount Iteration,0,328,1.715401,630.503395
+[MO833] Paramount Iteration,0,329,1.746092,632.249511
+[MO833] Paramount Iteration,0,330,1.770011,634.019546
+[MO833] Paramount Iteration,0,331,2.371137,636.390707
+[MO833] Paramount Iteration,0,332,1.726842,638.117572
+[MO833] Paramount Iteration,0,333,1.742843,639.860438
+[MO833] Paramount Iteration,0,334,1.398131,641.258592
+[MO833] Paramount Iteration,0,335,1.434638,642.693256
+[MO833] Paramount Iteration,0,336,1.980312,644.673592
+[MO833] Paramount Iteration,0,337,1.828140,646.501757
+[MO833] Paramount Iteration,0,338,1.394565,647.896345
+[MO833] Paramount Iteration,0,339,1.402422,649.298790
+[MO833] Paramount Iteration,0,340,2.390806,651.689617
+TIMING: 340  CPU: 608.686, 1.75567/step  Wall: 608.686, 1.75567/step, 0.0780299 hours remaining, 1643.792969 MB of memory in use.
+ENERGY:     340    357776.0726    280249.9945     81959.6724      5051.0584       -4508479.5467    384378.7392         0.0000         0.0000    947774.2560       -2451289.7537       298.0994  -3399064.0096  -2442631.7342       298.0159           1351.1913        55.8504  10194352.6631         7.3789         4.9161
+
+[MO833] Paramount Iteration,0,341,3.127731,654.817372
+[MO833] Paramount Iteration,0,342,1.403086,656.220480
+[MO833] Paramount Iteration,0,343,1.403580,657.624084
+[MO833] Paramount Iteration,0,344,1.722933,659.347040
+[MO833] Paramount Iteration,0,345,1.743212,661.090275
+[MO833] Paramount Iteration,0,346,1.396112,662.486409
+[MO833] Paramount Iteration,0,347,1.427245,663.913676
+[MO833] Paramount Iteration,0,348,1.765130,665.678830
+[MO833] Paramount Iteration,0,349,1.739847,667.418701
+[MO833] Paramount Iteration,0,350,1.771421,669.190144
+[MO833] Paramount Iteration,0,351,2.352812,671.542979
+[MO833] Paramount Iteration,0,352,1.719817,673.262819
+[MO833] Paramount Iteration,0,353,1.744673,675.007516
+[MO833] Paramount Iteration,0,354,1.397441,676.404979
+[MO833] Paramount Iteration,0,355,1.443133,677.848136
+[MO833] Paramount Iteration,0,356,1.713659,679.561818
+[MO833] Paramount Iteration,0,357,1.745218,681.307058
+[MO833] Paramount Iteration,0,358,1.396754,682.703834
+[MO833] Paramount Iteration,0,359,1.472178,684.176036
+[MO833] Paramount Iteration,0,360,2.372037,686.548096
+TIMING: 360  CPU: 643.585, 1.74499/step  Wall: 643.585, 1.74499/step, 0.0678605 hours remaining, 1643.792969 MB of memory in use.
+ENERGY:     360    357666.7867    280101.7638     82095.3913      5051.0062       -4509466.0174    384992.7862         0.0000         0.0000    947865.5029       -2451692.7803       298.1281  -3399558.2832  -2442961.2594       298.2857           1438.4323       104.0948  10191382.2826        -9.8397       -14.3103
+
+[MO833] Paramount Iteration,0,361,3.131315,689.679435
+[MO833] Paramount Iteration,0,362,1.400187,691.079644
+[MO833] Paramount Iteration,0,363,1.435373,692.515039
+[MO833] Paramount Iteration,0,364,1.732308,694.247369
+[MO833] Paramount Iteration,0,365,1.746585,695.993977
+[MO833] Paramount Iteration,0,366,1.398195,697.392194
+[MO833] Paramount Iteration,0,367,1.418576,698.810791
+[MO833] Paramount Iteration,0,368,1.708717,700.519530
+[MO833] Paramount Iteration,0,369,1.745408,702.264961
+[MO833] Paramount Iteration,0,370,1.771906,704.036891
+[MO833] Paramount Iteration,0,371,2.639744,706.676658
+[MO833] Paramount Iteration,0,372,2.028749,708.705432
+[MO833] Paramount Iteration,0,373,1.752149,710.457605
+[MO833] Paramount Iteration,0,374,1.474472,711.932099
+[MO833] Paramount Iteration,0,375,1.401584,713.333708
+[MO833] Paramount Iteration,0,376,1.736437,715.070170
+[MO833] Paramount Iteration,0,377,1.750319,716.820511
+[MO833] Paramount Iteration,0,378,1.400748,718.221283
+[MO833] Paramount Iteration,0,379,1.414311,719.635617
+[MO833] Paramount Iteration,0,380,2.347025,721.982665
+TIMING: 380  CPU: 679.063, 1.7739/step  Wall: 679.063, 1.7739/step, 0.05913 hours remaining, 1643.792969 MB of memory in use.
+ENERGY:     380    357823.2898    279809.9229     81985.7579      5053.7412       -4511206.0837    385820.3443         0.0000         0.0000    949508.1608       -2451204.8669       298.6447  -3400713.0277  -2442531.2227       298.3556           1464.5215       125.3842  10188543.5793         7.9023         6.9815
+
+[MO833] Paramount Iteration,0,381,3.129334,725.112024
+[MO833] Paramount Iteration,0,382,1.397598,726.509645
+[MO833] Paramount Iteration,0,383,1.485198,727.994865
+[MO833] Paramount Iteration,0,384,1.757554,729.752441
+[MO833] Paramount Iteration,0,385,1.747989,731.500453
+[MO833] Paramount Iteration,0,386,1.396838,732.897314
+[MO833] Paramount Iteration,0,387,1.409176,734.306514
+[MO833] Paramount Iteration,0,388,1.707502,736.014038
+[MO833] Paramount Iteration,0,389,1.745628,737.759690
+[MO833] Paramount Iteration,0,390,1.772107,739.531820
+[MO833] Paramount Iteration,0,391,2.380168,741.912011
+[MO833] Paramount Iteration,0,392,1.705943,743.617975
+[MO833] Paramount Iteration,0,393,1.747552,745.365550
+[MO833] Paramount Iteration,0,394,1.397000,746.762572
+[MO833] Paramount Iteration,0,395,1.458535,748.221128
+[MO833] Paramount Iteration,0,396,1.729318,749.950468
+[MO833] Paramount Iteration,0,397,1.746233,751.696723
+[MO833] Paramount Iteration,0,398,1.397464,753.094208
+LDB: ============= START OF LOAD BALANCING ============== 755.362
+LDB: Largest compute 3337 load 0.109191 is 0.1% of average load 173.578159
+LDB: Average compute 0.014621 is 0.0% of average load 173.578159
+LDB: TIME 755.377 LOAD: AVG 173.578 MAX 174.672  PROXIES: TOTAL 757 MAXPE 192 MAXPATCH 3 None MEM: 1643.79 MB
+LDB: TIME 755.381 LOAD: AVG 173.578 MAX 174.672  PROXIES: TOTAL 757 MAXPE 192 MAXPATCH 3 RefineTorusLB MEM: 1643.79 MB
+LDB: TIME 755.381 LOAD: AVG 173.578 MAX 174.672  PROXIES: TOTAL 757 MAXPE 192 MAXPATCH 3 RefineTorusLB MEM: 1643.79 MB
+LDB: ============== END OF LOAD BALANCING =============== 755.384
+Info: useSync: 0 useProxySync: 0
+LDB: =============== DONE WITH MIGRATION ================ 755.391
+[MO833] Paramount Iteration,0,399,2.431979,755.526211
+[MO833] Paramount Iteration,0,400,1.418455,756.944675
+Info: Benchmark time: 4 CPUs 1.75171 s/step 20.2744 days/ns 1643.79 MB memory
+TIMING: 400  CPU: 713.958, 1.74472/step  Wall: 713.958, 1.74472/step, 0.0484645 hours remaining, 1643.792969 MB of memory in use.
+ETITLE:      TS           BOND          ANGLE          DIHED          IMPRP               ELECT            VDW       BOUNDARY           MISC        KINETIC               TOTAL           TEMP      POTENTIAL         TOTAL3        TEMPAVG            PRESSURE      GPRESSURE         VOLUME       PRESSAVG      GPRESSAVG
+
+ENERGY:     400    357853.0624    280988.4795     81979.9594      5040.2656       -4507993.4154    383278.0446         0.0000         0.0000    948079.6885       -2450773.9154       298.1954  -3398853.6039  -2442000.0260       298.5329           1356.6786        58.8797  10194431.0209        14.5840        17.9098
+
+[MO833] Paramount Iteration,0,401,3.130151,760.074851
+[MO833] Paramount Iteration,0,402,1.397921,761.472795
+[MO833] Paramount Iteration,0,403,1.406340,762.879159
+[MO833] Paramount Iteration,0,404,1.709518,764.588701
+[MO833] Paramount Iteration,0,405,1.745443,766.334168
+[MO833] Paramount Iteration,0,406,1.394971,767.729161
+[MO833] Paramount Iteration,0,407,1.447918,769.177101
+[MO833] Paramount Iteration,0,408,1.946421,771.123546
+[MO833] Paramount Iteration,0,409,1.979004,773.102574
+[MO833] Paramount Iteration,0,410,1.807450,774.910112
+[MO833] Paramount Iteration,0,411,2.437773,777.347909
+[MO833] Paramount Iteration,0,412,1.730972,779.078904
+[MO833] Paramount Iteration,0,413,1.750663,780.829591
+[MO833] Paramount Iteration,0,414,1.400052,782.229666
+[MO833] Paramount Iteration,0,415,1.427704,783.657394
+[MO833] Paramount Iteration,0,416,1.712244,785.369657
+[MO833] Paramount Iteration,0,417,1.745753,787.115433
+[MO833] Paramount Iteration,0,418,1.398637,788.514094
+[MO833] Paramount Iteration,0,419,1.438663,789.952781
+[MO833] Paramount Iteration,0,420,2.363952,792.316756
+TIMING: 420  CPU: 749.331, 1.76867/step  Wall: 749.331, 1.76867/step, 0.0393038 hours remaining, 1643.792969 MB of memory in use.
+ENERGY:     420    358471.1186    280993.5654     81833.0029      4975.4379       -4509692.5443    385154.4434         0.0000         0.0000    947566.7055       -2450698.2706       298.0341  -3398264.9762  -2442080.1715       298.2548           1335.1375        89.7805  10191755.5393       -10.9539        -9.9026
+
+[MO833] Paramount Iteration,0,421,3.131234,795.448013
+[MO833] Paramount Iteration,0,422,1.395661,796.843696
+[MO833] Paramount Iteration,0,423,1.403592,798.247311
+[MO833] Paramount Iteration,0,424,1.701562,799.948897
+[MO833] Paramount Iteration,0,425,1.742758,801.691678
+[MO833] Paramount Iteration,0,426,1.395828,803.087529
+[MO833] Paramount Iteration,0,427,1.441405,804.528956
+[MO833] Paramount Iteration,0,428,1.734552,806.263530
+[MO833] Paramount Iteration,0,429,1.741264,808.004818
+[MO833] Paramount Iteration,0,430,1.774576,809.779416
+[MO833] Paramount Iteration,0,431,2.609531,812.388969
+[MO833] Paramount Iteration,0,432,1.727011,814.116003
+[MO833] Paramount Iteration,0,433,1.741310,815.857337
+[MO833] Paramount Iteration,0,434,1.399859,817.257219
+[MO833] Paramount Iteration,0,435,1.407054,818.664297
+[MO833] Paramount Iteration,0,436,1.972761,820.637077
+[MO833] Paramount Iteration,0,437,1.744638,822.381736
+[MO833] Paramount Iteration,0,438,1.394226,823.775985
+[MO833] Paramount Iteration,0,439,1.401593,825.177600
+[MO833] Paramount Iteration,0,440,2.407509,827.585130
+TIMING: 440  CPU: 784.592, 1.76304/step  Wall: 784.592, 1.76304/step, 0.029384 hours remaining, 1643.792969 MB of memory in use.
+ENERGY:     440    358430.8092    281055.5551     81787.2317      5056.2976       -4510514.6328    384914.6824         0.0000         0.0000    948585.0895       -2450684.9672       298.3544  -3399270.0567  -2441988.5157       298.3356           1331.3637        76.4297  10191715.6299        13.8975        10.1893
+
+[MO833] Paramount Iteration,0,441,3.139111,830.724266
+[MO833] Paramount Iteration,0,442,1.400536,832.124825
+[MO833] Paramount Iteration,0,443,1.400837,833.525686
+[MO833] Paramount Iteration,0,444,1.708173,835.233884
+[MO833] Paramount Iteration,0,445,1.768645,837.002553
+[MO833] Paramount Iteration,0,446,1.650378,838.652954
+[MO833] Paramount Iteration,0,447,1.410087,840.063061
+[MO833] Paramount Iteration,0,448,1.807358,841.870441
+[MO833] Paramount Iteration,0,449,1.743339,843.613800
+[MO833] Paramount Iteration,0,450,1.774988,845.388811
+[MO833] Paramount Iteration,0,451,2.355320,847.744154
+[MO833] Paramount Iteration,0,452,1.706192,849.450370
+[MO833] Paramount Iteration,0,453,1.743620,851.194015
+[MO833] Paramount Iteration,0,454,1.401546,852.595584
+[MO833] Paramount Iteration,0,455,1.442919,854.038525
+[MO833] Paramount Iteration,0,456,1.701549,855.740097
+[MO833] Paramount Iteration,0,457,1.741939,857.482060
+[MO833] Paramount Iteration,0,458,1.396577,858.878659
+[MO833] Paramount Iteration,0,459,1.456063,860.334744
+[MO833] Paramount Iteration,0,460,2.413636,862.748401
+TIMING: 460  CPU: 819.747, 1.75775/step  Wall: 819.747, 1.75775/step, 0.0195306 hours remaining, 1643.792969 MB of memory in use.
+ENERGY:     460    358184.7066    280682.6193     81962.0201      5078.9577       -4509615.2153    384330.8246         0.0000         0.0000    948433.8336       -2450942.2535       298.3068  -3399376.0871  -2442233.4438       298.3483           1378.6824       101.1193  10189850.3385         4.9936         4.9567
+
+[MO833] Paramount Iteration,0,461,3.130085,865.878509
+[MO833] Paramount Iteration,0,462,1.396571,867.275102
+[MO833] Paramount Iteration,0,463,1.398363,868.673487
+[MO833] Paramount Iteration,0,464,1.707511,870.381021
+[MO833] Paramount Iteration,0,465,2.012363,872.393408
+[MO833] Paramount Iteration,0,466,1.393324,873.786756
+[MO833] Paramount Iteration,0,467,1.402803,875.189582
+[MO833] Paramount Iteration,0,468,1.725164,876.914767
+[MO833] Paramount Iteration,0,469,1.745220,878.660013
+[MO833] Paramount Iteration,0,470,1.772865,880.432901
+[MO833] Paramount Iteration,0,471,2.371358,882.804283
+[MO833] Paramount Iteration,0,472,1.714398,884.518704
+[MO833] Paramount Iteration,0,473,1.746122,886.264849
+[MO833] Paramount Iteration,0,474,1.399004,887.663875
+[MO833] Paramount Iteration,0,475,1.401711,889.065607
+[MO833] Paramount Iteration,0,476,1.711281,890.776911
+[MO833] Paramount Iteration,0,477,1.743898,892.520832
+[MO833] Paramount Iteration,0,478,1.396181,893.917035
+[MO833] Paramount Iteration,0,479,1.448463,895.365520
+[MO833] Paramount Iteration,0,480,2.402715,897.768257
+TIMING: 480  CPU: 854.77, 1.75117/step  Wall: 854.77, 1.75117/step, 0.00972874 hours remaining, 1643.792969 MB of memory in use.
+ENERGY:     480    358312.4929    280578.5878     82046.8837      5090.3049       -4509567.9490    384520.1922         0.0000         0.0000    947959.5426       -2451059.9449       298.1576  -3399019.4875  -2442351.6503       298.1957           1381.4878       118.6198  10188696.2364        -5.9702        -4.0393
+
+[MO833] Paramount Iteration,0,481,3.139322,900.907602
+[MO833] Paramount Iteration,0,482,1.641879,902.549505
+[MO833] Paramount Iteration,0,483,1.405553,903.955083
+[MO833] Paramount Iteration,0,484,1.781968,905.737074
+[MO833] Paramount Iteration,0,485,1.741490,907.478588
+[MO833] Paramount Iteration,0,486,1.395149,908.873759
+[MO833] Paramount Iteration,0,487,1.401356,910.275138
+[MO833] Paramount Iteration,0,488,1.706645,911.981805
+[MO833] Paramount Iteration,0,489,1.743734,913.725563
+[MO833] Paramount Iteration,0,490,1.776241,915.501827
+[MO833] Paramount Iteration,0,491,2.362144,917.863994
+[MO833] Paramount Iteration,0,492,1.710591,919.574608
+[MO833] Paramount Iteration,0,493,1.744894,921.319525
+[MO833] Paramount Iteration,0,494,1.396872,922.716421
+[MO833] Paramount Iteration,0,495,1.442353,924.158797
+[MO833] Paramount Iteration,0,496,1.716522,925.875341
+[MO833] Paramount Iteration,0,497,1.742355,927.617719
+[MO833] Paramount Iteration,0,498,1.393983,929.011724
+[MO833] Paramount Iteration,0,499,1.455624,930.467371
+[MO833] Paramount Iteration,0,500,2.287693,932.755086
+Info: Benchmark time: 4 CPUs 1.75543 s/step 20.3175 days/ns 1643.79 MB memory
+TIMING: 500  CPU: 889.501, 1.73652/step  Wall: 889.501, 1.73652/step, 0 hours remaining, 1643.792969 MB of memory in use.
+ENERGY:     500    358203.2961    280308.7467     82037.5815      5092.6961       -4510890.0669    384717.3692         0.0000         0.0000    949450.2393       -2451080.1381       298.6265  -3400530.3774  -2442361.3834       298.3751           1319.1716       110.9427  10187491.1755        -7.8830        -6.5995
+
+WRITING EXTENDED SYSTEM TO OUTPUT FILE AT STEP 500
+WRITING COORDINATES TO OUTPUT FILE AT STEP 500
+The last position output (seq=-2) takes 0.015 seconds, 1730.629 MB of memory in use
+WRITING VELOCITIES TO OUTPUT FILE AT STEP 500
+The last velocity output (seq=-2) takes 0.015 seconds, 1730.629 MB of memory in use
+====================================================
+
+WallClock: 935.256653  CPUTime: 935.256653  Memory: 1730.628906 MB
+[MO833] Beta,0,0.055573
+[MO833] PI avg,0,1.772270,500
+[MO833] Total time,935.391975
+[Partition 0][Node 0] End of program
+[MO833] real,936.04
+[MO833] user,917.99
+[MO833] sys,17.37

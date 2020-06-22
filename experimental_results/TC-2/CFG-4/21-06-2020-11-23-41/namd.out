@@ -1,0 +1,456 @@
+--------------------------------------------------------------------------
+[[46219,1],0]: A high-performance Open MPI point-to-point messaging module
+was unable to find any relevant network interfaces:
+
+Module: OpenFabrics (openib)
+  Host: ip-172-31-84-172
+
+Another transport will be used instead, although this may result in
+lower performance.
+
+NOTE: You can disable this warning by setting the MCA parameter
+btl_base_warn_component_unused to 0.
+--------------------------------------------------------------------------
+Charm++> Running on MPI version: 3.1
+Charm++> level of thread support used: MPI_THREAD_SINGLE (desired: MPI_THREAD_SINGLE)
+Charm++> Running in non-SMP mode: 16 processes (PEs)
+Charm++> Using recursive bisection (scheme 3) for topology aware partitions
+Converse/Charm++ Commit ID: 69a1067b
+Warning> Randomization of virtual memory (ASLR) is turned on in the kernel, thread migration may not work! Run 'echo 0 > /proc/sys/kernel/randomize_va_space' as root to disable it, or try running with '+isomalloc_sync'.
+CharmLB> Load balancer assumes all CPUs are same.
+Charm++> Running on 16 hosts (1 sockets x 1 cores x 2 PUs = 2-way SMP)
+Charm++> cpu topology info is gathered in 0.002 seconds.
+Info: NAMD 2.14b1 for Linux-x86_64-MPI
+Info: 
+Info: Please visit http://www.ks.uiuc.edu/Research/namd/
+Info: for updates, documentation, and support information.
+Info: 
+Info: Please cite Phillips et al., J. Comp. Chem. 26:1781-1802 (2005)
+Info: in all publications reporting results obtained with NAMD.
+Info: 
+Info: Based on Charm++/Converse 61001 for mpi-linux-x86_64
+Info: Built Tue Jun 16 12:50:15 UTC 2020 by ubuntu on ip-172-31-89-142
+Info: 1 NAMD  2.14b1  Linux-x86_64-MPI  16    ip-172-31-84-172  ubuntu
+Info: Running on 16 processors, 16 nodes, 16 physical nodes.
+Info: CPU topology information available.
+Info: Charm++/Converse parallel runtime startup completed at 0.00450429 s
+Info: 342.855 MB of memory in use based on /proc/self/stat
+Info: Configuration file is ../tests/TC-2/TC-2.namd
+Info: Changed directory to ../tests/TC-2
+TCL: Suspending until startup complete.
+Info: EXTENDED SYSTEM FILE   f1wations-pme-nve-200ps.xsc
+Info: SIMULATION PARAMETERS:
+Info: TIMESTEP               1
+Info: NUMBER OF STEPS        500
+Info: STEPS PER CYCLE        20
+Info: PERIODIC CELL BASIS 1  178.299 0 0
+Info: PERIODIC CELL BASIS 2  0 131.542 0
+Info: PERIODIC CELL BASIS 3  0 0 132.362
+Info: PERIODIC CELL CENTER   90.344 73.992 68.909
+Info: LOAD BALANCER  Centralized
+Info: LOAD BALANCING STRATEGY  New Load Balancers -- DEFAULT
+Info: LDB PERIOD             4000 steps
+Info: FIRST LDB TIMESTEP     100
+Info: LAST LDB TIMESTEP     -1
+Info: LDB BACKGROUND SCALING 1
+Info: HOM BACKGROUND SCALING 1
+Info: PME BACKGROUND SCALING 1
+Info: MIN ATOMS PER PATCH    40
+Info: VELOCITY FILE          f1wations-pme-nve-200ps.vel
+Info: CENTER OF MASS MOVING INITIALLY? NO
+Info: DIELECTRIC             1
+Info: EXCLUDE                SCALED ONE-FOUR
+Info: 1-4 ELECTROSTATICS SCALED BY 1
+Info: MODIFIED 1-4 VDW PARAMETERS WILL BE USED
+Info: NO DCD TRAJECTORY OUTPUT
+Info: NO EXTENDED SYSTEM TRAJECTORY OUTPUT
+Info: NO VELOCITY DCD OUTPUT
+Info: NO FORCE DCD OUTPUT
+Info: OUTPUT FILENAME        output0
+Info: BINARY OUTPUT FILES WILL BE USED
+Info: NO RESTART FILE
+Info: SWITCHING ACTIVE
+Info: SWITCHING ON           9
+Info: SWITCHING OFF          11
+Info: PAIRLIST DISTANCE      13
+Info: PAIRLIST SHRINK RATE   0.01
+Info: PAIRLIST GROW RATE     0.01
+Info: PAIRLIST TRIGGER       0.3
+Info: PAIRLISTS PER CYCLE    2
+Info: PAIRLISTS ENABLED
+Info: MARGIN                 0
+Info: HYDROGEN GROUP CUTOFF  2.5
+Info: PATCH DIMENSION        15.5
+Info: CROSSTERM ENERGY INCLUDED IN DIHEDRAL
+Info: TIMING OUTPUT STEPS    20
+Info: FIXED ATOMS ACTIVE
+Info: PARTICLE MESH EWALD (PME) ACTIVE
+Info: PME TOLERANCE               1e-06
+Info: PME EWALD COEFFICIENT       0.282619
+Info: PME INTERPOLATION ORDER     4
+Info: PME GRID DIMENSIONS         192 144 144
+Info: PME MAXIMUM GRID SPACING    1.5
+Info: Attempting to read FFTW data from FFTW_NAMD_2.14b1_Linux-x86_64-MPI.txt
+Info: Optimizing 6 FFT steps.  1... 2... 3... 4... 5... 6...   Done.
+Info: Writing FFTW data to FFTW_NAMD_2.14b1_Linux-x86_64-MPI.txt
+Info: FULL ELECTROSTATIC EVALUATION FREQUENCY      4
+Info: USING VERLET I (r-RESPA) MTS SCHEME.
+Info: C1 SPLITTING OF LONG RANGE ELECTROSTATICS
+Info: PLACING ATOMS IN PATCHES BY HYDROGEN GROUPS
+Info: RANDOM NUMBER SEED     1592749434
+Info: USE HYDROGEN BONDS?    NO
+Info: COORDINATE PDB         f1wations_xplor.pdb
+Info: STRUCTURE FILE         f1wations_xplor.psf
+Info: PARAMETER file: CHARMM format! 
+Info: PARAMETERS             IONS27_par_all22_prot_na.inp
+Info: USING ARITHMETIC MEAN TO COMBINE L-J SIGMA PARAMETERS
+Info: BINARY COORDINATES     f1wations-pme-nve-200ps.coor
+Warning: DUPLICATE vdW ENTRY FOR CAL
+PREVIOUS VALUES  sigma=3.04687 epsilon=0.12 sigma14=3.04687 epsilon14=0.12
+   USING VALUES  sigma=2.43572 epsilon=0.12 sigma14=2.43572 epsilon14=0.12
+Info: SUMMARY OF PARAMETERS:
+Info: 218 BONDS
+Info: 540 ANGLES
+Info: 646 DIHEDRAL
+Info: 64 IMPROPER
+Info: 0 CROSSTERM
+Info: 101 VDW
+Info: 11 VDW_PAIRS
+Info: 0 NBTHOLE_PAIRS
+Warning: Ignored 91901 bonds with zero force constants.
+Warning: Will get H-H distance in rigid H2O from H-O-H angle.
+Info: TIME FOR READING PSF FILE: 2.17494
+Info: Reading pdb file f1wations_xplor.pdb
+Info: TIME FOR READING PDB FILE: 0.360761
+Info: 
+Info: ****************************
+Info: STRUCTURE SUMMARY:
+Info: 327506 ATOMS
+Info: 235571 BONDS
+Info: 185873 ANGLES
+Info: 136847 DIHEDRALS
+Info: 8450 IMPROPERS
+Info: 0 CROSSTERMS
+Info: 0 EXCLUSIONS
+Info: 3 FIXED ATOMS
+Info: 982509 DEGREES OF FREEDOM
+Info: 117769 HYDROGEN GROUPS
+Info: 4 ATOMS IN LARGEST HYDROGEN GROUP
+Info: 117769 MIGRATION GROUPS
+Info: 4 ATOMS IN LARGEST MIGRATION GROUP
+Info: 0 HYDROGEN GROUPS WITH ALL ATOMS FIXED
+Info: TOTAL MASS = 2.02957e+06 amu
+Info: TOTAL CHARGE = 4.0995e-05 e
+Info: MASS DENSITY = 1.08564 g/cm^3
+Info: ATOM DENSITY = 0.105498 atoms/A^3
+Info: *****************************
+Info: Reading from binary file f1wations-pme-nve-200ps.coor
+Info: 
+Info: Entering startup at 40.8371 s, 470.957 MB of memory in use
+Info: Startup phase 0 took 0.00124168 s, 470.957 MB of memory in use
+Info: ADDED 556748 IMPLICIT EXCLUSIONS
+Info: Startup phase 1 took 0.591798 s, 500.945 MB of memory in use
+Info: NONBONDED TABLE R-SQUARED SPACING: 0.0625
+Info: NONBONDED TABLE SIZE: 705 POINTS
+Info: INCONSISTENCY IN FAST TABLE ENERGY VS FORCE: 0.000290478 AT 0.251946
+Info: INCONSISTENCY IN SCOR TABLE ENERGY VS FORCE: 0.000151541 AT 10.9744
+Info: INCONSISTENCY IN VDWA TABLE ENERGY VS FORCE: 0.0040507 AT 0.251946
+Info: ABSOLUTE IMPRECISION IN VDWB TABLE ENERGY: 1.03398e-25 AT 10.9972
+Info: RELATIVE IMPRECISION IN VDWB TABLE ENERGY: 1.12007e-16 AT 10.9972
+Info: INCONSISTENCY IN VDWB TABLE ENERGY VS FORCE: 0.00150189 AT 0.251946
+Info: Startup phase 2 took 0.00117187 s, 500.945 MB of memory in use
+Info: Startup phase 3 took 0.000604674 s, 500.945 MB of memory in use
+Info: Startup phase 4 took 0.000933344 s, 500.945 MB of memory in use
+Info: Startup phase 5 took 0.000595032 s, 500.945 MB of memory in use
+Info: PATCH GRID IS 11 (PERIODIC) BY 8 (PERIODIC) BY 8 (PERIODIC)
+Info: PATCH GRID IS 1-AWAY BY 1-AWAY BY 1-AWAY
+Info: Reading from binary file f1wations-pme-nve-200ps.vel
+Info: REMOVING COM VELOCITY -2.00403e-05 -2.06614e-06 -6.70596e-06
+Info: LARGEST PATCH (327) HAS 527 ATOMS
+Info: TORUS A SIZE 16 USING 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+Info: TORUS B SIZE 1 USING 0
+Info: TORUS C SIZE 1 USING 0
+Info: TORUS MINIMAL MESH SIZE IS 16 BY 1 BY 1
+Info: Placed 100% of base nodes on same physical node as patch
+Info: Startup phase 6 took 0.0760745 s, 565.398 MB of memory in use
+Info: PME using 16 and 16 processors for FFT and reciprocal sum.
+Info: PME GRID LOCATIONS: 0 1 2 3 4 5 6 7 8 9 ...
+Info: PME TRANS LOCATIONS: 0 1 2 3 4 5 6 7 8 9 ...
+Info: PME USING 16 GRID NODES AND 16 TRANS NODES
+Info: Optimizing 4 FFT steps.  1... 2... 3... 4...   Done.
+Info: Startup phase 7 took 0.00634994 s, 565.398 MB of memory in use
+Info: Startup phase 8 took 0.000595027 s, 565.398 MB of memory in use
+Info: Startup phase 9 took 0.0240922 s, 565.398 MB of memory in use
+Info: Startup phase 10 took 0.000609038 s, 565.398 MB of memory in use
+Info: Startup phase 11 took 0.031414 s, 565.398 MB of memory in use
+LDB: Central LB being created...
+Info: Startup phase 12 took 0.00424232 s, 565.398 MB of memory in use
+Info: CREATING 14160 COMPUTE OBJECTS
+Info: Startup phase 13 took 0.00401688 s, 565.398 MB of memory in use
+Info: useSync: 0 useProxySync: 0
+Info: Startup phase 14 took 0.000672668 s, 565.398 MB of memory in use
+Info: Startup phase 15 took 0.000112641 s, 565.398 MB of memory in use
+Info: Finished startup at 41.5816 s, 565.398 MB of memory in use
+
+[9] Stack Traceback:
+[11] Stack Traceback:
+  [9:0] namd2 0x561fbad93f6b 
+  [9:1] libpthread.so.0 0x7ff113b57890 
+  [9:2] libc.so.6 0x7ff11271ae97 gsignal
+  [9:3] libc.so.6 0x7ff11271c801 abort
+  [9:4] libc.so.6 0x7ff112765897 
+[4] Stack Traceback:
+  [9:5] libc.so.6 0x7ff11276c90a 
+  [9:6] libc.so.6 0x7ff112773e1c cfree
+  [9:7] libopen-pal.so.20 0x7ff1121f0519 opal_argv_free
+  [9:8] mca_btl_tcp.so 0x7ff101ceb2e4 mca_btl_tcp_proc_insert
+  [9:9] mca_btl_tcp.so 0x7ff101ce3ba0 mca_btl_tcp_add_procs
+  [9:10] mca_bml_r2.so 0x7ff1020fbcce 
+  [9:11] mca_pml_ob1.so 0x7ff101ac5082 mca_pml_ob1_isend
+  [11:0] namd2 0x55edac2a9f6b 
+  [11:1] libpthread.so.0 0x7f14fb274890 
+  [9:12] libmpi.so.20 0x7ff1130d7c35 MPI_Isend
+  [4:0] namd2 0x563eb40ecf6b 
+  [4:1] libpthread.so.0 0x7f484a5e4890 
+  [11:2] namd2 0x55edac2a6a10 CthSuspend
+  [9:13] namd2 0x561fbad9276e 
+  [4:2] namd2 0x563eb40e9a10 CthSuspend
+  [11:3] namd2 0x55edabf7d8e9 Sequencer::suspend()
+  [9:14] namd2 0x561fbad928c3 CmiInterSendNetworkFunc(int, int, int, char*, int)
+  [4:3] namd2 0x563eb3dc08e9 Sequencer::suspend()
+  [11:4] namd2 0x55edabe72102 HomePatch::doAtomMigration()
+  [9:15] namd2 0x561fbacbb289 _skipCldEnqueue(int, envelope*, int)
+  [4:4] namd2 0x563eb3cb5102 HomePatch::doAtomMigration()
+  [11:5] namd2 0x55edabe7ed1f HomePatch::positionsReady(int)
+  [4:5] namd2 0x563eb3cc1d1f HomePatch::positionsReady(int)
+  [11:6] namd2 0x55edabf87114 Sequencer::runComputeObjects(int, int, int)
+  [9:16] namd2 0x561fbacbb446 CkSendMsgBranch
+  [4:6] namd2 0x563eb3dca114 Sequencer::runComputeObjects(int, int, int)
+  [9:17] namd2 0x561fba9fb598 PatchMgr::sendMigrationMsgs(int, MigrationInfo*, int)
+  [11:7] namd2 0x55edabf8bb7e Sequencer::integrate(int)
+  [4:7] namd2 0x563eb3dceb7e Sequencer::integrate(int)
+  [9:18] namd2 0x561fba95c06f HomePatch::doAtomMigration()
+  [11:8] namd2 0x55edabf8c248 Sequencer::algorithm()
+  [9:19] namd2 0x561fba968d1f HomePatch::positionsReady(int)
+  [4:8] namd2 0x563eb3dcf248 Sequencer::algorithm()
+  [11:9] namd2 0x55edac2a6ae5 CthStartThread
+  [9:20] namd2 0x561fbaa71114 Sequencer::runComputeObjects(int, int, int)
+  [4:9] namd2 0x563eb40e9ae5 CthStartThread
+  [11:10] namd2 0x55edac2a6d8f make_fcontext
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 11 in communicator MPI COMMUNICATOR 3 DUP FROM 0
+with errorcode 1.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
+  [9:21] namd2 0x561fbaa75b7e Sequencer::integrate(int)
+  [4:10] namd2 0x563eb40e9d8f make_fcontext
+  [9:22] namd2 0x561fbaa76248 Sequencer::algorithm()
+  [9:23] namd2 0x561fbad90ae5 CthStartThread
+[0] Stack Traceback:
+  [0:0] namd2 0x5639e833bf6b 
+  [0:1] libpthread.so.0 0x7f28cc944890 
+  [0:2] libc.so.6 0x7f28cb5ddbf9 __poll
+  [0:3] libopen-pal.so.20 0x7f28caffd403 
+  [0:4] libopen-pal.so.20 0x7f28caff460b opal_libevent2022_event_base_loop
+  [0:5] libopen-pal.so.20 0x7f28cafb5a71 opal_progress
+  [0:6] mca_pml_ob1.so 0x7f28ba906903 mca_pml_ob1_iprobe
+  [0:7] libmpi.so.20 0x7f28cbec431a PMPI_Iprobe
+  [0:8] namd2 0x5639e833a5a9 
+  [0:9] namd2 0x5639e833af37 CmiGetNonLocal
+  [0:10] namd2 0x5639e833ce4d CsdNextMessage
+  [0:11] namd2 0x5639e833cf06 CsdScheduleForever
+  [0:12] namd2 0x5639e833d17d CsdScheduler
+  [0:13] namd2 0x5639e800d168 ScriptTcl::run()
+  [0:14] namd2 0x5639e7af9058 after_backend_init(int, char**)
+  [0:15] namd2 0x5639e7a79092 main
+  [0:16] libc.so.6 0x7f28cb4eab97 __libc_start_main
+  [0:17] namd2 0x5639e7a7c30a _start
+--------------------------------------------------------------------------
+An MPI communication peer process has unexpectedly disconnected.  This
+usually indicates a failure in the peer process (e.g., a crash or
+otherwise exiting without calling MPI_FINALIZE first).
+
+Although this local MPI process will likely now behave unpredictably
+(it may even hang or crash), the root cause of this problem is the
+failure of the peer -- that is what you need to investigate.  For
+example, there may be a core file that you can examine.  More
+generally: such peer hangups are frequently caused by application bugs
+or other external events.
+
+  Local host: ip-172-31-81-184
+  Local PID:  10490
+  Peer host:  ip-172-31-93-15
+--------------------------------------------------------------------------
+  [9:24] namd2 0x561fbad90d8f make_fcontext
+[2] Stack Traceback:
+  [2:0] namd2 0x557bb15b7f6b 
+  [2:1] libpthread.so.0 0x7f28c0938890 
+  [2:2] libc.so.6 0x7f28bf5d1bf9 __poll
+  [2:3] libopen-pal.so.20 0x7f28beff1403 
+  [2:4] libopen-pal.so.20 0x7f28befe860b opal_libevent2022_event_base_loop
+  [2:5] libopen-pal.so.20 0x7f28befa9a71 opal_progress
+  [2:6] mca_pml_ob1.so 0x7f28ae906903 mca_pml_ob1_iprobe
+  [2:7] libmpi.so.20 0x7f28bfeb831a PMPI_Iprobe
+  [2:8] namd2 0x557bb15b65a9 
+  [2:9] namd2 0x557bb15b6f37 CmiGetNonLocal
+  [2:10] namd2 0x557bb15b8e4d CsdNextMessage
+  [2:11] namd2 0x557bb15b8f06 CsdScheduleForever
+  [2:12] namd2 0x557bb15b917d CsdScheduler
+  [2:13] namd2 0x557bb0d78bb5 master_init(int, char**)
+  [2:14] namd2 0x557bb0cf5088 main
+  [2:15] libc.so.6 0x7f28bf4deb97 __libc_start_main
+  [2:16] namd2 0x557bb0cf830a _start
+[15] Stack Traceback:
+  [15:0] namd2 0x563c1765ef6b 
+  [15:1] libpthread.so.0 0x7f1ad12fa890 
+  [15:2] libc.so.6 0x7f1acff93bf9 __poll
+  [15:3] libopen-pal.so.20 0x7f1acf9b3403 
+  [15:4] libopen-pal.so.20 0x7f1acf9aa60b opal_libevent2022_event_base_loop
+  [15:5] libopen-pal.so.20 0x7f1acf96ba71 opal_progress
+  [15:6] libmpi.so.20 0x7f1ad085665a ompi_request_default_test
+  [15:7] libmpi.so.20 0x7f1ad0888abb PMPI_Test
+  [15:8] namd2 0x563c1765d2a0 
+  [15:9] namd2 0x563c1765de79 LrtsAdvanceCommunication(int)
+  [15:10] namd2 0x563c1765de9e 
+  [15:11] namd2 0x563c176638e6 CcdRaiseCondition
+  [15:12] namd2 0x563c1765ff95 CsdScheduleForever
+  [15:13] namd2 0x563c1766017d CsdScheduler
+  [15:14] namd2 0x563c16e1fbb5 master_init(int, char**)
+  [15:15] namd2 0x563c16d9c088 main
+  [15:16] libc.so.6 0x7f1acfea0b97 __libc_start_main
+  [15:17] namd2 0x563c16d9f30a _start
+[14] Stack Traceback:
+  [14:0] namd2 0x55c4d497af6b 
+  [14:1] libpthread.so.0 0x7fe7dd46c890 
+  [14:2] libc.so.6 0x7fe7dc105bf9 __poll
+  [14:3] libopen-pal.so.20 0x7fe7dbb25403 
+  [14:4] libopen-pal.so.20 0x7fe7dbb1c60b opal_libevent2022_event_base_loop
+  [14:5] libopen-pal.so.20 0x7fe7dbadda71 opal_progress
+  [14:6] mca_pml_ob1.so 0x7fe7cb3b9903 mca_pml_ob1_iprobe
+  [14:7] libmpi.so.20 0x7fe7dc9ec31a PMPI_Iprobe
+  [14:8] namd2 0x55c4d49795a9 
+  [14:9] namd2 0x55c4d4979f37 CmiGetNonLocal
+  [14:10] namd2 0x55c4d497be4d CsdNextMessage
+  [14:11] namd2 0x55c4d497bf06 CsdScheduleForever
+  [14:12] namd2 0x55c4d497c17d CsdScheduler
+  [14:13] namd2 0x55c4d413bbb5 master_init(int, char**)
+  [14:14] namd2 0x55c4d40b8088 main
+  [14:15] libc.so.6 0x7fe7dc012b97 __libc_start_main
+  [14:16] namd2 0x55c4d40bb30a _start
+[13] Stack Traceback:
+  [13:0] namd2 0x55c3ca980f6b 
+  [13:1] libpthread.so.0 0x7f839a043890 
+  [13:2] libc.so.6 0x7f8398cdcbf9 __poll
+  [13:3] libopen-pal.so.20 0x7f83986fc403 
+  [13:4] libopen-pal.so.20 0x7f83986f360b opal_libevent2022_event_base_loop
+  [13:5] libopen-pal.so.20 0x7f83986b4a71 opal_progress
+  [13:6] libmpi.so.20 0x7f839959f65a ompi_request_default_test
+  [13:7] libmpi.so.20 0x7f83995d1abb PMPI_Test
+  [13:8] namd2 0x55c3ca97f2a0 
+  [13:9] namd2 0x55c3ca97fe79 LrtsAdvanceCommunication(int)
+  [13:10] namd2 0x55c3ca97ff37 CmiGetNonLocal
+  [13:11] namd2 0x55c3ca981e4d CsdNextMessage
+  [13:12] namd2 0x55c3ca981f06 CsdScheduleForever
+  [13:13] namd2 0x55c3ca98217d CsdScheduler
+  [13:14] namd2 0x55c3ca141bb5 master_init(int, char**)
+  [13:15] namd2 0x55c3ca0be088 main
+  [13:16] libc.so.6 0x7f8398be9b97 __libc_start_main
+  [13:17] namd2 0x55c3ca0c130a _start
+[8] Stack Traceback:
+  [8:0] namd2 0x55f366f7af6b 
+  [8:1] libpthread.so.0 0x7fe99b362890 
+  [8:2] libc.so.6 0x7fe999ffbbf9 __poll
+  [8:3] libopen-pal.so.20 0x7fe999a1b403 
+  [8:4] libopen-pal.so.20 0x7fe999a1260b opal_libevent2022_event_base_loop
+  [8:5] libopen-pal.so.20 0x7fe9999d3a71 opal_progress
+  [8:6] libmpi.so.20 0x7fe99a8be65a ompi_request_default_test
+  [8:7] libmpi.so.20 0x7fe99a8f0abb PMPI_Test
+  [8:8] namd2 0x55f366f792a0 
+  [8:9] namd2 0x55f366f79e79 LrtsAdvanceCommunication(int)
+  [8:10] namd2 0x55f366f79f37 CmiGetNonLocal
+  [8:11] namd2 0x55f366f7be4d CsdNextMessage
+  [8:12] namd2 0x55f366f7bf06 CsdScheduleForever
+  [8:13] namd2 0x55f366f7c17d CsdScheduler
+  [8:14] namd2 0x55f36673bbb5 master_init(int, char**)
+  [8:15] namd2 0x55f3666b8088 main
+  [8:16] libc.so.6 0x7fe999f08b97 __libc_start_main
+  [8:17] namd2 0x55f3666bb30a _start
+[1] Stack Traceback:
+  [1:0] namd2 0x55ec80720f6b 
+  [1:1] libpthread.so.0 0x7f289fb79890 
+  [1:2] libc.so.6 0x7f289e812bf9 __poll
+  [1:3] libopen-pal.so.20 0x7f289e232403 
+  [1:4] libopen-pal.so.20 0x7f289e22960b opal_libevent2022_event_base_loop
+  [1:5] libopen-pal.so.20 0x7f289e1eaa71 opal_progress
+  [1:6] libmpi.so.20 0x7f289f0d565a ompi_request_default_test
+  [1:7] libmpi.so.20 0x7f289f107abb PMPI_Test
+  [1:8] namd2 0x55ec8071f2a0 
+  [1:9] namd2 0x55ec8071fe79 LrtsAdvanceCommunication(int)
+  [1:10] namd2 0x55ec8071ff37 CmiGetNonLocal
+  [1:11] namd2 0x55ec80721e4d CsdNextMessage
+  [1:12] namd2 0x55ec80721f06 CsdScheduleForever
+  [1:13] namd2 0x55ec8072217d CsdScheduler
+  [1:14] namd2 0x55ec7fee1bb5 master_init(int, char**)
+  [1:15] namd2 0x55ec7fe5e088 main
+  [1:16] libc.so.6 0x7f289e71fb97 __libc_start_main
+  [1:17] namd2 0x55ec7fe6130a _start
+[12] Stack Traceback:
+  [12:0] namd2 0x5616e606ff6b 
+  [12:1] libpthread.so.0 0x7f9f0a300890 
+  [12:2] libc.so.6 0x7f9f08f99bf9 __poll
+  [12:3] libopen-pal.so.20 0x7f9f089b9403 
+  [12:4] libopen-pal.so.20 0x7f9f089b060b opal_libevent2022_event_base_loop
+  [12:5] libopen-pal.so.20 0x7f9f08971a71 opal_progress
+  [12:6] libmpi.so.20 0x7f9f0985c65a ompi_request_default_test
+  [12:7] libmpi.so.20 0x7f9f0988eabb PMPI_Test
+  [12:8] namd2 0x5616e606e2a0 
+  [12:9] namd2 0x5616e606ee79 LrtsAdvanceCommunication(int)
+  [12:10] namd2 0x5616e606ee9e 
+  [12:11] namd2 0x5616e60748e6 CcdRaiseCondition
+  [12:12] namd2 0x5616e6070f95 CsdScheduleForever
+  [12:13] namd2 0x5616e607117d CsdScheduler
+  [12:14] namd2 0x5616e5830bb5 master_init(int, char**)
+  [12:15] namd2 0x5616e57ad088 main
+  [12:16] libc.so.6 0x7f9f08ea6b97 __libc_start_main
+  [12:17] namd2 0x5616e57b030a _start
+[10] Stack Traceback:
+  [10:0] namd2 0x55cb82f4cf6b 
+  [10:1] libpthread.so.0 0x7f264bb12890 
+  [10:2] libc.so.6 0x7f264a7abbf9 __poll
+  [10:3] libopen-pal.so.20 0x7f264a1cb403 
+  [10:4] libopen-pal.so.20 0x7f264a1c260b opal_libevent2022_event_base_loop
+  [10:5] libopen-pal.so.20 0x7f264a183a71 opal_progress
+  [10:6] libmpi.so.20 0x7f264b06e65a ompi_request_default_test
+  [10:7] libmpi.so.20 0x7f264b0a0abb PMPI_Test
+  [10:8] namd2 0x55cb82f4b2a0 
+  [10:9] namd2 0x55cb82f4be79 LrtsAdvanceCommunication(int)
+  [10:10] namd2 0x55cb82f4be9e 
+  [10:11] namd2 0x55cb82f518e6 CcdRaiseCondition
+  [10:12] namd2 0x55cb82f4df95 CsdScheduleForever
+  [10:13] namd2 0x55cb82f4e17d CsdScheduler
+  [10:14] namd2 0x55cb8270dbb5 master_init(int, char**)
+  [10:15] namd2 0x55cb8268a088 main
+  [10:16] libc.so.6 0x7f264a6b8b97 __libc_start_main
+  [10:17] namd2 0x55cb8268d30a _start
+[3] Stack Traceback:
+  [3:0] namd2 0x555f39d1bf6b 
+  [3:1] libpthread.so.0 0x7f996aed8890 
+  [3:2] libc.so.6 0x7f9969b71bf9 __poll
+  [3:3] libopen-pal.so.20 0x7f9969591403 
+  [3:4] libopen-pal.so.20 0x7f996958860b opal_libevent2022_event_base_loop
+  [3:5] libopen-pal.so.20 0x7f9969549a71 opal_progress
+  [3:6] libmpi.so.20 0x7f996a43465a ompi_request_default_test
+  [3:7] libmpi.so.20 0x7f996a466abb PMPI_Test
+  [3:8] namd2 0x555f39d1a2a0 
+  [3:9] namd2 0x555f39d1ae79 LrtsAdvanceCommunication(int)
+  [3:10] namd2 0x555f39d1af37 CmiGetNonLocal
+  [3:11] namd2 0x555f39d1ce4d CsdNextMessage
+  [3:12] namd2 0x555f39d1cf06 CsdScheduleForever
+  [3:13] namd2 0x555f39d1d17d CsdScheduler
+  [3:14] namd2 0x555f394dcbb5 master_init(int, char**)
+  [3:15] namd2 0x555f39459088 main
+  [3:16] libc.so.6 0x7f9969a7eb97 __libc_start_main
+  [3:17] namd2 0x555f3945c30a _start

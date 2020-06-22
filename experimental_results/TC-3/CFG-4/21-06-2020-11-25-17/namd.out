@@ -1,0 +1,354 @@
+--------------------------------------------------------------------------
+[[45762,1],0]: A high-performance Open MPI point-to-point messaging module
+was unable to find any relevant network interfaces:
+
+Module: OpenFabrics (openib)
+  Host: ip-172-31-84-172
+
+Another transport will be used instead, although this may result in
+lower performance.
+
+NOTE: You can disable this warning by setting the MCA parameter
+btl_base_warn_component_unused to 0.
+--------------------------------------------------------------------------
+Charm++> Running on MPI version: 3.1
+Charm++> level of thread support used: MPI_THREAD_SINGLE (desired: MPI_THREAD_SINGLE)
+Charm++> Running in non-SMP mode: 16 processes (PEs)
+Charm++> Using recursive bisection (scheme 3) for topology aware partitions
+Converse/Charm++ Commit ID: 69a1067b
+Warning> Randomization of virtual memory (ASLR) is turned on in the kernel, thread migration may not work! Run 'echo 0 > /proc/sys/kernel/randomize_va_space' as root to disable it, or try running with '+isomalloc_sync'.
+CharmLB> Load balancer assumes all CPUs are same.
+Charm++> Running on 16 hosts (1 sockets x 1 cores x 2 PUs = 2-way SMP)
+Charm++> cpu topology info is gathered in 0.002 seconds.
+Info: NAMD 2.14b1 for Linux-x86_64-MPI
+Info: 
+Info: Please visit http://www.ks.uiuc.edu/Research/namd/
+Info: for updates, documentation, and support information.
+Info: 
+Info: Please cite Phillips et al., J. Comp. Chem. 26:1781-1802 (2005)
+Info: in all publications reporting results obtained with NAMD.
+Info: 
+Info: Based on Charm++/Converse 61001 for mpi-linux-x86_64
+Info: Built Tue Jun 16 12:50:15 UTC 2020 by ubuntu on ip-172-31-89-142
+Info: 1 NAMD  2.14b1  Linux-x86_64-MPI  16    ip-172-31-84-172  ubuntu
+Info: Running on 16 processors, 16 nodes, 16 physical nodes.
+Info: CPU topology information available.
+Info: Charm++/Converse parallel runtime startup completed at 0.00447243 s
+Info: 342.852 MB of memory in use based on /proc/self/stat
+Info: Configuration file is ../tests/TC-3/TC-3.namd
+Info: Changed directory to ../tests/TC-3
+TCL: Suspending until startup complete.
+Info: SIMULATION PARAMETERS:
+Info: TIMESTEP               1
+Info: NUMBER OF STEPS        500
+Info: STEPS PER CYCLE        20
+Info: PERIODIC CELL BASIS 1  216.832 0 0
+Info: PERIODIC CELL BASIS 2  0 216.832 0
+Info: PERIODIC CELL BASIS 3  0 0 216.832
+Info: PERIODIC CELL CENTER   0 0 0
+Info: LOAD BALANCER  Centralized
+Info: LOAD BALANCING STRATEGY  New Load Balancers -- DEFAULT
+Info: LDB PERIOD             4000 steps
+Info: FIRST LDB TIMESTEP     100
+Info: LAST LDB TIMESTEP     -1
+Info: LDB BACKGROUND SCALING 1
+Info: HOM BACKGROUND SCALING 1
+Info: PME BACKGROUND SCALING 1
+Info: MIN ATOMS PER PATCH    40
+Info: INITIAL TEMPERATURE    298
+Info: CENTER OF MASS MOVING INITIALLY? NO
+Info: DIELECTRIC             1
+Info: EXCLUDE                SCALED ONE-FOUR
+Info: 1-4 ELECTROSTATICS SCALED BY 1
+Info: MODIFIED 1-4 VDW PARAMETERS WILL BE USED
+Info: NO DCD TRAJECTORY OUTPUT
+Info: NO EXTENDED SYSTEM TRAJECTORY OUTPUT
+Info: NO VELOCITY DCD OUTPUT
+Info: NO FORCE DCD OUTPUT
+Info: OUTPUT FILENAME        output0
+Info: BINARY OUTPUT FILES WILL BE USED
+Info: NO RESTART FILE
+Info: SWITCHING ACTIVE
+Info: SWITCHING ON           10
+Info: SWITCHING OFF          12
+Info: PAIRLIST DISTANCE      13.5
+Info: PAIRLIST SHRINK RATE   0.01
+Info: PAIRLIST GROW RATE     0.01
+Info: PAIRLIST TRIGGER       0.3
+Info: PAIRLISTS PER CYCLE    2
+Info: PAIRLISTS ENABLED
+Info: MARGIN                 0.48
+Info: HYDROGEN GROUP CUTOFF  2.5
+Info: PATCH DIMENSION        16.48
+Info: ENERGY OUTPUT STEPS    20
+Info: CROSSTERM ENERGY INCLUDED IN DIHEDRAL
+Info: TIMING OUTPUT STEPS    20
+Info: LANGEVIN DYNAMICS ACTIVE
+Info: LANGEVIN TEMPERATURE   298
+Info: LANGEVIN USING BBK INTEGRATOR
+Info: LANGEVIN DAMPING COEFFICIENT IS 5 INVERSE PS
+Info: LANGEVIN DYNAMICS NOT APPLIED TO HYDROGENS
+Info: LANGEVIN PISTON PRESSURE CONTROL ACTIVE
+Info:        TARGET PRESSURE IS 1.01325 BAR
+Info:     OSCILLATION PERIOD IS 100 FS
+Info:             DECAY TIME IS 50 FS
+Info:     PISTON TEMPERATURE IS 298 K
+Info:       PRESSURE CONTROL IS GROUP-BASED
+Info:    INITIAL STRAIN RATE IS 0 0 0
+Info:       CELL FLUCTUATION IS ISOTROPIC
+Info: PARTICLE MESH EWALD (PME) ACTIVE
+Info: PME TOLERANCE               1e-06
+Info: PME EWALD COEFFICIENT       0.257952
+Info: PME INTERPOLATION ORDER     4
+Info: PME GRID DIMENSIONS         216 216 216
+Info: PME MAXIMUM GRID SPACING    1.5
+Info: Attempting to read FFTW data from FFTW_NAMD_2.14b1_Linux-x86_64-MPI.txt
+Info: Optimizing 6 FFT steps.  1... 2... 3... 4... 5... 6...   Done.
+Info: Writing FFTW data to FFTW_NAMD_2.14b1_Linux-x86_64-MPI.txt
+Info: FULL ELECTROSTATIC EVALUATION FREQUENCY      4
+Info: USING VERLET I (r-RESPA) MTS SCHEME.
+Info: C1 SPLITTING OF LONG RANGE ELECTROSTATICS
+Info: PLACING ATOMS IN PATCHES BY HYDROGEN GROUPS
+Info: RANDOM NUMBER SEED     1592749530
+Info: USE HYDROGEN BONDS?    NO
+Info: COORDINATE PDB         stmv.pdb
+Info: STRUCTURE FILE         stmv.psf
+Info: PARAMETER file: CHARMM format! 
+Info: PARAMETERS             par_all27_prot_na.inp
+Info: USING ARITHMETIC MEAN TO COMBINE L-J SIGMA PARAMETERS
+Info: SUMMARY OF PARAMETERS:
+Info: 250 BONDS
+Info: 622 ANGLES
+Info: 1049 DIHEDRAL
+Info: 73 IMPROPER
+Info: 0 CROSSTERM
+Info: 130 VDW
+Info: 0 VDW_PAIRS
+Info: 0 NBTHOLE_PAIRS
+Info: TIME FOR READING PSF FILE: 7.69214
+Info: Reading pdb file stmv.pdb
+Info: TIME FOR READING PDB FILE: 1.18346
+Info: 
+Info: ****************************
+Info: STRUCTURE SUMMARY:
+Info: 1066628 ATOMS
+Info: 769956 BONDS
+Info: 605872 ANGLES
+Info: 450875 DIHEDRALS
+Info: 24578 IMPROPERS
+Info: 0 CROSSTERMS
+Info: 0 EXCLUSIONS
+Info: 3199884 DEGREES OF FREEDOM
+Info: 389067 HYDROGEN GROUPS
+Info: 4 ATOMS IN LARGEST HYDROGEN GROUP
+Info: 389067 MIGRATION GROUPS
+Info: 4 ATOMS IN LARGEST MIGRATION GROUP
+Info: TOTAL MASS = 6.69877e+06 amu
+Info: TOTAL CHARGE = 0.000168104 e
+Info: MASS DENSITY = 1.09115 g/cm^3
+Info: ATOM DENSITY = 0.104627 atoms/A^3
+Info: *****************************
+Info: 
+Info: Entering startup at 56.0108 s, 624.688 MB of memory in use
+Info: Startup phase 0 took 0.00116247 s, 624.688 MB of memory in use
+Info: ADDED 1810196 IMPLICIT EXCLUSIONS
+Info: Startup phase 1 took 0.936699 s, 836.434 MB of memory in use
+Info: NONBONDED TABLE R-SQUARED SPACING: 0.0625
+Info: NONBONDED TABLE SIZE: 769 POINTS
+Info: INCONSISTENCY IN FAST TABLE ENERGY VS FORCE: 0.000325096 AT 11.9556
+Info: INCONSISTENCY IN SCOR TABLE ENERGY VS FORCE: 0.000324844 AT 11.9556
+Info: INCONSISTENCY IN VDWA TABLE ENERGY VS FORCE: 0.0040507 AT 0.251946
+Info: INCONSISTENCY IN VDWB TABLE ENERGY VS FORCE: 0.00150189 AT 0.251946
+Info: Startup phase 2 took 0.00133598 s, 836.434 MB of memory in use
+Info: Startup phase 3 took 0.000610353 s, 836.434 MB of memory in use
+Info: Startup phase 4 took 0.00474479 s, 836.434 MB of memory in use
+Info: Startup phase 5 took 0.000595594 s, 836.434 MB of memory in use
+Info: PATCH GRID IS 13 (PERIODIC) BY 13 (PERIODIC) BY 13 (PERIODIC)
+Info: PATCH GRID IS 1-AWAY BY 1-AWAY BY 1-AWAY
+Info: REMOVING COM VELOCITY -0.000294312 0.00711377 0.00730286
+Info: LARGEST PATCH (1044) HAS 541 ATOMS
+Info: TORUS A SIZE 16 USING 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
+Info: TORUS B SIZE 1 USING 0
+Info: TORUS C SIZE 1 USING 0
+Info: TORUS MINIMAL MESH SIZE IS 16 BY 1 BY 1
+Info: Placed 100% of base nodes on same physical node as patch
+Info: Startup phase 6 took 0.343453 s, 1005.78 MB of memory in use
+Info: PME using 16 and 16 processors for FFT and reciprocal sum.
+Info: PME GRID LOCATIONS: 0 1 2 3 4 5 6 7 8 9 ...
+Info: PME TRANS LOCATIONS: 0 1 2 3 4 5 6 7 8 9 ...
+Info: PME USING 16 GRID NODES AND 16 TRANS NODES
+Info: Optimizing 4 FFT steps.  1... 2... 3... 4...   Done.
+Info: Startup phase 7 took 0.00956082 s, 1007.16 MB of memory in use
+Info: Startup phase 8 took 0.000618001 s, 1007.16 MB of memory in use
+Info: Startup phase 9 took 0.0734691 s, 1007.5 MB of memory in use
+Info: Startup phase 10 took 0.000626876 s, 1007.5 MB of memory in use
+Info: Startup phase 11 took 0.0988044 s, 1015.55 MB of memory in use
+LDB: Central LB being created...
+Info: Startup phase 12 took 0.00472042 s, 1015.55 MB of memory in use
+Info: CREATING 44020 COMPUTE OBJECTS
+Info: Startup phase 13 took 0.0111472 s, 1015.55 MB of memory in use
+Info: useSync: 0 useProxySync: 0
+Info: Startup phase 14 took 0.000673295 s, 1015.55 MB of memory in use
+Info: Startup phase 15 took 0.000174756 s, 1015.55 MB of memory in use
+Info: Finished startup at 57.4992 s, 1015.55 MB of memory in use
+
+[1] Stack Traceback:
+[10] Stack Traceback:
+[14] Stack Traceback:
+[5] Stack Traceback:
+[4] Stack Traceback:
+  [1:0] namd2 0x557769d65f6b 
+  [1:1] libpthread.so.0 0x7fe85ce47890 
+  [10:0] namd2 0x56193bb0ff6b 
+  [10:1] libpthread.so.0 0x7fbd838cf890 
+[12] Stack Traceback:
+[3] Stack Traceback:
+[2] Stack Traceback:
+  [14:0] namd2 0x55989e51cf6b 
+  [14:1] libpthread.so.0 0x7f7cb386c890 
+  [12:0] namd2 0x5587bddd4f6b 
+  [12:1] libpthread.so.0 0x7f14a72f9890 
+  [5:0] namd2 0x556b58478f6b 
+  [5:1] libpthread.so.0 0x7faed13f7890 
+  [4:0] namd2 0x555ad1b7df6b 
+  [4:1] libpthread.so.0 0x7f6311840890 
+  [3:0] namd2 0x5571544cbf6b 
+[6] Stack Traceback:
+  [2:0] namd2 0x55b7496c2f6b 
+  [2:1] libpthread.so.0 0x7f521a5f1890 
+  [1:2] namd2 0x557769d62a10 CthSuspend
+[13] Stack Traceback:
+  [10:2] namd2 0x56193bb0ca10 CthSuspend
+  [14:2] namd2 0x55989e519a10 CthSuspend
+[7] Stack Traceback:
+  [5:2] namd2 0x556b58475a10 CthSuspend
+[9] Stack Traceback:
+  [4:2] namd2 0x555ad1b7aa10 CthSuspend
+  [3:1] libpthread.so.0 0x7f78a569e890 
+  [6:0] namd2 0x55e4b6a27f6b 
+  [1:3] namd2 0x557769a398e9 Sequencer::suspend()
+  [13:0] namd2 0x55778f850f6b 
+  [13:1] libpthread.so.0 0x7f6da2d15890 
+  [10:3] namd2 0x56193b7e38e9 Sequencer::suspend()
+  [7:0] namd2 0x5620c7ca0f6b 
+  [7:1] libpthread.so.0 0x7fb8dd565890 
+  [12:2] namd2 0x5587bddd1a10 CthSuspend
+  [5:3] namd2 0x556b5814c8e9 Sequencer::suspend()
+  [9:0] namd2 0x563619488f6b 
+  [9:1] libpthread.so.0 0x7f69c8c69890 
+  [4:3] namd2 0x555ad18518e9 Sequencer::suspend()
+  [3:2] namd2 0x5571544c8a10 CthSuspend
+  [6:1] libpthread.so.0 0x7fe025fca890 
+  [2:2] namd2 0x55b7496bfa10 CthSuspend
+  [1:4] namd2 0x55776992e102 HomePatch::doAtomMigration()
+  [13:2] namd2 0x55778f84da10 CthSuspend
+  [10:4] namd2 0x56193b6d8102 HomePatch::doAtomMigration()
+  [14:3] namd2 0x55989e1f08e9 Sequencer::suspend()
+  [7:2] namd2 0x5620c7c9da10 CthSuspend
+  [12:3] namd2 0x5587bdaa88e9 Sequencer::suspend()
+  [5:4] namd2 0x556b58041102 HomePatch::doAtomMigration()
+  [9:2] namd2 0x563619485a10 CthSuspend
+  [4:4] namd2 0x555ad1746102 HomePatch::doAtomMigration()
+  [6:2] namd2 0x55e4b6a24a10 CthSuspend
+  [2:3] namd2 0x55b7493968e9 Sequencer::suspend()
+  [1:5] namd2 0x55776993ad1f HomePatch::positionsReady(int)
+  [13:3] namd2 0x55778f5248e9 Sequencer::suspend()
+  [10:5] namd2 0x56193b6e4d1f HomePatch::positionsReady(int)
+  [14:4] namd2 0x55989e0e5102 HomePatch::doAtomMigration()
+  [7:3] namd2 0x5620c79748e9 Sequencer::suspend()
+  [12:4] namd2 0x5587bd99d102 HomePatch::doAtomMigration()
+  [5:5] namd2 0x556b5804dd1f HomePatch::positionsReady(int)
+  [9:3] namd2 0x56361915c8e9 Sequencer::suspend()
+  [4:5] namd2 0x555ad1752d1f HomePatch::positionsReady(int)
+  [6:3] namd2 0x55e4b66fb8e9 Sequencer::suspend()
+  [2:4] namd2 0x55b74928b102 HomePatch::doAtomMigration()
+  [1:6] namd2 0x557769a43114 Sequencer::runComputeObjects(int, int, int)
+  [13:4] namd2 0x55778f419102 HomePatch::doAtomMigration()
+  [10:6] namd2 0x56193b7ed114 Sequencer::runComputeObjects(int, int, int)
+  [14:5] namd2 0x55989e0f1d1f HomePatch::positionsReady(int)
+  [7:4] namd2 0x5620c7869102 HomePatch::doAtomMigration()
+  [12:5] namd2 0x5587bd9a9d1f HomePatch::positionsReady(int)
+  [5:6] namd2 0x556b58156114 Sequencer::runComputeObjects(int, int, int)
+  [9:4] namd2 0x563619051102 HomePatch::doAtomMigration()
+  [4:6] namd2 0x555ad185b114 Sequencer::runComputeObjects(int, int, int)
+  [6:4] namd2 0x55e4b65f0102 HomePatch::doAtomMigration()
+  [2:5] namd2 0x55b749297d1f HomePatch::positionsReady(int)
+  [1:7] namd2 0x557769a47b7e Sequencer::integrate(int)
+  [13:5] namd2 0x55778f425d1f HomePatch::positionsReady(int)
+  [10:7] namd2 0x56193b7f1b7e Sequencer::integrate(int)
+  [14:6] namd2 0x55989e1fa114 Sequencer::runComputeObjects(int, int, int)
+  [7:5] namd2 0x5620c7875d1f HomePatch::positionsReady(int)
+  [12:6] namd2 0x5587bdab2114 Sequencer::runComputeObjects(int, int, int)
+  [5:7] namd2 0x556b5815ab7e Sequencer::integrate(int)
+  [9:5] namd2 0x56361905dd1f HomePatch::positionsReady(int)
+  [4:7] namd2 0x555ad185fb7e Sequencer::integrate(int)
+  [2:6] namd2 0x55b7493a0114 Sequencer::runComputeObjects(int, int, int)
+  [1:8] namd2 0x557769a48248 Sequencer::algorithm()
+  [13:6] namd2 0x55778f52e114 Sequencer::runComputeObjects(int, int, int)
+  [10:8] namd2 0x56193b7f2248 Sequencer::algorithm()
+  [14:7] namd2 0x55989e1feb7e Sequencer::integrate(int)
+  [7:6] namd2 0x5620c797e114 Sequencer::runComputeObjects(int, int, int)
+  [12:7] namd2 0x5587bdab6b7e Sequencer::integrate(int)
+  [9:6] namd2 0x563619166114 Sequencer::runComputeObjects(int, int, int)
+  [4:8] namd2 0x555ad1860248 Sequencer::algorithm()
+  [6:5] namd2 0x55e4b65fcd1f HomePatch::positionsReady(int)
+  [2:7] namd2 0x55b7493a4b7e Sequencer::integrate(int)
+  [1:9] namd2 0x557769d62ae5 CthStartThread
+  [14:8] namd2 0x55989e1ff248 Sequencer::algorithm()
+  [12:8] namd2 0x5587bdab7248 Sequencer::algorithm()
+  [5:8] namd2 0x556b5815b248 Sequencer::algorithm()
+  [9:7] namd2 0x56361916ab7e Sequencer::integrate(int)
+  [4:9] namd2 0x555ad1b7aae5 CthStartThread
+  [6:6] namd2 0x55e4b6705114 Sequencer::runComputeObjects(int, int, int)
+  [2:8] namd2 0x55b7493a5248 Sequencer::algorithm()
+  [13:7] namd2 0x55778f532b7e Sequencer::integrate(int)
+  [10:9] namd2 0x56193bb0cae5 CthStartThread
+  [14:9] namd2 0x55989e519ae5 CthStartThread
+  [7:7] namd2 0x5620c7982b7e Sequencer::integrate(int)
+  [12:9] namd2 0x5587bddd1ae5 CthStartThread
+  [5:9] namd2 0x556b58475ae5 CthStartThread
+  [9:8] namd2 0x56361916b248 Sequencer::algorithm()
+  [6:7] namd2 0x55e4b6709b7e Sequencer::integrate(int)
+  [2:9] namd2 0x55b7496bfae5 CthStartThread
+  [1:10] namd2 0x557769d62d8f make_fcontext
+  [13:8] namd2 0x55778f533248 Sequencer::algorithm()
+  [10:10] namd2 0x56193bb0cd8f make_fcontext
+  [14:10] namd2 0x55989e519d8f make_fcontext
+  [7:8] namd2 0x5620c7983248 Sequencer::algorithm()
+  [5:10] namd2 0x556b58475d8f make_fcontext
+  [4:10] namd2 0x555ad1b7ad8f make_fcontext
+  [6:8] namd2 0x55e4b670a248 Sequencer::algorithm()
+--------------------------------------------------------------------------
+MPI_ABORT was invoked on rank 1 in communicator MPI COMMUNICATOR 3 DUP FROM 0
+with errorcode 1.
+
+NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
+You may or may not see output from other processes, depending on
+exactly when Open MPI kills them.
+--------------------------------------------------------------------------
+  [12:10] namd2 0x5587bddd1d8f make_fcontext
+  [9:9] namd2 0x563619485ae5 CthStartThread
+  [6:9] namd2 0x55e4b6a24ae5 CthStartThread
+  [2:10] namd2 0x55b7496bfd8f make_fcontext
+  [13:9] namd2 0x55778f84dae5 CthStartThread
+  [7:9] namd2 0x5620c7c9dae5 CthStartThread
+  [9:10] namd2 0x563619485d8f make_fcontext
+  [6:10] namd2 0x55e4b6a24d8f make_fcontext
+  [13:10] namd2 0x55778f84dd8f make_fcontext
+  [7:10] namd2 0x5620c7c9dd8f make_fcontext
+--------------------------------------------------------------------------
+An MPI communication peer process has unexpectedly disconnected.  This
+usually indicates a failure in the peer process (e.g., a crash or
+otherwise exiting without calling MPI_FINALIZE first).
+
+Although this local MPI process will likely now behave unpredictably
+(it may even hang or crash), the root cause of this problem is the
+failure of the peer -- that is what you need to investigate.  For
+example, there may be a core file that you can examine.  More
+generally: such peer hangups are frequently caused by application bugs
+or other external events.
+
+  Local host: ip-172-31-80-61
+  Local PID:  10594
+  Peer host:  ip-172-31-89-36
+--------------------------------------------------------------------------
