@@ -1,13 +1,12 @@
 import os
+import argparse
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-results_dir = '../experimental_results'
-
 test_cases_name = {
     'TC-1': 'ApoA1',
-    'TC-2': 'F1atPase',
+    'TC-2': 'ATPase',
     'TC-3': 'STMV'
 }
 
@@ -140,7 +139,7 @@ def plot_relative_performance(test_case, path):
     plt.close()
 
 
-def main():
+def main(results_dir):
 
     for test_case in os.listdir(results_dir):
         if os.path.isfile(results_dir + '/' + test_case):
@@ -149,4 +148,8 @@ def main():
         plot_relative_performance(test_case, results_dir + '/' + test_case)
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Plotter')
+    parser.add_argument('-f', dest='results_dir', type=str, required=True)
+    args = parser.parse_args()
+
+    main(args.results_dir)

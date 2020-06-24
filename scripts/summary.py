@@ -1,12 +1,11 @@
 import os
 import csv
+import argparse
 import pandas as pd
-
-results_dir = '../experimental_results'
 
 test_cases_name = {
     'TC-1': 'ApoA1',
-    'TC-2': 'F1atPase',
+    'TC-2': 'ATPase',
     'TC-3': 'STMV'
 }
 
@@ -84,7 +83,7 @@ def summary(path):
     return row
 
 
-def main():
+def main(results_dir):
 
     summary_data = []
     header = ['test-case', 'cfg', 'data', 'total_time-time', 'total_time-main', 'beta', 'avg-PIs', 'n-PIs', '1st-PI', '2nd-PI', 'avg(2-6)', 'avg(2-11)']
@@ -109,4 +108,8 @@ def main():
         writer.writerows(summary_data)
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser(description='Summarization')
+    parser.add_argument('-f', dest='results_dir', type=str, required=True)
+    args = parser.parse_args()
+
+    main(args.results_dir)
