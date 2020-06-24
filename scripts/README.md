@@ -20,10 +20,10 @@ Nesta etapa será instanciado um _cluster_ para compilar o código fonte e copia
 
 ### 3. Criando _cluster_ para simulação
 Nesta etapa será instanciado um _cluster_ para execução dos experimentos.
-1. Entre no diretório _namd-mo833a/scripts_ e execute o _script_ **_start_cluster.sh_** <CFG>
+1. Entre no diretório _namd-mo833a/scripts_ e execute o _script_ **_start_cluster.sh_** \<CFG\>
 
 Onde: 
-* <CFG> é a configuração do _cluster_ a ser instanciado, podendo ser:
+* \<CFG\> é a configuração do _cluster_ a ser instanciado, podendo ser:
     * _CFG-1_: _c5.large-2x_
     * _CFG-2_: _c5.large-4x_
     * _CFG-3_: _c5.large-8x_
@@ -31,21 +31,21 @@ Onde:
 
 ### 4. Executando uma simulação
 Nesta etapa será executado a aplicação no _cluster_ no caso de teste especificado no cluster indicado.
-1. Entre no diretório _namd-mo833a/scripts_ e execute o _script_ **_run.sh_** <CFG> <TC> <stop> <results_folder> <args>
+1. Entre no diretório _namd-mo833a/scripts_ e execute o _script_ **_run.sh_** \<CFG\> \<TC\> \<stop\> \<results_folder\> \<args>\
 
 Onde:
-* <CFG> indica a configuração do _cluster_ a ser utilizado, podendo ser:
+* \<CFG\> indica a configuração do _cluster_ a ser utilizado, podendo ser:
     * _CFG-1_: _c5.large-2x_
     * _CFG-2_: _c5.large-4x_
     * _CFG-3_: _c5.large-8x_
     * _CFG-4_: _c5.large-16x_
-* <TC> indica o caso de teste a ser executado, podendo ser:
+* \<TC\> indica o caso de teste a ser executado, podendo ser:
     * _TC-1_: _ApoA1_
     * _TC-2_: _ATPase_
     * _TC-3_: _STMV_
-* <stop> indica se após a execução o _cluster_ deve ser destruído, _yes_ o _cluster_ será destruído e _no_ não será destruído.
-* <results_folder> indica o _path_ completo onde será salvos os resultados
-* <args> indica argumentos a serem passados na execução. Por exemplo, caso queira interromper a execução após _N_ iterações utilize o argumento _-max-pi_ _N_
+* \<stop\> indica se após a execução o _cluster_ deve ser destruído, _yes_ o _cluster_ será destruído e _no_ não será destruído.
+* \<results_folder\> indica o _path_ completo onde será salvos os resultados
+* \<args\> indica argumentos a serem passados na execução. Por exemplo, caso queira interromper a execução após _N_ iterações utilize o argumento _-max-pi_ _N_
 
 2. Caso queira executar todos os experimentos realizados neste trabalho, entre no diretório _namd-mo833a/scripts_ e execute o _script_ **_run_all.sh_** <results_folder>, onde o argumento _<results_folder>_ indica o _path_ completo onde será salvos os resultados. **Importante:** Este _script_ pode demorar para executar por completo.
 
@@ -55,10 +55,10 @@ Nesta etapa será destruído os recursos criados na etapa 1.5, removendo o siste
 
 ### 6. Gerando sumário e gráficos
 Nesta etapa será gerado um sumário e gráficos com os resultados coletados dos experimentos.
-1. Para gerar o sumário entre no diretório _namd-mo833a/scripts_ e execute _python summary.py_ -f <experimental_results>
+1. Para gerar o sumário entre no diretório _namd-mo833a/scripts_ e execute _python summary.py_ -f \<experimental_results\>
 
 Onde:
-* <experimental_results> indica o _path_ completo da pasta contendo os resultados. Por exemplo: _~/namd-833a/experimental_results_
-1. Para gerar os gráficos, no mesmo diretório execute _python plots.py_ -f <experimental_results>
+* \<experimental_results\> indica o _path_ completo da pasta contendo os resultados. Por exemplo: _~/namd-833a/experimental_results_
+2. Para gerar os gráficos, no mesmo diretório execute _python plots.py_ -f \<experimental_results\>
 
 **Importante:** Estes _scripts_ requerem os pacotes _argparse, numpy, pandas e matplotlib_ instalados.
