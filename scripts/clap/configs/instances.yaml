@@ -1,0 +1,57 @@
+type-a:
+    provider: aws-config-us-east-1
+    login: login-ubuntu
+    flavor: t2.micro
+    image_id: ami-07d0cf3af28718ef8
+    security_group: otavio-sg
+       
+type-b:
+    provider: aws-config-us-east-1
+    login: login-ubuntu-b
+    flavor: t2.small
+    image_id: ami-07d0cf3af28718ef8
+    boot_disk_size: 10
+    # image_userdata: 
+    # boot_disk_device: /dev/sda1
+    # boot_disk_iops: io1
+    # boot_disk_type: gp2
+    # placement_group: XXX
+
+namd-compile-instance:
+    provider: namd-config-us-east-1
+    login: namd-login-ubuntu
+    flavor: c5.large
+    image_id: ami-085925f297f89fce1
+    security_group: namd_mpi_group
+
+namd-cfg1-instance:
+    provider: namd-config-us-east-1
+    login: namd-login-ubuntu
+    flavor: c5.large
+    image_id: ami-085925f297f89fce1
+    security_group: namd_mpi_group
+    placement_group: namd_cluster_group
+
+namd-cfg2-instance:
+    provider: namd-config-us-east-1
+    login: namd-login-ubuntu
+    flavor: c5.large
+    image_id: ami-085925f297f89fce1
+    security_group: namd_mpi_group
+    placement_group: namd_cluster_group
+
+namd-cfg3-instance:
+    provider: namd-config-us-east-1
+    login: namd-login-ubuntu
+    flavor: c5.large
+    image_id: ami-085925f297f89fce1
+    security_group: namd_mpi_group
+    placement_group: namd_cluster_group
+
+namd-cfg4-instance:
+    provider: namd-config-us-east-1
+    login: namd-login-ubuntu
+    flavor: c5.large
+    image_id: ami-085925f297f89fce1
+    security_group: namd_mpi_group
+    placement_group: namd_cluster_group

@@ -1,0 +1,48 @@
+---
+- hosts: all
+  gather_facts: yes
+  tasks:
+  - name: Copy binaries from /efs to namd directory
+    shell: |
+      cp -r /home/ubuntu/efs/Linux-x86_64-g++ ~/namd-mo833a
+      cp -r /home/ubuntu/efs/charm-6.10.1 ~/namd-mo833a
+      cp -r /home/ubuntu/efs/fftw ~/namd-mo833a
+      cp -r /home/ubuntu/efs/tcl ~/namd-mo833a
+      cp -r /home/ubuntu/efs/tcl-threaded ~/namd-mo833a
+    async: 600
+    poll: 30
+
+  - name: Create test directory
+    shell: |
+      cd ~/namd-mo833a
+      mkdir tests
+
+  - name: Download TC-1
+    shell: |
+      cd ~/namd-mo833a/tests
+      wget https://www.ks.uiuc.edu/Research/namd/utilities/apoa1.tar.gz
+      tar xzf apoa1.tar.gz
+      mv apoa1 TC-1
+      cd TC-1
+      mv apoa1.namd TC-1.namd
+      sed -i 's,/usr/tmp/apoa1-out,output[myReplica],g' TC-1.namd
+
+  - name: Download TC-2
+    shell: |
+      cd ~/namd-mo833a/tests
+      wget https://www.ks.uiuc.edu/Research/namd/utilities/f1atpase.tar.gz
+      tar xzf f1atpase.tar.gz
+      mv f1atpase TC-2
+      cd TC-2
+      mv f1atpase.namd TC-2.namd
+      sed -i 's,/usr/tmp/f1atpase,output[myReplica],g' TC-2.namd
+
+  - name: Download TC-3
+    shell: |
+      cd ~/namd-mo833a/tests
+      wget https://www.ks.uiuc.edu/Research/namd/utilities/stmv.tar.gz
+      tar xzf stmv.tar.gz
+      mv stmv TC-3
+      cd TC-3
+      mv stmv.namd TC-3.namd
+      sed -i 's,/usr/tmp/stmv-output,output[myReplica],g' TC-3.namd

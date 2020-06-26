@@ -1,0 +1,22 @@
+---
+- hosts: master
+  gather_facts: yes
+  tasks:
+  - name: Run application with MPI
+    shell: |
+      cd ~/namd-mo833a/Linux-x86_64-g++
+      /usr/bin/time -p -o ../tests/{{ test_case }}/time.out mpirun --hostfile ~/hosts namd2 ../tests/{{ test_case }}/{{ test_case }}.namd {{ namd_args }} 1> ../tests/{{ test_case }}/namd.out 2> ../tests/{{ test_case }}/namd.err
+    async: 7200
+    poll: 60
+
+  - name: Join outputs
+    shell: |
+      cd ~/namd-mo833a/tests/{{ test_case }}
+      sed -i 's/real /[MO833] real,/g' time.out
+      sed -i 's/user /[MO833] user,/g' time.out
+      sed -i 's/sys /[MO833] sys,/g' time.out
+      cat time.out >> namd.out
+
+  - name: Delete FFTW cache init
+    shell:
+      cmd: rm ~/namd-mo833a/tests/{{ test_case }}/FFTW_NAMD_2.14b1_Linux-x86_64-MPI.txt

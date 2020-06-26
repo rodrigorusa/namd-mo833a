@@ -1,0 +1,13 @@
+---
+
+- name: Delete security group playbook
+  hosts: localhost 
+  gather_facts: false
+  tasks:
+  - name: Delete security group in ec2 us-east-1
+    ec2_group:
+      region: us-east-1
+      aws_secret_key: "{{lookup('file', '~/.clap/private/secret_access_key.pem') }}"
+      aws_access_key: "{{lookup('file', '~/.clap/private/access_key.pub') }}"
+      group_id: "{{ group_id }}"
+      state: absent

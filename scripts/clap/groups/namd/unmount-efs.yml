@@ -1,0 +1,8 @@
+---
+- hosts: all
+  gather_facts: yes
+  tasks:
+  - name: Unmount /efs directory
+    become: yes
+    shell:
+      cmd: umount /home/ubuntu/efs

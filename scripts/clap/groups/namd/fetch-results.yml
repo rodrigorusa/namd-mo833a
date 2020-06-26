@@ -1,0 +1,38 @@
+---
+- hosts: master
+  gather_facts: no
+  tasks:
+  - name: Fetch namd.out file
+    synchronize:
+      src: "~/namd-mo833a/tests/{{ test_case }}/namd.out"
+      dest: "{{ dest_folder }}/namd.out"
+      mode: pull
+      recursive: yes
+
+  - name: Fetch namd.err file
+    synchronize:
+      src: "~/namd-mo833a/tests/{{ test_case }}/namd.err"
+      dest: "{{ dest_folder }}/namd.err"
+      mode: pull
+      recursive: yes
+
+  - name: Fetch output0.coor file
+    synchronize:
+      src: "~/namd-mo833a/tests/{{ test_case }}/output0.coor"
+      dest: "{{ dest_folder }}/output0.coor"
+      mode: pull
+      recursive: yes
+
+  - name: Fetch output0.vel file
+    synchronize:
+      src: "~/namd-mo833a/tests/{{ test_case }}/output0.vel"
+      dest: "{{ dest_folder }}/output0.vel"
+      mode: pull
+      recursive: yes
+
+  - name: Fetch output0.xsc file
+    synchronize:
+      src: "~/namd-mo833a/tests/{{ test_case }}/output0.xsc"
+      dest: "{{ dest_folder }}/output0.xsc"
+      mode: pull
+      recursive: yes

@@ -1,0 +1,20 @@
+---
+- hosts: all
+  gather_facts: yes
+  tasks:
+  - name: Compile
+    shell: sh build.sh 1> compilation.out 2> compilation.err
+    args:
+      chdir: ~/namd-mo833a/scripts
+    async: 18000
+    poll: 300
+
+  - name: Copy binaries to /efs directory
+    shell: |
+      cp -r ~/namd-mo833a/Linux-x86_64-g++ /home/ubuntu/efs
+      cp -r ~/namd-mo833a/charm-6.10.1 /home/ubuntu/efs
+      cp -r ~/namd-mo833a/fftw /home/ubuntu/efs
+      cp -r ~/namd-mo833a/tcl /home/ubuntu/efs
+      cp -r ~/namd-mo833a/tcl-threaded /home/ubuntu/efs
+    async: 600
+    poll: 60

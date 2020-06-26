@@ -3,12 +3,12 @@ Este documento descreve os _scripts_ contidos neste diretório e serve como guia
 ### 1. Configurando o ambiente
 Nesta etapa o ambiente CLAP será instalado e será configurado as chaves de acesso ao provedor _AWS_ e _login_ de acesso as máquinas. Ao final da etapa será criado os recursos _placement group_, _security group_ e um sistema _EFS_ para armazenar os binários da compilação.
 1. Instale o CLAP, siga os passos descritos em <https://clap.readthedocs.io/en/latest/introduction.html#installation-guide>
-2. Entre no diretório _namd-mo833a/scripts_ e copie as pastas _config/_ e _groups/_ para o diretório _~/.clap_
+2. Entre no diretório _namd-mo833a/scripts/clap_ e copie as pastas _configs/_ e _groups/_ para o diretório _~/.clap_
 3. Configure o provedor de acesso
     1.  No arquivo _~/.clap/configs/providers.yaml_ veja se os valores dos campos **_access_keyfile_** e **_secret_access_keyfile_** da configuração **_namd-config-us-east-1_** correspondem com suas chaves armazenadas no diretório _~/.clap/private_. Caso não correspondam, renomeie-as para ficarem com mesmo nome, pois essas chaves são utilizadas em outros _scripts_.
 4. Configure o _login_ das máquinas
     1. No arquivo _~/.clap/configs/logins.yaml_ edite os campos **_keypair_public_file_** e **_keypair_private_file_** da configuração **_namd-login-ubuntu_** com suas chaves armazenadas no diretório _~/.clap/private_. Neste caso não é necessário manter o mesmo nome do arquivo.
-    2. Neste mesmo arquivo _~/.clap/configs/logins.yaml_, altere o campo **_keypair_name_** com seu _key_pair_ de acesso.
+    2. Neste mesmo arquivo _~/.clap/configs/logins.yaml_ e configuração, altere o campo **_keypair_name_** com seu _key_pair_ de acesso.
 5. Criando _placement group_, _security group_ e sistema _EFS_
     1. Entre no diretório _namd-mo833a/scripts_ e execute o _script_ **_setup_aws.sh_**
 
@@ -16,14 +16,14 @@ Nesta etapa o ambiente CLAP será instalado e será configurado as chaves de ace
 
 ### 2. Compilando o NAMD
 Nesta etapa será instanciado um _cluster_ para compilar o código fonte e copiar os binários gerados no sistema _EFS_ criado na etapa anterior. Ao final o _cluster_ será destruído.
-1. Entre no diretório _namd-mo833a/scripts_ execute o _script_ **_compile.sh_**.
+1. Entre no diretório _namd-mo833a/scripts_ e execute o _script_ **_compile.sh_**.
 
 ### 3. Criando _cluster_ para simulação
 Nesta etapa será instanciado um _cluster_ para execução dos experimentos.
 1. Entre no diretório _namd-mo833a/scripts_ e execute o _script_ **_start_cluster.sh_** _\<CFG\>_
 
 Onde: 
-* _\<CFG\>_ é a configuração do _cluster_ a ser instanciado, podendo ser:
+* _\<CFG\>_ é a configuração do _cluster_ a ser instanciada, podendo ser:
     * _CFG-1_: _c5.large-2x_
     * _CFG-2_: _c5.large-4x_
     * _CFG-3_: _c5.large-8x_
@@ -43,8 +43,8 @@ Onde:
     * _TC-1_: _ApoA1_
     * _TC-2_: _ATPase_
     * _TC-3_: _STMV_
-* _\<stop\>_ indica se após a execução o _cluster_ deve ser destruído, _yes_ o _cluster_ será destruído e _no_ não será destruído.
-* _\<results_folder\>_ indica o _path_ completo onde será salvos os resultados
+* _\<stop\>_ indica se após a execução o _cluster_ deve ser destruído, _yes_ o _cluster_ será destruído e _no_ não será destruído
+* _\<results_folder\>_ indica o _path_ completo onde será salvos os resultados. Por exemplo: _~/namd-mo833a_
 * _\<args\>_ indica argumentos a serem passados na execução. Por exemplo, caso queira interromper a execução após _N_ iterações utilize o argumento _-max-pi_ _N_
 
 2. Caso queira executar todos os experimentos realizados neste trabalho, entre no diretório _namd-mo833a/scripts_ e execute o _script_ **_run_all.sh_** _\<results_folder\>_, onde o argumento _\<results_folder\>_ indica o _path_ completo onde será salvos os resultados. **Importante:** Este _script_ pode demorar para executar por completo.

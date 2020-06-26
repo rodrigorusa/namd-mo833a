@@ -1,0 +1,134 @@
+setups:
+  config-compiler:
+    groups:
+    - name: namd/master
+
+    actions:
+    - type: action
+      name: mount-efs
+      group: namd
+      extra:
+        efs_mount_ip: "{{ efs_ip }}"
+
+    - type: action
+      name: compile
+      group: namd
+
+    - type: action
+      name: unmount-efs
+      group: namd
+
+  config-node-master:
+    groups:
+    - name: namd/master
+
+  config-node-slave:
+    groups:
+    - name: namd/slave
+  
+  final-config:
+    actions:
+    - type: action
+      name: mount-efs
+      group: namd
+      extra:
+        efs_mount_ip: "{{ efs_ip }}"
+
+    - type: action
+      name: simulation-setup
+      group: namd
+
+    - type: action
+      name: hostfile-setup
+      group: namd
+
+    - type: action
+      name: keys-setup
+      group: namd
+
+    - type: action
+      name: unmount-efs
+      group: namd
+      
+clusters:
+  namd-compile:
+    nodes:
+      node-master:
+        type: namd-compile-instance
+        count: 1
+        min_count: 1
+        setups:
+        - config-compiler
+
+  namd-CFG-1:
+    after_all:
+    - final-config
+
+    nodes:
+      node-master:
+        type: namd-cfg1-instance
+        count: 1
+        min_count: 1
+        setups: 
+        - config-node-master
+      node-slave:
+        type: namd-cfg1-instance
+        count: 1
+        min_count: 1
+        setups: 
+        - config-node-slave
+
+  namd-CFG-2:
+    after_all:
+    - final-config
+
+    nodes:
+      node-master:
+        type: namd-cfg2-instance
+        count: 1
+        min_count: 1
+        setups: 
+        - config-node-master
+      node-slave:
+        type: namd-cfg2-instance
+        count: 3
+        min_count: 3
+        setups: 
+        - config-node-slave
+
+  namd-CFG-3:
+    after_all:
+    - final-config
+
+    nodes:
+      node-master:
+        type: namd-cfg3-instance
+        count: 1
+        min_count: 1
+        setups: 
+        - config-node-master
+      node-slave:
+        type: namd-cfg3-instance
+        count: 7
+        min_count: 7
+        setups: 
+        - config-node-slave
+
+  namd-CFG-4:
+    after_all:
+    - final-config
+
+    nodes:
+      node-master:
+        type: namd-cfg4-instance
+        count: 1
+        min_count: 1
+        setups: 
+        - config-node-master
+      node-slave:
+        type: namd-cfg4-instance
+        count: 15
+        min_count: 15
+        setups: 
+        - config-node-slave
+      

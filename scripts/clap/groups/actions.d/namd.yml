@@ -1,0 +1,55 @@
+---
+actions:
+  setup:
+    playbook: namd/setup.yml
+    description: Install packages and clone repository
+
+  mount-efs:
+    playbook: namd/mount-efs.yml
+    description: Mount EFS
+    vars:
+    - name: efs_mount_ip
+      description: Mount IP of the filesystem
+
+  unmount-efs:
+    playbook: namd/unmount-efs.yml
+    description: Unmount EFS
+
+  # NAMD
+  compile:
+    playbook: namd/compile.yml
+    description: Compiles NAMD and stores in EFS
+
+  simulation-setup:
+    playbook: namd/simulation-setup.yml
+    description: Setup simulation
+
+  hostfile-setup:
+    playbook: namd/hostfile-setup.yml
+    description: Setup hostfile with nodes IPs
+
+  keys-setup:
+    playbook: namd/keys-setup.yml
+    description: Setup SSH keys
+
+  run:
+    playbook: namd/run.yml
+    description: Run application
+    vars:
+    - name: test_case
+      description: Test case to run (TC-1,TC-2 or TC-3)
+    - name: namd_args
+      description: Application arguments
+
+  fetch-results:
+    playbook: namd/fetch-results.yml
+    description: Fetch results
+    vars:
+    - name: test_case
+      description: Test case to run (TC-1,TC-2 or TC-3)
+    - name: dest_folder
+      description: Destination folder
+
+hosts:
+- master
+- slave

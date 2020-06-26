@@ -1,0 +1,8 @@
+---   
+- name: Zabbix Playbook
+  hosts: all
+  gather_facts: yes
+  tasks:
+  - include_role:
+      name: zabbix
+      tasks_from: setup

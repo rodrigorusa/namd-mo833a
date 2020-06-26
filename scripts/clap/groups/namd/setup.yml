@@ -1,0 +1,34 @@
+---
+- hosts: all
+  gather_facts: yes
+  tasks:
+  - name: Ensure that packages are updated
+    become: yes
+    apt:
+      update_cache: yes
+      cache_valid_time: 3600
+
+  - name: Install packages
+    become: yes
+    apt:
+      pkg:
+        - wget
+        - make
+        - cmake
+        - gcc
+        - libgfortran3
+        - sysstat
+        - libibnetdisc-dev
+        - openmpi-bin
+        - libopenmpi-dev
+        - libhdf5-openmpi-dev
+        - gfortran
+        - build-essential
+        - git
+        - nfs-common
+    async: 600
+    poll: 30
+
+  - name: Clone repository
+    shell:
+      cmd: git clone -b rodrigo https://github.com/rodrigorusa/namd-mo833a.git

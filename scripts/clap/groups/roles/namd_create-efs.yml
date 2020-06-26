@@ -1,0 +1,25 @@
+---
+
+- name: Create EFS playbook
+  hosts: localhost 
+  gather_facts: false
+  tasks:
+  - name: Create EFS in ec2 us-east-1
+    efs:
+      state: present
+      name: NAMD-EFS
+      id: NAMD-EFS
+      region: us-east-1
+      aws_secret_key: "{{lookup('file', '~/.clap/private/secret_access_key.pem') }}"
+      aws_access_key: "{{lookup('file', '~/.clap/private/access_key.pub') }}"
+      tags:
+          name: namd-efs-east-1
+          purpose: file-storage
+      targets:
+          - subnet_id: subnet-bbe700dc
+            security_groups: [ "{{ security_group }}" ]
+    register: creation_result
+    
+  - name: Print creation results dictionary
+    debug:
+      msg: "efs_ip={{ creation_result.efs.mount_targets[0].ip_address }}"

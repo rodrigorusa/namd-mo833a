@@ -1,0 +1,13 @@
+---
+
+- name: Delete EFS playbook
+  hosts: localhost 
+  gather_facts: false
+  tasks:
+  - name: Delete EFS in ec2 us-east-1
+    efs:
+      region: us-east-1
+      aws_secret_key: "{{lookup('file', '~/.clap/private/secret_access_key.pem') }}"
+      aws_access_key: "{{lookup('file', '~/.clap/private/access_key.pub') }}"
+      name: NAMD-EFS
+      state: absent

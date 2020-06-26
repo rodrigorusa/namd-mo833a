@@ -1,0 +1,19 @@
+---
+
+- name: Create placement group playbook
+  hosts: localhost 
+  gather_facts: false
+  tasks:
+  - name: Create placement group in ec2 us-east-1
+    ec2_placement_group:
+      name: namd_cluster_group
+      region: us-east-1
+      aws_secret_key: "{{lookup('file', '~/.clap/private/secret_access_key.pem') }}"
+      aws_access_key: "{{lookup('file', '~/.clap/private/access_key.pub') }}"
+      state: present
+      strategy: cluster
+    register: creation_result
+    
+  - name: Print creation results dictionary
+    debug:
+      msg: "{{ creation_result }}"
